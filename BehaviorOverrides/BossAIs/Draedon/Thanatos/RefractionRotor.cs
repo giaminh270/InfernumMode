@@ -81,7 +81,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
                     // Determine telegraph line characteristics.
                     Vector2 start = projectile.Center;
-                    Vector2 end = start + telegraphDirection * 1800f;
+                    Vector2 end = start + telegraphDirection * 1450f;
                     float telegraphWidth = pulseInterpolant * Utils.InverseLerp(0f, 6f, projectile.timeLeft, true) * 8f;
                     float telegraphColorInterpolant = ((float)Math.Sin(projectile.identity + telegraphDirection.ToRotation()) * 0.5f + 0.5f) * 0.65f;
                     Color telegraphColor = Color.Lerp(Color.Red, Color.Wheat, telegraphColorInterpolant) * pulseInterpolant * 0.6f;
@@ -129,7 +129,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                     Vector2 aimedDirection = (projectile.SafeDirectionTo(Target.Center) + aimedOffset).SafeNormalize(Vector2.UnitY);
                     laserDirection = Vector2.Lerp(laserDirection, aimedDirection, PointAtTargetInterpolant);
                     Vector2 laserVelocity = laserDirection * laserShootSpeed;
-                    int spark = Utilities.NewProjectileBetter(projectile.Center, laserVelocity, ModContent.ProjectileType<ExolaserSpark>(), 500, 0f);
+                    int spark = Utilities.NewProjectileBetter(projectile.Center, laserVelocity, ModContent.ProjectileType<ExolaserSpark>(), DraedonBehaviorOverride.NormalShotDamage, 0f);
                     if (Main.projectile.IndexInRange(spark))
                         Main.projectile[spark].MaxUpdates = 3;
                 }

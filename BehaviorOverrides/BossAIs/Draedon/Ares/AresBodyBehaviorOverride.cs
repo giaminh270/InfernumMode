@@ -1,4 +1,5 @@
 using CalamityMod;
+using CalamityMod.Items.Weapons.DraedonsArsenal;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Apollo;
 using CalamityMod.NPCs.ExoMechs.Ares;
@@ -6,6 +7,7 @@ using CalamityMod.NPCs.ExoMechs.Thanatos;
 using CalamityMod.Particles;
 using CalamityMod.Projectiles.Boss;
 using CalamityMod.Skies;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks;
 using InfernumMode.OverridingSystem;
 using InfernumMode.Particles;
 using Microsoft.Xna.Framework;
@@ -18,6 +20,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 using DraedonNPC = CalamityMod.NPCs.ExoMechs.Draedon;
+using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.DraedonBehaviorOverride;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 {
@@ -41,6 +44,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
         public override int NPCOverrideType => ModContent.NPCType<AresBody>();
 
         public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame | NPCOverrideContext.NPCPreDraw;
+
+        public override float[] PhaseLifeRatioThresholds => new float[]
+        {
+            ExoMechManagement.Phase4LifeRatio
+        };
 
         public const float Phase1ArmChargeupTime = 240f;
 
@@ -217,7 +225,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             }
 
             // Handle the final phase transition.
-            if (finalPhaseAnimationTime < ExoMechManagement.FinalPhaseTransitionTime && ExoMechManagement.CurrentAresPhase >= 6 && !ExoMechManagement.ExoMechIsPerformingDeathAnimation)
+            if (finalPhaseAnimationTime <= ExoMechManagement.FinalPhaseTransitionTime && ExoMechManagement.CurrentAresPhase >= 6 && !ExoMechManagement.ExoMechIsPerformingDeathAnimation)
             {
                 attackType = (int)AresBodyAttackType.IdleHover;
                 finalPhaseAnimationTime++;
@@ -293,6 +301,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             return false;
         }
 
+        public static void DoLaughEffect(NPC npc, Player target)
+        {
+            var sound = Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SCalSounds/AresLaugh"), target.Center);
+			if (sound != null)
+				sound.Volume = 3f;
+            if (Main.netMode != NetmodeID.MultiplayerClient)
+                Utilities.NewProjectileBetter(npc.Center - Vector2.UnitY.RotatedBy(npc.rotation) * 56f, Vector2.Zero, ModContent.ProjectileType<AresLaughBoom>(), 0, 0f);
+        }
+
         public static void HaveArmPerformDeathAnimation(NPC npc, Vector2 defaultOffset)
         {
 
@@ -312,6 +329,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
             // Use close to the minimum HP.
             npc.life = 50000;
+
+            // Clear away projectiles.
+            ExoMechManagement.ClearAwayTransitionProjectiles();
 
             // Disable damage.
             npc.damage = 0;
@@ -381,19 +401,27 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
         public static void DoBehavior_DoFinalPhaseTransition(NPC npc, Player target, ref float frame, float phaseTransitionAnimationTime)
         {
+            // Clear away projectiles.
+            ExoMechManagement.ClearAwayTransitionProjectiles();
+
             npc.velocity *= 0.925f;
             npc.rotation = 0f;
 
             // Determine frames.
             frame = (int)AresBodyFrameType.Laugh;
 
-            // Play the transition sound at the start.
-            if (phaseTransitionAnimationTime == 3f)
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ExoMechFinalPhaseChargeup"), target.Center);
+            // Heal HP.
+            ExoMechAIUtilities.HealInFinalPhase(npc, phaseTransitionAnimationTime);
 
-            // Clear away all lasers and laser telegraphs.
-            if (phaseTransitionAnimationTime == 3f)
+            // Play the transition sound at the start.
+            if (phaseTransitionAnimationTime == 15f)
             {
+                npc.Center = target.Center - Vector2.UnitY * 400f;
+                npc.velocity = Vector2.Zero;
+                npc.netUpdate = true;
+                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ExoMechFinalPhaseChargeup"), target.Center);
+                DoLaughEffect(npc, target);
+
                 // Destroy all lasers and telegraphs.
                 for (int i = 0; i < Main.maxProjectiles; i++)
                 {
@@ -409,7 +437,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             if (ExoMechManagement.CurrentAresPhase >= 5)
                 attackTime = 1350;
             if (ExoMechManagement.CurrentAresPhase >= 6)
-                attackTime = 540;
+                attackTime = 900;
 
             Vector2 hoverDestination = target.Center - Vector2.UnitY * 450f;
             ExoMechAIUtilities.DoSnapHoverMovement(npc, hoverDestination, 24f, 75f);
@@ -421,9 +449,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
         public static void DoBehavior_HoverCharge(NPC npc, Player target, ref float attackTimer)
         {
             int chargeCount = 7;
-            int hoverTime = 35;
-            int chargeTime = 35;
-            int contactDamage = 600;
+            int hoverTime = 54;
+            int chargeTime = 28;
+            int contactDamage = AresChargeContactDamage;
             float hoverSpeed = 65f;
             float chargeSpeed = 38f;
 
@@ -440,14 +468,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             {
                 chargeCount++;
                 chargeTime -= 4;
-                contactDamage += 100;
                 chargeSpeed += 4f;
             }
-
-            // Have a bit longer of a delay for the first charge.
-            if (attackTimer < hoverTime + chargeTime)
-                hoverTime += 35;
-
+            
             float wrappedTime = attackTimer % (hoverTime + chargeTime);
 
             // Hover above the target before slowing down in anticipation of the charge.
@@ -475,14 +498,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        for (int i = 0; i < 7; i++)
+                        for (int i = 0; i < 16; i++)
                         {
-                            Vector2 shootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.TwoPi * i / 7f) * 8f;
+                            Vector2 shootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.TwoPi * i / 16f) * 11.5f;
                             Vector2 coreSpawnPosition = npc.Center + Vector2.UnitY * 26f;
-                            Utilities.NewProjectileBetter(coreSpawnPosition, shootVelocity, ModContent.ProjectileType<TeslaSpark>(), 550, 0f);
+                            Utilities.NewProjectileBetter(coreSpawnPosition, shootVelocity, ModContent.ProjectileType<AresTeslaSpark>(), StrongerNormalShotDamage, 0f);
 
-                            shootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.TwoPi * (i + 0.5f) / 7f) * 8f;
-                            Utilities.NewProjectileBetter(coreSpawnPosition, shootVelocity, ModContent.ProjectileType<TeslaSpark>(), 550, 0f);
+                            shootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.TwoPi * (i + 0.5f) / 16f) * 11.5f;
+                            Utilities.NewProjectileBetter(coreSpawnPosition, shootVelocity, ModContent.ProjectileType<AresTeslaSpark>(), StrongerNormalShotDamage, 0f);
                         }
                     }
                     Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/ELRFire"), target.Center);
@@ -520,6 +543,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
             // Have Ares laugh.
             frameType = (int)AresBodyFrameType.Laugh;
+            if (attackTimer == 1f)
+                DoLaughEffect(npc, target);
 
             if (attackTimer > attackTime)
                 SelectNextAttack(npc);
@@ -556,34 +581,26 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 npc.netUpdate = true;
             }
 
+            // Ensure that the backarm swap state is consistent.
+            npc.Infernum().ExtraAI[14] = 240f;
+
             // Enforce an initial delay prior to firing.
             if (attackTimer < shootDelay)
-                return;
+            {
+                if (Utilities.AnyProjectiles(ModContent.ProjectileType<AresSpinningDeathBeam>()))
+                    attackTimer = shootDelay + 2f;
+                else
+                    return;
+            }
 
             // Delete projectiles after the delay has concluded.
             if (attackTimer == shootDelay + 1f)
-            {
-                List<int> projectilesToDelete = new List<int>()
-                {
-                    ModContent.ProjectileType<AresPlasmaFireball>(),
-                    ModContent.ProjectileType<AresPlasmaFireball2>(),
-                    ModContent.ProjectileType<PlasmaGas>(),
-                    ModContent.ProjectileType<AresTeslaOrb>(),
-                    ModContent.ProjectileType<ElectricGas>(),
-                    ModContent.ProjectileType<AresGaussNukeProjectile>(),
-                    ModContent.ProjectileType<AresGaussNukeProjectileBoom>(),
-                    ModContent.ProjectileType<CannonLaser>(),
-                };
-
-                for (int i = 0; i < Main.maxProjectiles; i++)
-                {
-                    if (Main.projectile[i].active && projectilesToDelete.Contains(Main.projectile[i].type))
-                        Main.projectile[i].active = false;
-                }
-            }
+                ExoMechManagement.ClearAwayTransitionProjectiles();
 
             // Laugh.
             frameType = (int)AresBodyFrameType.Laugh;
+            if (attackTimer == shootDelay + 1f)
+                DoLaughEffect(npc, target);
 
             // Create telegraph lines that show where the laserbeams will appear.
             if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer == shootDelay + 1f)
@@ -619,7 +636,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                     for (int i = 0; i < totalLasers; i++)
                     {
                         Vector2 laserDirection = (MathHelper.TwoPi * i / totalLasers).ToRotationVector2();
-                        int deathray = Utilities.NewProjectileBetter(npc.Center, laserDirection, ModContent.ProjectileType<AresSpinningDeathBeam>(), 1050, 0f);
+                        int deathray = Utilities.NewProjectileBetter(npc.Center, laserDirection, ModContent.ProjectileType<AresSpinningDeathBeam>(), PowerfulShotDamage, 0f);
                         if (Main.projectile.IndexInRange(deathray))
                         {
                             Main.projectile[deathray].ai[1] = npc.whoAmI;
@@ -636,7 +653,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             {
                 Vector2 targetDirection = target.velocity.SafeNormalize(Main.rand.NextVector2Unit());
                 Vector2 spawnPosition = target.Center - targetDirection.RotatedByRandom(1.1f) * Main.rand.NextFloat(325f, 650f) * new Vector2(1f, 0.6f);
-                Utilities.NewProjectileBetter(spawnPosition, Vector2.Zero, ModContent.ProjectileType<AresBeamExplosion>(), 550, 0f);
+                Utilities.NewProjectileBetter(spawnPosition, Vector2.Zero, ModContent.ProjectileType<AresBeamExplosion>(), StrongerNormalShotDamage, 0f);
             }
 
             // Make the laser spin.
@@ -679,12 +696,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
             if (attackTimer >= shootDelay + telegraphTime + spinTime + repositionTime)
             {
-                // Destroy all lasers and telegraphs.
-                for (int i = 0; i < Main.maxProjectiles; i++)
-                {
-                    if ((Main.projectile[i].type == ModContent.ProjectileType<AresDeathBeamTelegraph>() || Main.projectile[i].type == ModContent.ProjectileType<AresSpinningDeathBeam>()) && Main.projectile[i].active)
-                        Main.projectile[i].Kill();
-                }
+                // Destroy all lasers, telegraphs, and bolts.
+                Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<AresDeathBeamTelegraph>(), ModContent.ProjectileType<AresSpinningDeathBeam>(),
+                    ModContent.ProjectileType<ExoburstSpark>(), ModContent.ProjectileType<AresBeamExplosion>());
                 SelectNextAttack(npc);
             }
         }
@@ -700,16 +714,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 npc.ai[0] = (int)AresBodyAttackType.IdleHover;
                 if (oldAttackType == AresBodyAttackType.IdleHover)
                 {
-                    if (Main.rand.NextBool(3) || ExoMechManagement.CurrentAresPhase < 3)
+                    if ((Main.rand.NextBool(3) || ExoMechManagement.CurrentAresPhase < 2) && ExoMechManagement.CurrentAresPhase <= 5)
                         npc.ai[0] = (int)AresBodyAttackType.HoverCharge;
-                    else if (ExoMechManagement.CurrentAresPhase >= 3)
+                    else if (ExoMechManagement.CurrentAresPhase >= 2)
                     {
                         npc.ai[0] = (int)(Main.rand.NextBool() ? AresBodyAttackType.DirectionChangingSpinBursts : AresBodyAttackType.LaserSpinBursts);
 
                         float photonRipperChance = ExoMechManagement.CurrentAresPhase >= 5 ? 0.7f : 0.45f;
+                        if (ExoMechManagement.CurrentAresPhase <= 3)
+                            photonRipperChance = 0f;
 
                         // Always choose the photon ripper slash attack if past the fifth phase and there aren't any photon rippers yet.
-                        if (ExoMechManagement.CurrentAresPhase >= 5f && !NPC.AnyNPCs(ModContent.NPCType<PhotonRipperNPC>()))
+                        if (ExoMechManagement.CurrentAresPhase >= 5 && !NPC.AnyNPCs(ModContent.NPCType<PhotonRipperNPC>()))
                             photonRipperChance = 1f;
 
                         if (Main.rand.NextFloat() < photonRipperChance)
@@ -743,8 +759,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             if (thanatosIndex >= 0 && aresBody.ai[0] >= 100f && Main.npc[thanatosIndex].Infernum().ExtraAI[13] < 240f)
                 return true;
 
-            // The pulse and laser arm are disabled for 2.5 seconds once they swap.
-            if (aresBody.Infernum().ExtraAI[14] < 150f && (npc.type == ModContent.NPCType<AresLaserCannon>() || npc.type == ModContent.NPCType<AresPulseCannon>()))
+            // The pulse and laser arm are disabled for 1.5 seconds once they swap.
+            if (aresBody.Infernum().ExtraAI[14] < 90f && (npc.type == ModContent.NPCType<AresLaserCannon>() || npc.type == ModContent.NPCType<AresPulseCannon>()))
                 return true;
 
             // If Ares is specifically using a combo attack that specifies certain arms should be active, go based on which ones should be active.
@@ -763,8 +779,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 return true;
             }
 
-            if (aresBody.ai[0] == (int)AresBodyAttackType.PhotonRipperSlashes && npc.type != ModContent.NPCType<PhotonRipperNPC>())
-                return true;
+            int[] validArmsForPhotonRipperAttack = new int[]
+            {
+                ModContent.NPCType<PhotonRipperNPC>(),
+                ModContent.NPCType<AresLaserCannon>(),
+                ModContent.NPCType<AresPulseCannon>(),
+            };
+            if (aresBody.ai[0] == (int)AresBodyAttackType.PhotonRipperSlashes)
+                return !validArmsForPhotonRipperAttack.Contains(npc.type);
 
             if (aresBody.ai[0] != (int)AresBodyAttackType.PhotonRipperSlashes && npc.type == ModContent.NPCType<PhotonRipperNPC>())
                 return true;
@@ -781,47 +803,50 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             if (aresBody.Opacity <= 0f)
                 return true;
 
-            // Rotate arm usability as follows (This only applies before phase 5):
-            // Pulse Cannon and Laser Cannon,
-            // Laser Cannon and Tesla Cannon,
-            // Tesla Cannon and Plasma Flamethrower
-            // Plasma Flamethrower and Pulse Cannon.
-
-            // If during or after phase 5, rotate arm usability like this instead:
+            // Rotate arm usability is as follows (This only applies after phase 2):
             // Pulse Cannon, Laser Cannon, and Tesla Cannon,
             // Laser Cannon, Tesla Cannon, and Plasma Flamethrower,
             // Tesla Cannon, Plasma Flamethrower, and Pulse Cannon
             // Photon rippers are completely exempt from this.
+
+            // Rotate arm usability is as follows (This only applies before phase 2):
+            // Pulse Cannon, Laser Cannon,
+            // Laser Cannon, Tesla Cannon,
+            // Tesla Cannon, Plasma Flamethrower,
+            // Plasma Flamethrower, Pulse Cannon,
+            // Photon rippers are completely exempt from this.
             if (npc.type == ModContent.NPCType<PhotonRipperNPC>())
                 return false;
 
-            if (ExoMechManagement.CurrentAresPhase < 5 && false)
-            {
-                switch ((int)aresBody.Infernum().ExtraAI[5] % 4)
-                {
-                    case 0:
-                        return npc.type != ModContent.NPCType<AresPulseCannon>() && npc.type != ModContent.NPCType<AresLaserCannon>();
-                    case 1:
-                        return npc.type != ModContent.NPCType<AresLaserCannon>() && npc.type != ModContent.NPCType<AresTeslaCannon>();
-                    case 2:
-                        return npc.type != ModContent.NPCType<AresTeslaCannon>() && npc.type != ModContent.NPCType<AresPlasmaFlamethrower>();
-                    case 3:
-                        return npc.type != ModContent.NPCType<AresPlasmaFlamethrower>() && npc.type != ModContent.NPCType<AresPulseCannon>();
-                }
-            }
-            else
-            {
-                switch ((int)aresBody.Infernum().ExtraAI[5] % 3)
-                {
-                    case 0:
-                        return npc.type != ModContent.NPCType<AresPulseCannon>() && npc.type != ModContent.NPCType<AresLaserCannon>() && npc.type != ModContent.NPCType<AresTeslaCannon>();
-                    case 1:
-                        return npc.type != ModContent.NPCType<AresLaserCannon>() && npc.type != ModContent.NPCType<AresTeslaCannon>() && npc.type != ModContent.NPCType<AresPlasmaFlamethrower>();
-                    case 2:
-                        return npc.type != ModContent.NPCType<AresTeslaCannon>() && npc.type != ModContent.NPCType<AresPlasmaFlamethrower>() && npc.type != ModContent.NPCType<AresPulseCannon>();
-                }
-            }
-            return false;
+            bool isPulseOrGauss = npc.type == ModContent.NPCType<AresPulseCannon>() || npc.type == ModContent.NPCType<AresGaussNuke>();
+            if (ExoMechManagement.CurrentAresPhase <= 2)
+			{
+				switch ((int)aresBody.Infernum().ExtraAI[5] % 4)
+				{
+					case 0:
+						return !isPulseOrGauss && npc.type != ModContent.NPCType<AresLaserCannon>();
+					case 1:
+						return npc.type != ModContent.NPCType<AresLaserCannon>() && npc.type != ModContent.NPCType<AresTeslaCannon>();
+					case 2:
+						return npc.type != ModContent.NPCType<AresTeslaCannon>() && npc.type != ModContent.NPCType<AresPlasmaFlamethrower>();
+					case 3:
+						return npc.type != ModContent.NPCType<AresPlasmaFlamethrower>() && !isPulseOrGauss;
+					default:
+						return false;
+				}
+			}
+
+			switch ((int)aresBody.Infernum().ExtraAI[5] % 3)
+			{
+				case 0:
+					return !isPulseOrGauss && npc.type != ModContent.NPCType<AresLaserCannon>() && npc.type != ModContent.NPCType<AresTeslaCannon>();
+				case 1:
+					return npc.type != ModContent.NPCType<AresLaserCannon>() && npc.type != ModContent.NPCType<AresTeslaCannon>() && npc.type != ModContent.NPCType<AresPlasmaFlamethrower>();
+				case 2:
+					return npc.type != ModContent.NPCType<AresTeslaCannon>() && npc.type != ModContent.NPCType<AresPlasmaFlamethrower>() && !isPulseOrGauss;
+				default:
+					return false;
+			}
         }
         #endregion AI
 
@@ -866,7 +891,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             npc.frame = new Rectangle(npc.width * (int)(currentFrame / 8), npc.height * (int)(currentFrame % 8), npc.width, npc.height);
         }
 
-        public static MethodInfo DrawArmFunction = typeof(AresBody).GetMethod("DrawArm", BindingFlags.Public | BindingFlags.Instance);
+        internal static MethodInfo DrawArmFunction = typeof(AresBody).GetMethod("DrawArm", BindingFlags.Public | BindingFlags.Instance);
 
         public static float FlameTrailWidthFunctionBig(NPC npc, float completionRatio)
         {
@@ -897,7 +922,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             Color afterimageBaseColor = Color.White;
 
             // Become red if enraged.
-            if (npc.Infernum().ExtraAI[13] == 1f)
+            if (npc.Infernum().ExtraAI[13] == 1f || ExoMechComboAttackContent.EnrageTimer > 0f)
                 afterimageBaseColor = Color.Red;
 
             Color armGlowmaskColor = afterimageBaseColor;
@@ -947,7 +972,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 foreach (NPC photonRipper in photonRippers)
                 {
                     int direction = (photonRipper.Infernum().ExtraAI[0] == 1f).ToDirectionInt();
-                    DrawArmFunction.Invoke(npc.modNPC, new object[] { spriteBatch, photonRipper.Center, armGlowmaskColor, direction, true });
+                    DrawArmFunction.Invoke(npc.modNPC, new object[] { spriteBatch, photonRipper.Center, Main.screenPosition, armGlowmaskColor, direction, true });
                 }
             }
 

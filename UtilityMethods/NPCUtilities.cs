@@ -46,7 +46,7 @@ namespace InfernumMode
 
         // This function returns an available Calamity Music Mod track, or null if the Calamity Music Mod is not available.
         public static int? GetMusicFromMusicMod(string songFilename)
-		{
+        {
 			Mod musicMod = ModLoader.GetMod("CalamityModMusic");
 			return musicMod != null ? (int?)musicMod.GetSoundSlot(SoundType.Music, "Sounds/Music/" + songFilename) : null;
         }
@@ -68,11 +68,12 @@ namespace InfernumMode
                 npc.type == ModContent.NPCType<AresTeslaCannon>() ||
                 npc.type == ModContent.NPCType<AresPlasmaFlamethrower>() ||
                 npc.type == ModContent.NPCType<AresGaussNuke>() ||
-                npc.type == ModContent.NPCType<AresPulseCannon>())
+                npc.type == ModContent.NPCType<AresPulseCannon>() ||
+                npc.type == ModContent.NPCType<PhotonRipperNPC>())
             {
                 return true;
             }
-			
+
             // Artemis and Apollo.
             if (npc.type == ModContent.NPCType<Artemis>() ||
                 npc.type == ModContent.NPCType<Apollo>())

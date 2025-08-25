@@ -1,6 +1,9 @@
 using CalamityMod;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Thanatos;
+using CalamityMod.Sounds;
+using InfernumMode.BehaviorOverrides.BossAIs.DoG;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
@@ -8,9 +11,10 @@ using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Reflection;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
-
+using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.DraedonBehaviorOverride;
 using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos.ThanatosHeadBehaviorOverride;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
@@ -66,6 +70,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             npc.Infernum().ExtraAI[ExoMechManagement.DeathAnimationTimerIndex] = head.Infernum().ExtraAI[ExoMechManagement.DeathAnimationTimerIndex];
             npc.Infernum().ExtraAI[ExoMechManagement.DeathAnimationHasStartedIndex] = head.Infernum().ExtraAI[ExoMechManagement.DeathAnimationHasStartedIndex];
             Player target = Main.player[npc.target];
+
+            // Kill debuffs.
+            DoGPhase1BodyBehaviorOverride.KillUnbalancedDebuffs(npc);
 
             // Handle open behavior and frames.
             ThanatosHeadAttackType headAttackType = (ThanatosHeadAttackType)(int)head.ai[0];
@@ -133,11 +140,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                             case (int)ThanatosHeadAttackType.LaserBarrage:
                                 int type = ModContent.ProjectileType<ThanatosLaser>();
                                 float predictionFactor = 21f;
-                                float shootSpeed = generalShootSpeedFactor * 7f;
+                                float shootSpeed = generalShootSpeedFactor * 6.8f;
 
                                 // Predictive laser.
                                 Vector2 projectileDestination = target.Center + target.velocity * predictionFactor;
-                                int laser = Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, 500, 0f, Main.myPlayer, 0f, npc.whoAmI);
+                                int laser = Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, NormalShotDamage, 0f, Main.myPlayer, 0f, npc.whoAmI);
                                 if (Main.projectile.IndexInRange(laser))
                                 {
                                     Main.projectile[laser].owner = npc.target;
@@ -147,7 +154,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
                                 // Opposite laser.
                                 projectileDestination = target.Center - target.velocity * predictionFactor;
-                                laser = Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, 500, 0f, Main.myPlayer, 0f, npc.whoAmI);
+                                laser = Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, NormalShotDamage, 0f, Main.myPlayer, 0f, npc.whoAmI);
                                 if (Main.projectile.IndexInRange(laser))
                                 {
                                     Main.projectile[laser].owner = npc.target;
@@ -157,14 +164,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                                 }
                                 break;
                             case (int)ExoMechComboAttackContent.ExoMechComboAttackType.ThanatosAres_LaserCircle:
-                                type = ModContent.ProjectileType<ThanatosComboLaser>();
+                                type = ModContent.ProjectileType<ThanatosAresComboLaser>();
                                 shootSpeed = generalShootSpeedFactor * 10f;
                                 projectileDestination = Main.npc[CalamityGlobalNPC.draedonExoMechPrime].Center + Vector2.UnitY * 34f;
-                                laser = Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, 540, 0f, Main.myPlayer, 0f, npc.whoAmI);
+                                laser = Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, StrongerNormalShotDamage, 0f, Main.myPlayer, 0f, npc.whoAmI);
                                 if (Main.projectile.IndexInRange(laser))
                                 {
                                     Main.projectile[laser].owner = npc.target;
-                                    Main.projectile[laser].ModProjectile<ThanatosComboLaser>().InitialDestination = projectileDestination;
+                                    Main.projectile[laser].ModProjectile<ThanatosAresComboLaser>().InitialDestination = projectileDestination;
                                     Main.projectile[laser].ai[1] = npc.whoAmI;
                                     Main.projectile[laser].netUpdate = true;
                                 }
@@ -208,7 +215,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 Lighting.AddLight(npc.Center, 0.35f * npc.Opacity, 0.05f * npc.Opacity, 0.05f * npc.Opacity);
 
                 // Emit smoke.
-                npc.takenDamageMultiplier = 82.35f;
+                npc.takenDamageMultiplier = 242f;
                 if (npc.Opacity > 0.6f)
                 {
                     if (npc.type == ModContent.NPCType<ThanatosBody1>())
@@ -237,6 +244,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             // Emit light.
             else
                 Lighting.AddLight(npc.Center, 0.05f * npc.Opacity, 0.2f * npc.Opacity, 0.2f * npc.Opacity);
+
+            if (head.Calamity().unbreakableDR)
+                npc.Calamity().DR = 0.9999999f;
 
             if (head.Infernum().ExtraAI[17] >= 1f)
                 npc.takenDamageMultiplier *= 0.5f;

@@ -1,9 +1,3 @@
-using CalamityMod;
-using Microsoft.Xna.Framework;
-using Terraria;
-using Terraria.ID;
-using Terraria.World.Generation;
-
 namespace InfernumMode
 {
     public static partial class Utilities

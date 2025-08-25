@@ -41,7 +41,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
         public override void AI()
         {
             if (projectile.velocity.Length() < 26f)
-                projectile.velocity *= 1.01f;
+                projectile.velocity *= 1.0065f;
 
             projectile.Opacity = Utils.InverseLerp(125f, 120f, projectile.timeLeft, true) * Utils.InverseLerp(0f, 15f, projectile.timeLeft, true);
 
@@ -70,14 +70,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
         }
 
         public override bool CanHitPlayer(Player target) => projectile.Opacity == 1f;
-
-        public override void OnHitPlayer(Player target, int damage, bool crit)
-        {
-            if (projectile.Opacity != 1f)
-                return;
-
-            target.AddBuff(BuffID.Electrified, 240);
-        }
 
         public Projectile GetOrbToAttachTo()
         {
@@ -199,13 +191,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             for (int i = 0; i < 4; i++)
             {
                 Vector2 sparkVelocity = (MathHelper.TwoPi * i / 4f).ToRotationVector2() * 5.6f;
-                Utilities.NewProjectileBetter(projectile.Center, sparkVelocity, ModContent.ProjectileType<TeslaSpark>(), 500, 0f);
+                Utilities.NewProjectileBetter(projectile.Center, sparkVelocity, ModContent.ProjectileType<AresTeslaSpark>(), DraedonBehaviorOverride.NormalShotDamage, 0f);
             }
         }
 
         public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
         {
-            target.Calamity().lastProjectileHit = projectile;
+            
         }
     }
 }

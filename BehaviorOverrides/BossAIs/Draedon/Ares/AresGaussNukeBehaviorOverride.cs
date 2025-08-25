@@ -2,6 +2,8 @@ using CalamityMod;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Ares;
 using CalamityMod.Projectiles.Boss;
+using CalamityMod.Sounds;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -136,7 +138,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     float nukeShootSpeed = 13.5f;
-                    Utilities.NewProjectileBetter(endOfCannon, aimDirection * nukeShootSpeed, ModContent.ProjectileType<AresGaussNukeProjectile>(), 1200, 0f, npc.target);
+                    Utilities.NewProjectileBetter(endOfCannon, aimDirection * nukeShootSpeed, ModContent.ProjectileType<AresGaussNukeProjectile>(), DraedonBehaviorOverride.PowerfulShotDamage, 0f, npc.target);
 
                     npc.netUpdate = true;
                 }
@@ -174,13 +176,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             if (npc.spriteDirection == 1)
                 spriteEffects = SpriteEffects.FlipHorizontally;
 
+            // Don't draw anything if the cannon is detached. The Exowl that has it will draw it manually.
+            if (npc.Infernum().ExtraAI[ExoMechManagement.Ares_CannonInUseByExowl] == 1f)
+                return false;
+
             // Locate Ares' body as an NPC.
             NPC aresBody = Main.npc[CalamityGlobalNPC.draedonExoMechPrime];
             Texture2D texture = Main.npcTexture[npc.type];
             Rectangle frame = npc.frame;
             Vector2 origin = frame.Size() * 0.5f;
             Vector2 center = npc.Center - Main.screenPosition;
-            Color afterimageBaseColor = aresBody.Infernum().ExtraAI[13] == 1f ? Color.Red : Color.White;
+            bool enraged = aresBody.Infernum().ExtraAI[13] == 1f || ExoMechComboAttackContent.EnrageTimer > 0f;
+            Color afterimageBaseColor = enraged ? Color.Red : Color.White;
             int numAfterimages = 5;
 
             if (CalamityConfig.Instance.Afterimages)

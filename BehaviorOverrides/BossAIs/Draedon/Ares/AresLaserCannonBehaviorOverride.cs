@@ -1,6 +1,8 @@
 using CalamityMod;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Ares;
+using CalamityMod.Sounds;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -43,9 +45,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             // Define attack variables.
             bool currentlyDisabled = AresBodyBehaviorOverride.ArmIsDisabled(npc);
             int shootTime = 300;
-            int totalLasersPerBurst = 5;
+            int totalLasersPerBurst = 8;
             float aimPredictiveness = 25f;
-            float laserShootSpeed = 7.5f;
+            float laserShootSpeed = 9.6f;
             ref float attackTimer = ref npc.ai[0];
             ref float chargeDelay = ref npc.ai[1];
             ref float laserCounter = ref npc.ai[2];
@@ -55,30 +57,30 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
             if (ExoMechManagement.CurrentAresPhase >= 2)
             {
-                totalLasersPerBurst = 12;
+                totalLasersPerBurst += 4;
                 shootTime += 210;
                 laserShootSpeed *= 1.1f;
             }
 
             if (ExoMechManagement.CurrentAresPhase >= 3)
             {
-                laserShootSpeed *= 0.85f;
+                laserShootSpeed *= 0.9f;
 
                 if (laserCount == 3)
                     laserCount += 2;
             }
 
-            // Nerf things while Ares' complement mech is present.
-            if (ExoMechManagement.CurrentAresPhase == 4)
-            {
-                shootTime += 45;
-                laserShootSpeed *= 0.8f;
-            }
-
             if (ExoMechManagement.CurrentAresPhase >= 5)
             {
-                shootTime += 120;
-                laserShootSpeed *= 0.8f;
+                totalLasersPerBurst += 2;
+                shootTime += 105;
+                aimPredictiveness += 5.5f;
+            }
+
+            if (aresBody.ai[0] == (int)AresBodyBehaviorOverride.AresBodyAttackType.PhotonRipperSlashes)
+            {
+                totalLasersPerBurst = 5;
+                laserShootSpeed -= 2.3f;
             }
 
             // Get very pissed off if Ares is enraged.
@@ -171,14 +173,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int laserDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + 530;
+                    int laserDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + DraedonBehaviorOverride.StrongerNormalShotDamage;
                     for (int i = 0; i < laserCount; i++)
                     {
                         Vector2 laserShootVelocity = aimDirection * laserShootSpeed;
                         if (laserCount > 1)
-                            laserShootVelocity = laserShootVelocity.RotatedBy(MathHelper.Lerp(-0.41f, 0.41f, i / (float)(laserCount - 1f)));
+                            laserShootVelocity = laserShootVelocity.RotatedBy(MathHelper.Lerp(-0.52f, 0.52f, i / (float)(laserCount - 1f)));
                         laserShootVelocity = laserShootVelocity.RotatedByRandom(0.07f);
-                        int laser = Utilities.NewProjectileBetter(endOfCannon, laserShootVelocity, ModContent.ProjectileType<CannonLaser>(), laserDamage, 0f);
+                        int laser = Utilities.NewProjectileBetter(endOfCannon, laserShootVelocity, ModContent.ProjectileType<AresCannonLaser>(), laserDamage, 0f);
                         if (Main.projectile.IndexInRange(laser))
                             Main.projectile[laser].ai[1] = npc.whoAmI;
                     }
@@ -231,6 +233,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                     null, true, GameShaders.Misc["Infernum:TwinsFlameTrail"]);
             }
 
+            // Don't draw anything if the cannon is detached. The Exowl that has it will draw it manually.
+            if (npc.Infernum().ExtraAI[ExoMechManagement.Ares_CannonInUseByExowl] == 1f)
+                return false;
+
             for (int i = 0; i < 2; i++)
             {
                 if (npc.Infernum().ExtraAI[0] > 0f)
@@ -247,7 +253,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             Rectangle frame = npc.frame;
             Vector2 origin = frame.Size() * 0.5f;
             Vector2 center = npc.Center - Main.screenPosition;
-            Color afterimageBaseColor = aresBody.Infernum().ExtraAI[13] == 1f ? Color.Red : Color.White;
+            bool enraged = aresBody.Infernum().ExtraAI[13] == 1f || ExoMechComboAttackContent.EnrageTimer > 0f;
+            Color afterimageBaseColor = enraged ? Color.Red : Color.White;
             int numAfterimages = 5;
 
             if (CalamityConfig.Instance.Afterimages)

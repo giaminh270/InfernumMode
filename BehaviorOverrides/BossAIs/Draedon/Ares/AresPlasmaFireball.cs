@@ -11,6 +11,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 {
     public class AresPlasmaFireball : ModProjectile
     {
+        public bool GasExplosionVariant
+        {
+            get;
+            set;
+        } = false;
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Volatile Plasma Blast");
@@ -132,12 +138,23 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             if (Main.netMode != NetmodeID.MultiplayerClient && projectile.ai[1] != -1f)
             {
                 int totalProjectiles = 10;
-                int type = ModContent.ProjectileType<AresPlasmaBolt>();
+                if (GasExplosionVariant)
+                {
+                    totalProjectiles = 6;
+                    int plasmaGasID = ModContent.ProjectileType<PlasmaGas>();
+                    for (int i = 0; i < 50; i++)
+                    {
+                        Vector2 plasmaVelocity = Main.rand.NextVector2Circular(13f, 13f);
+                        Projectile.NewProjectile(projectile.Center, plasmaVelocity, plasmaGasID, projectile.damage, 0f, Main.myPlayer);
+                    }
+                }
+
+                int boltID = ModContent.ProjectileType<AresPlasmaBolt>();
                 Vector2 spinningPoint = Main.rand.NextVector2Circular(0.5f, 0.5f);
                 for (int i = 0; i < totalProjectiles; i++)
                 {
                     Vector2 shootVelocity = spinningPoint.RotatedBy(MathHelper.TwoPi / totalProjectiles * i);
-                    Projectile.NewProjectile(projectile.Center, shootVelocity, type, (int)(projectile.damage * 0.85), 0f, Main.myPlayer);
+                    Projectile.NewProjectile(projectile.Center, shootVelocity, boltID, (int)(projectile.damage * 0.85), 0f, Main.myPlayer);
                 }
             }
 
@@ -180,7 +197,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
         public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
         {
-            target.Calamity().lastProjectileHit = projectile;
+            
         }
     }
 }

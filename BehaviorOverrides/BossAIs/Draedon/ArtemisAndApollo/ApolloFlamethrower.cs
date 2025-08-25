@@ -53,7 +53,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             {
                 Vector2 sparkShootVelocity = new Vector2(Owner.direction * -0.3f, -1f).SafeNormalize(Vector2.UnitY).RotatedByRandom(0.77f);
                 sparkShootVelocity = sparkShootVelocity.ToRotation().AngleLerp(-MathHelper.PiOver2, 0.75f).ToRotationVector2() * Main.rand.NextFloat(34f, 41f);
-                Utilities.NewProjectileBetter(projectile.Center, sparkShootVelocity, ModContent.ProjectileType<ApolloFallingPlasmaSpark>(), 500, 0f);
+                Utilities.NewProjectileBetter(projectile.Center, sparkShootVelocity, ModContent.ProjectileType<ApolloFallingPlasmaSpark>(), DraedonBehaviorOverride.NormalShotDamage, 0f);
             }
 
             // Cast lights.
@@ -75,10 +75,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
                     fire.alpha = 200;
                 }
             }
-            if (Main.rand.NextBool(5) && Time >= 15f)
+            if (Main.netMode != NetmodeID.Server && Main.rand.NextBool(5) && Time >= 15f)
             {
-                Vector2 vector = projectile.Center + flameDirection * FireMaxLength * 0.75f + Main.rand.NextVector2Square(-20f, 20f);
-                Gore smoke = Gore.NewGoreDirect(vector, Vector2.Zero, Main.rand.Next(61, 64), 0.5f);
+                Vector2 smokeSpawnPosition = projectile.Center + flameDirection * FireMaxLength * 0.75f + Main.rand.NextVector2Square(-20f, 20f);
+                Gore smoke = Gore.NewGoreDirect(smokeSpawnPosition, Vector2.Zero, Main.rand.Next(61, 64), 0.5f);
                 smoke.velocity *= 0.3f;
                 smoke.velocity += flameDirection * 4f;
             }

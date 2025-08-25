@@ -1,6 +1,7 @@
 using CalamityMod;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Artemis;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -10,7 +11,6 @@ using Terraria;
 using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.ModLoader;
-
 using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo.ApolloBehaviorOverride;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
@@ -20,6 +20,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
         public override int NPCOverrideType => ModContent.NPCType<Artemis>();
 
         public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame | NPCOverrideContext.NPCPreDraw;
+
+        public override float[] PhaseLifeRatioThresholds => new float[]
+        {
+            ExoMechManagement.Phase3LifeRatio,
+            ExoMechManagement.Phase4LifeRatio
+        };
 
         #region AI
 
@@ -79,7 +85,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 
             // Inherit a bunch of things from Apollo, the "manager" of the twins' AI.
             TwinsAttackType apolloAttackType = (TwinsAttackType)(int)apollo.ai[0];
-            if (apolloAttackType != TwinsAttackType.LaserRayScarletBursts && apolloAttackType != TwinsAttackType.PlasmaCharges)
+            if (apolloAttackType != TwinsAttackType.ArtemisLaserRay && apolloAttackType != TwinsAttackType.ApolloPlasmaCharges)
             {
                 attackState = (int)apollo.ai[0];
                 attackTimer = apollo.ai[1];
@@ -151,35 +157,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             }
 
             // Perform specific attack behaviors.
-            if (!performingDeathAnimation)
-            {
-                switch ((TwinsAttackType)(int)attackState)
-                {
-                    case TwinsAttackType.BasicShots:
-                        DoBehavior_BasicShots(npc, target, sideSwitchAttackDelay > 0f, false, hoverSide, ref frame, ref attackTimer);
-                        break;
-                    case TwinsAttackType.SingleLaserBlasts:
-                        DoBehavior_SingleLaserBlasts(npc, target, hoverSide, ref frame, ref attackTimer);
-                        break;
-                    case TwinsAttackType.FireCharge:
-                        DoBehavior_FireCharge(npc, target, hoverSide, ref frame, ref attackTimer);
-                        break;
-                    case TwinsAttackType.PlasmaCharges:
-                        DoBehavior_PlasmaCharges(npc, target, hoverSide, ref frame, ref attackTimer);
-                        break;
-                    case TwinsAttackType.LaserRayScarletBursts:
-                        DoBehavior_LaserRayScarletBursts(npc, target, ref frame, ref attackTimer);
-                        break;
-                    case TwinsAttackType.GatlingLaserAndPlasmaFlames:
-                        DoBehavior_GatlingLaserAndPlasmaFlames(npc, target, hoverSide, ref frame, ref attackTimer);
-                        break;
-                }
-            }
-            else
-                DoBehavior_DeathAnimation(npc, target, ref frame, ref npc.ModNPC<Artemis>().ChargeFlash, ref deathAnimationTimer);
-
-            // Perform specific combo attack behaviors.
-            ExoMechComboAttackContent.UseTwinsAresComboAttack(npc, hoverSide, ref attackTimer, ref frame);
+            PerformSpecificAttackBehaviors(npc, target, performingDeathAnimation, attackState, sideSwitchAttackDelay, hoverSide, ref apollo.Infernum().ExtraAI[ExoMechManagement.Twins_ComplementMechEnrageTimerIndex], ref frame, ref attackTimer, ref deathAnimationTimer);
             return false;
         }
 
@@ -192,7 +170,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             int frameY = (int)npc.localAI[0] % 9;
             npc.frame = new Rectangle(npc.width * frameX, npc.height * frameY, npc.width, npc.height);
         }
-
 
         public static float FlameTrailWidthFunction(NPC npc, float completionRatio) => MathHelper.SmoothStep(21f, 8f, completionRatio) * npc.ModNPC<Artemis>().ChargeFlash;
 
@@ -243,16 +220,20 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 
             if (npc.ModNPC<Artemis>().RibbonTrail is null)
                 npc.ModNPC<Artemis>().RibbonTrail = new PrimitiveTrail(RibbonTrailWidthFunction, c => RibbonTrailColorFunction(npc, c));
+            
+            if (!Main.npc.IndexInRange(CalamityGlobalNPC.draedonExoMechTwinGreen) || !Main.npc[CalamityGlobalNPC.draedonExoMechTwinGreen].active)
+                return false;
 
             // Prepare the flame trail shader with its map texture.
             GameShaders.Misc["CalamityMod:ImpFlameTrail"].SetShaderTexture(ModContent.GetTexture("CalamityMod/ExtraTextures/ScarletDevilStreak"));
 
+            NPC apollo = Main.npc[CalamityGlobalNPC.draedonExoMechTwinGreen];
             int numAfterimages = npc.ModNPC<Artemis>().ChargeFlash > 0f ? 0 : 5;
             Texture2D texture = Main.npcTexture[npc.type];
             Rectangle frame = npc.frame;
             Vector2 origin = npc.Size * 0.5f;
             Vector2 center = npc.Center - Main.screenPosition;
-            Color afterimageBaseColor = ExoMechComboAttackContent.EnrageTimer > 0f ? Color.Red : Color.White;
+            Color afterimageBaseColor = ExoMechComboAttackContent.EnrageTimer > 0f || apollo.Infernum().ExtraAI[ExoMechManagement.Twins_ComplementMechEnrageTimerIndex] > 0f ? Color.Red : Color.White;
 
             // Draws a single instance of a regular, non-glowmask based Artemis.
             // This is created to allow easy duplication of them when drawing the charge.
@@ -273,7 +254,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
                 Main.spriteBatch.Draw(texture, center + drawOffset, frame, npc.GetAlpha(baseColor), npc.rotation, origin, npc.scale, SpriteEffects.None, 0f);
             }
 
-            // Draw ribbons near the main thruster
+            // Draw ribbons near the main thruster.
             for (int direction = -1; direction <= 1; direction += 2)
             {
                 Vector2 ribbonOffset = -Vector2.UnitY.RotatedBy(npc.rotation) * 14f;
@@ -335,18 +316,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 
             Main.spriteBatch.Draw(texture, center, frame, afterimageBaseColor * npc.Opacity, npc.rotation, origin, npc.scale, SpriteEffects.None, 0f);
             Main.spriteBatch.ExitShaderRegion();
-
-            // Draw a telegraph line as necessary.
-            if (npc.ai[0] == (int)TwinsAttackType.SingleLaserBlasts)
-            {
-                float telegraphInterpolant = npc.Infernum().ExtraAI[3];
-                Vector2 aimDirection = (npc.rotation - MathHelper.PiOver2).ToRotationVector2();
-                Vector2 telegraphStart = npc.Center + aimDirection * (ExoMechManagement.ExoTwinsAreInSecondPhase ? 112f : 78f);
-                Vector2 telegraphEnd = telegraphStart + aimDirection * 4000f;
-
-                if (telegraphInterpolant > 0f)
-                    Main.spriteBatch.DrawLineBetter(telegraphStart, telegraphEnd, Color.Orange * telegraphInterpolant, telegraphInterpolant * 5f);
-            }
 
             // Draw a flame trail on the thrusters if needed. This happens during charges.
             if (npc.ModNPC<Artemis>().ChargeFlash > 0f)

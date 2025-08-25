@@ -1,6 +1,8 @@
 using CalamityMod;
+using CalamityMod.Items.Weapons.DraedonsArsenal;
 using CalamityMod.NPCs;
 using CalamityMod.Particles;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -50,7 +52,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             npc.HitSound = SoundID.NPCHit4;
             npc.DeathSound = SoundID.NPCDeath14;
             npc.netAlways = true;
-            npc.boss = true;
             npc.hide = true;
             music = (InfernumMode.CalamityMod as CalamityModClass).GetMusicFromMusicMod("ExoMechs") ?? MusicID.Boss3;
         }
@@ -81,7 +82,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             // Define attack variables.
             bool currentlyDisabled = AresBodyBehaviorOverride.ArmIsDisabled(npc);
             int shootTime = 180;
-            int totalPulseBlastsPerBurst = 3;
+            int totalPulseBlastsPerBurst = 4;
             float blastShootSpeed = 7.5f;
             float aimPredictiveness = 27f;
             ref float shouldPrepareToFire = ref npc.Infernum().ExtraAI[1];
@@ -95,11 +96,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 shootTime += 60;
                 totalPulseBlastsPerBurst += 2;
                 blastShootSpeed *= 1.25f;
+                aimPredictiveness += 5.5f;
             }
             if (ExoMechManagement.CurrentAresPhase >= 6)
             {
                 shootTime -= 30;
                 totalPulseBlastsPerBurst++;
+            }
+            if (aresBody.ai[0] == (int)AresBodyBehaviorOverride.AresBodyAttackType.PhotonRipperSlashes)
+            {
+                totalPulseBlastsPerBurst = 2;
+                blastShootSpeed -= 1.96f;
             }
 
             // Get very pissed off if Ares is enraged.
@@ -186,7 +193,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int blastDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + 500;
+                    int blastDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + DraedonBehaviorOverride.StrongerNormalShotDamage;
                     Vector2 blastShootVelocity = aimDirection * blastShootSpeed;
                     Vector2 blastSpawnPosition = endOfCannon + blastShootVelocity * 8.4f;
                     Utilities.NewProjectileBetter(blastSpawnPosition, blastShootVelocity, ModContent.ProjectileType<AresPulseBlast>(), blastDamage, 0f);
@@ -250,10 +257,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                     exoEnergy.noGravity = true;
                 }
 
-                Gore.NewGore(npc.position, npc.velocity, mod.GetGoreSlot("AresPulseCannon1"), npc.scale);
-                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase1"), npc.scale);
-                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase2"), npc.scale);
-                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase3"), npc.scale);
+                if (Main.netMode != NetmodeID.Server)
+                {
+	                Gore.NewGore(npc.position, npc.velocity, mod.GetGoreSlot("AresPulseCannon1"), npc.scale);
+	                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase1"), npc.scale);
+	                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase2"), npc.scale);
+	                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase3"), npc.scale);
+                }
             }
         }
 
@@ -265,6 +275,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                     completionRatio => AresBodyBehaviorOverride.FlameTrailColorFunctionBig(npc, completionRatio),
                     null, true, GameShaders.Misc["Infernum:TwinsFlameTrail"]);
             }
+
+            // Don't draw anything if the cannon is detached. The Exowl that has it will draw it manually.
+            if (npc.Infernum().ExtraAI[ExoMechManagement.Ares_CannonInUseByExowl] == 1f)
+                return false;
 
             for (int i = 0; i < 2; i++)
             {
@@ -282,7 +296,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             Rectangle frame = npc.frame;
             Vector2 origin = npc.Center - npc.position;
             Vector2 center = npc.Center - Main.screenPosition;
-            Color afterimageBaseColor = aresBody.Infernum().ExtraAI[13] == 1f ? Color.Red : Color.White;
+            bool enraged = aresBody.Infernum().ExtraAI[13] == 1f || ExoMechComboAttackContent.EnrageTimer > 0f;
+            Color afterimageBaseColor = enraged ? Color.Red : Color.White;
             int numAfterimages = 5;
 
             if (CalamityConfig.Instance.Afterimages)

@@ -37,7 +37,6 @@ namespace InfernumMode.OverridingSystem
                     default:
                         throw new ArgumentException("The given override context is invalid.");
                 }
-
                 MethodInfo method = type.GetMethod(methodName, Utilities.UniversalBindingFlags);
                 List<Type> paramTypes = method.GetParameters().Select(parameter => parameter.ParameterType).ToList();
                 paramTypes.Add(method.ReturnType);

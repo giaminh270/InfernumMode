@@ -29,6 +29,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                 maxVelocity = maxVelocity.SafeNormalize(Vector2.Zero) * hyperSpeedCap;
 
             npc.velocity = Vector2.Lerp(npc.SafeDirectionTo(destination) * flySpeed, maxVelocity, hyperSpeedInterpolant);
+            if (npc.velocity.HasNaNs())
+                npc.velocity = Vector2.Zero;
         }
 
         public static bool PerformingDeathAnimation(NPC npc) => npc.Infernum().ExtraAI[ExoMechManagement.DeathAnimationHasStartedIndex] != 0f;
@@ -165,6 +167,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                     Main.spriteBatch.Draw(texture, drawCenter + drawOffset, frame, npc.GetAlpha(color), npc.rotation, origin, npc.scale, spriteEffects, 0f);
                 }
             }
+        }
+
+        public static void HealInFinalPhase(NPC npc, float phaseTransitionAnimationTime)
+        {
+            ref float startingHP = ref npc.Infernum().ExtraAI[ExoMechManagement.StartingFinalPhaseAnimationHPIndex];
+            if (startingHP == 0f)
+            {
+                startingHP = npc.life;
+                npc.netUpdate = true;
+            }
+
+            npc.life = (int)MathHelper.SmoothStep(startingHP, npc.lifeMax * ExoMechManagement.Phase4LifeRatio, phaseTransitionAnimationTime / ExoMechManagement.FinalPhaseTransitionTime);
         }
     }
 }

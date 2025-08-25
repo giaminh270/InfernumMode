@@ -5,6 +5,7 @@ using CalamityMod.NPCs.ExoMechs.Ares;
 using CalamityMod.NPCs.ExoMechs.Artemis;
 using CalamityMod.NPCs.ExoMechs.Thanatos;
 using CalamityMod.World;
+using InfernumMode.ILEditingStuff;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -24,6 +25,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
         public const int IntroSoundLength = 106;
 
         public const int PostBattleMusicLength = 5120;
+
+        // Projectile damage values.
+        public const int NormalShotDamage = 520;
+
+        public const int StrongerNormalShotDamage = 540;
+
+        public const int PowerfulShotDamage = 850;
+
+        // Contact damage values.
+        public const int AresChargeContactDamage = 650;
+
+        public const int AresPhotonRipperContactDamage = 600;
+
+        public const int TwinsChargeContactDamage = 600;
+        
+        public const int ThanatosHeadDamage = 800;
+
+        public const int ThanatosHeadDamageMaximumOverdrive = 960;
 
         public override bool PreAI(NPC npc)
         {
@@ -60,6 +79,20 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                     npc.life = 0;
                     npc.active = false;
                     return false;
+                }
+            }
+
+            if (!ExoMechIsPresent)
+            {
+                if (npc.ModNPC<DraedonNPC>().DefeatTimer <= 0f)
+                {
+                    npc.modNPC.music = InfernumMode.CalamityMod.GetSoundSlot(SoundType.Music, "Sounds/Music/DraedonAmbience");
+                    InfernumMode.DraedonThemeTimer = 0f;
+                }
+                else
+                {
+                    npc.modNPC.music = InfernumMode.Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/Draedon");
+                    InfernumMode.DraedonThemeTimer = 1f;
                 }
             }
 
@@ -127,7 +160,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                 if (CalamityWorld.TalkedToDraedon)
                     CalamityUtils.DisplayLocalizedText("Mods.CalamityMod.DraedonResummonText", TextColorEdgy);
                 else
-                    Utilities.DisplayText("My creations will not forget your failures. Choose wisely.", TextColorEdgy);
+                    Utilities.DisplayText("Now choose.", TextColorEdgy);
 
                 // Mark Draedon as talked to.
                 if (!CalamityWorld.TalkedToDraedon)
@@ -154,18 +187,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             }
 
             // Make the screen rumble and summon the exo mechs.
-            if (talkTimer > ExoMechChooseDelay + 8f && talkTimer < ExoMechPhaseDialogueTime)
+            if (talkTimer > (ExoMechChooseDelay + 8f) && talkTimer < ExoMechPhaseDialogueTime)
             {
                 Main.LocalPlayer.Calamity().GeneralScreenShakePower = Utils.InverseLerp(4200f, 1400f, Main.LocalPlayer.Distance(playerToFollow.Center), true) * 18f;
                 Main.LocalPlayer.Calamity().GeneralScreenShakePower *= Utils.InverseLerp(ExoMechChooseDelay + 5f, ExoMechPhaseDialogueTime, talkTimer, true);
             }
 
             // Summon the selected exo mech.
-            if (talkTimer == ExoMechChooseDelay + 10f)
+            if (talkTimer == ExoMechChooseDelay + 9f)
             {
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                    SummonExoMech(playerToFollow);
-
                 if (Main.netMode != NetmodeID.Server)
                 {
                     var sound = Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/FlareSound"), playerToFollow.Center);
@@ -261,22 +291,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
 
             if (talkTimer > ExoMechChooseDelay + 10f && !ExoMechIsPresent)
             {
-                HandleDefeatStuff(npc, playerToFollow, ref npc.ModNPC<DraedonNPC>().DefeatTimer);
+                HandleDefeatStuff(npc, ref npc.ModNPC<DraedonNPC>().DefeatTimer);
                 npc.ModNPC<DraedonNPC>().DefeatTimer++;
-            }
-
-            if (!ExoMechIsPresent)
-            {
-                if (npc.ModNPC<DraedonNPC>().DefeatTimer <= 0f)
-                {
-                    npc.modNPC.music = InfernumMode.CalamityMod.GetSoundSlot(SoundType.Music, "Sounds/Music/DraedonAmbience");
-                    InfernumMode.DraedonThemeTimer = 0f;
-                }
-                else
-                {
-                    npc.modNPC.music = InfernumMode.Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/Draedon");
-                    InfernumMode.DraedonThemeTimer = 1f;
-                }
             }
 
             talkTimer++;
@@ -285,20 +301,33 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
 
         public static void SummonExoMech(Player playerToFollow)
         {
-            switch (CalamityWorld.DraedonMechToSummon)
+            int secondaryMech = (int)DrawDraedonSelectionUIWithAthena.DestroyerTypeToSummon;
+            if (secondaryMech == (int)ExoMech.Destroyer)
+                secondaryMech = ModContent.NPCType<ThanatosHead>();
+            if (secondaryMech == (int)ExoMech.Prime)
+                secondaryMech = ModContent.NPCType<AresBody>();
+            if (secondaryMech == (int)ExoMech.Twins)
+                secondaryMech = ModContent.NPCType<Apollo>();
+
+            switch (DrawDraedonSelectionUIWithAthena.PrimaryMechToSummon)
             {
                 // Summon Thanatos underground.
                 case ExoMech.Destroyer:
                     Vector2 thanatosSpawnPosition = playerToFollow.Center + Vector2.UnitY * 2100f;
                     NPC thanatos = CalamityUtils.SpawnBossBetter(thanatosSpawnPosition, ModContent.NPCType<ThanatosHead>());
                     if (thanatos != null)
+                    {
                         thanatos.velocity = thanatos.SafeDirectionTo(playerToFollow.Center) * 40f;
+                        thanatos.Infernum().ExtraAI[ExoMechManagement.SecondaryMechNPCTypeIndex] = secondaryMech;
+                    }
                     break;
 
                 // Summon Ares in the sky, directly above the player.
                 case ExoMech.Prime:
                     Vector2 aresSpawnPosition = playerToFollow.Center - Vector2.UnitY * 1400f;
-                    CalamityUtils.SpawnBossBetter(aresSpawnPosition, ModContent.NPCType<AresBody>());
+                    NPC ares = CalamityUtils.SpawnBossBetter(aresSpawnPosition, ModContent.NPCType<AresBody>());
+                    if (ares != null)
+                        ares.Infernum().ExtraAI[ExoMechManagement.SecondaryMechNPCTypeIndex] = secondaryMech;
                     break;
 
                 // Summon Apollo and Artemis above the player to their sides.
@@ -306,13 +335,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                     Vector2 artemisSpawnPosition = playerToFollow.Center + new Vector2(-1100f, -1600f);
                     Vector2 apolloSpawnPosition = playerToFollow.Center + new Vector2(1100f, -1600f);
                     CalamityUtils.SpawnBossBetter(artemisSpawnPosition, ModContent.NPCType<Artemis>());
-                    CalamityUtils.SpawnBossBetter(apolloSpawnPosition, ModContent.NPCType<Apollo>());
+                    NPC apollo = CalamityUtils.SpawnBossBetter(apolloSpawnPosition, ModContent.NPCType<Apollo>());
+                    if (apollo != null)
+                        apollo.Infernum().ExtraAI[ExoMechManagement.SecondaryMechNPCTypeIndex] = secondaryMech;
                     break;
-
             }
         }
 
-        public static void HandleDefeatStuff(NPC npc, Player playerToFollow, ref float defeatTimer)
+        public static void HandleDefeatStuff(NPC npc, ref float defeatTimer)
         {
             // Become vulnerable after being defeated after a certain point.
             bool hasBeenKilled = npc.localAI[2] == 1f;
@@ -341,7 +371,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                 npc.Opacity *= 0.67f;
 
             // Stand up in awe after a small amount of time has passed.
-            if (defeatTimer > DelayBeforeDefeatStandup && defeatTimer < TalkDelay * 3f + 50f)
+            if (defeatTimer > DelayBeforeDefeatStandup && defeatTimer < (TalkDelay * 3f + 50f))
                 npc.ModNPC<DraedonNPC>().ShouldStartStandingUp = true;
 
             if (defeatTimer == DelayBeforeDefeatStandup + 50f)

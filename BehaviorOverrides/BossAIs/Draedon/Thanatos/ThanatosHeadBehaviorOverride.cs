@@ -1,20 +1,29 @@
 using CalamityMod;
+using CalamityMod.Items.Tools;
+using CalamityMod.Items.Weapons.DraedonsArsenal;
+using CalamityMod.Items.Weapons.Ranged;
 using CalamityMod.NPCs;
+using CalamityMod.NPCs.ExoMechs.Apollo;
 using CalamityMod.NPCs.ExoMechs.Thanatos;
 using CalamityMod.Particles;
 using CalamityMod.Skies;
+using InfernumMode.BehaviorOverrides.BossAIs.DoG;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks;
 using InfernumMode.OverridingSystem;
 using InfernumMode.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
+using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.DraedonBehaviorOverride;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 {
@@ -29,7 +38,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
         public enum ThanatosHeadAttackType
         {
             AggressiveCharge,
-            TopwardSlam,
             LaserBarrage,
             ExoBomb,
             ExoLightBarrage,
@@ -46,6 +54,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
         public const float OpenSegmentDR = 0f;
         public const float ClosedSegmentDR = 0.98f;
 
+        public const float FlatDamageBoostFactor = 1.66f;
+
+        public override float[] PhaseLifeRatioThresholds => new float[]
+        {
+            ExoMechManagement.Phase4LifeRatio
+        };
+
         public override bool PreAI(NPC npc)
         {
             // Define the life ratio.
@@ -59,7 +74,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             frameType = (int)ThanatosFrameType.Closed;
 
             // Reset damage.
-            npc.defDamage = 775;
+            npc.defDamage = ThanatosHeadDamage;
             npc.damage = npc.defDamage;
 
             // Define attack variables.
@@ -141,8 +156,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
             // Become invincible if the complement mech is at high enough health or if in the middle of a death animation.
             npc.dontTakeDamage = ExoMechAIUtilities.PerformingDeathAnimation(npc);
+            npc.Calamity().unbreakableDR = false;
+            bool dontResetDR = false;
             if (complementMechIndex >= 0 && Main.npc[(int)complementMechIndex].active && Main.npc[(int)complementMechIndex].life > Main.npc[(int)complementMechIndex].lifeMax * ExoMechManagement.ComplementMechInvincibilityThreshold)
+            {
                 npc.dontTakeDamage = true;
+                if (Main.npc[(int)complementMechIndex].type == ModContent.NPCType<Apollo>())
+                {
+                    dontResetDR = true;
+                    npc.dontTakeDamage = false;
+                    npc.Calamity().DR = 0.9999999f;
+                    npc.Calamity().unbreakableDR = true;
+                }
+            }
 
             // Become invincible and disappear if necessary.
             npc.Calamity().newAI[1] = 0f;
@@ -160,6 +186,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             }
             else
                 npc.Opacity = MathHelper.Clamp(npc.Opacity + 0.08f, 0f, 1f);
+
+            // Kill debuffs.
+            DoGPhase1BodyBehaviorOverride.KillUnbalancedDebuffs(npc);
 
             // Despawn if the target is gone.
             if (!target.active || target.dead)
@@ -182,7 +211,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             }
 
             // Handle the final phase transition.
-            if (finalPhaseAnimationTime < ExoMechManagement.FinalPhaseTransitionTime && ExoMechManagement.CurrentThanatosPhase >= 6 && !ExoMechManagement.ExoMechIsPerformingDeathAnimation)
+            if (finalPhaseAnimationTime <= ExoMechManagement.FinalPhaseTransitionTime && ExoMechManagement.CurrentThanatosPhase >= 6 && !ExoMechManagement.ExoMechIsPerformingDeathAnimation)
             {
                 frameType = (int)ThanatosFrameType.Closed;
                 attackState = (int)ThanatosHeadAttackType.AggressiveCharge;
@@ -216,7 +245,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             }
 
             // Handle smoke venting and open/closed DR.
-            npc.Calamity().DR = ClosedSegmentDR;
+            if (!dontResetDR)
+                npc.Calamity().DR = ClosedSegmentDR;
             npc.Calamity().unbreakableDR = true;
             npc.chaseable = false;
             npc.defense = 0;
@@ -232,9 +262,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 {
                     case ThanatosHeadAttackType.AggressiveCharge:
                         DoBehavior_AggressiveCharge(npc, target, ref attackTimer, ref frameType);
-                        break;
-                    case ThanatosHeadAttackType.TopwardSlam:
-                        DoBehavior_TopwardSlam(npc, target, ref attackTimer, ref frameType);
                         break;
                     case ThanatosHeadAttackType.LaserBarrage:
                         DoBehavior_LaserBarrage(npc, target, ref attackTimer, ref frameType);
@@ -255,6 +282,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
                 if (ExoMechComboAttackContent.UseThanatosAresComboAttack(npc, ref attackTimer, ref frameType))
                     SelectNextAttack(npc);
+                if (ExoMechComboAttackContent.UseTwinsThanatosComboAttack(npc, 1f, ref attackTimer, ref frameType))
+                    SelectNextAttack(npc);
             }
             else
             {
@@ -274,7 +303,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                     npc.ModNPC<ThanatosHead>().SmokeDrawer.BaseMoveRotation = npc.rotation - MathHelper.PiOver2;
                     npc.ModNPC<ThanatosHead>().SmokeDrawer.ParticleSpawnRate = 5;
                 }
-                npc.Calamity().DR = OpenSegmentDR - 0.125f;
+                if (!dontResetDR)
+                    npc.Calamity().DR = OpenSegmentDR - 0.125f;
                 npc.Calamity().unbreakableDR = false;
                 npc.chaseable = true;
             }
@@ -298,6 +328,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
         public static void DoBehavior_DeathAnimation(NPC npc, Player target, ref float deathAnimationTimer, ref float frameType)
         {
+            // Clear away projectiles.
+            ExoMechManagement.ClearAwayTransitionProjectiles();
+
             bool isHead = npc.type == ModContent.NPCType<ThanatosHead>();
             bool closeToDying = deathAnimationTimer >= 180f;
 
@@ -383,124 +416,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             if (attackTimer > 720f)
                 SelectNextAttack(npc);
         }
-
-        // TODO -- This attack is quite janky at the moment. Consider changing it before adding it back to the attack pool.
-        public static void DoBehavior_TopwardSlam(NPC npc, Player target, ref float attackTimer, ref float frameType)
-        {
-            // Decide frames.
-            frameType = (int)ThanatosFrameType.Open;
-
-            int hoverRedirectTime = 270;
-            float redirectSpeedMultiplier = 1f;
-            float initialChargeSpeed = 36f;
-            float maxChargeSpeed = 62f;
-            int timeToReachMaxChargeSpeed = 30;
-            int chargeTime = 56;
-            int chargeCount = 4;
-            bool canFireSparks = false;
-
-            ref float chargeCounter = ref npc.Infernum().ExtraAI[0];
-
-            if (ExoMechManagement.CurrentThanatosPhase >= 2)
-            {
-                hoverRedirectTime -= 40;
-                redirectSpeedMultiplier += 0.075f;
-                initialChargeSpeed += 5f;
-                maxChargeSpeed += 3f;
-            }
-            if (ExoMechManagement.CurrentThanatosPhase >= 3)
-            {
-                redirectSpeedMultiplier += 0.1f;
-                initialChargeSpeed += 3f;
-                maxChargeSpeed += 3.5f;
-                chargeTime -= 8;
-                canFireSparks = true;
-            }
-            if (ExoMechManagement.CurrentThanatosPhase >= 5)
-            {
-                timeToReachMaxChargeSpeed -= 5;
-                redirectSpeedMultiplier += 0.1f;
-                initialChargeSpeed += 6f;
-                maxChargeSpeed += 4.5f;
-                chargeTime -= 8;
-            }
-            if (ExoMechManagement.CurrentThanatosPhase >= 6)
-            {
-                timeToReachMaxChargeSpeed -= 6;
-                redirectSpeedMultiplier += 0.1f;
-                initialChargeSpeed += 3.5f;
-                maxChargeSpeed += 5f;
-                chargeTime -= 7;
-                chargeCount++;
-            }
-
-            float chargeAcceleration = (float)Math.Pow(maxChargeSpeed / initialChargeSpeed, 1D / timeToReachMaxChargeSpeed);
-            Vector2 hoverOffset = new Vector2((target.Center.X < npc.Center.X).ToDirectionInt() * 500f, -400f);
-            Vector2 hoverDestination = target.Center + hoverOffset;
-
-            // Attempt to get into position for a charge.
-            if (attackTimer < hoverRedirectTime)
-            {
-                float idealHoverSpeed = MathHelper.Lerp(43.5f, 80f, attackTimer / hoverRedirectTime);
-                idealHoverSpeed *= Utils.InverseLerp(35f, 300f, npc.Distance(target.Center), true) * redirectSpeedMultiplier;
-
-                Vector2 idealVelocity = npc.SafeDirectionTo(hoverDestination) * MathHelper.Lerp(npc.velocity.Length(), idealHoverSpeed, 0.135f);
-                npc.velocity = npc.velocity.RotateTowards(idealVelocity.ToRotation(), 0.024f, true) * idealVelocity.Length();
-                npc.velocity = npc.velocity.MoveTowards(idealVelocity, redirectSpeedMultiplier * 10f);
-
-                // Play a telegraph sound.
-                if (npc.WithinRange(hoverDestination, 1400f) && attackTimer > 35f && attackTimer < hoverRedirectTime - 90f)
-                {
-                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(Terraria.ModLoader.SoundType.Item, "Sounds/Item/LargeWeaponFire"), npc.Center);
-                    attackTimer = hoverRedirectTime - 90f;
-                    npc.netUpdate = true;
-                }
-
-                // Stop hovering if close to the hover destination and prepare the charge.
-                if (npc.WithinRange(hoverDestination, 130f) && attackTimer > 115f && npc.velocity.AngleBetween(idealVelocity) < 0.44f)
-                {
-                    attackTimer = hoverRedirectTime;
-                    idealVelocity = npc.SafeDirectionTo(target.Center + target.velocity * 12f) * initialChargeSpeed;
-                    npc.velocity = npc.velocity.MoveTowards(idealVelocity, 7.5f).RotateTowards(idealVelocity.ToRotation(), MathHelper.Pi * 0.66f);
-                    npc.velocity = npc.velocity.SafeNormalize(Vector2.UnitY) * initialChargeSpeed;
-
-                    npc.netUpdate = true;
-                }
-            }
-
-            // Play a telegraph sound and release sparks after the charge begins.
-            if (attackTimer == hoverRedirectTime + 1f)
-            {
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(Terraria.ModLoader.SoundType.Item, "Sounds/Item/PlasmaGrenadeExplosion"), target.Center);
-                if (Main.netMode != NetmodeID.MultiplayerClient && canFireSparks)
-                {
-                    for (int i = 0; i < 18; i++)
-                    {
-                        Vector2 sparkVelocity = (MathHelper.TwoPi * i / 18f).ToRotationVector2() * 24f;
-                        Utilities.NewProjectileBetter(npc.Center, sparkVelocity, ModContent.ProjectileType<LaserSpark>(), 500, 0f);
-                    }
-                }
-            }
-
-            // Accelerate after the charge has begun.
-            if (attackTimer > hoverRedirectTime && npc.velocity.Length() < maxChargeSpeed)
-                npc.velocity *= chargeAcceleration;
-
-            // Play a sound prior to switching attacks.
-            if (chargeCounter >= chargeCount - 1f && attackTimer == hoverRedirectTime + 1f)
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ThanatosTransition"), target.Center);
-
-            if (attackTimer > hoverRedirectTime + chargeTime)
-            {
-                npc.velocity = npc.velocity.ClampMagnitude(0f, 35f) * 0.56f;
-                chargeCounter++;
-                if (chargeCounter >= chargeCount)
-                    SelectNextAttack(npc);
-
-                attackTimer = 0f;
-            }
-        }
-
+        
         public static void DoBehavior_LaserBarrage(NPC npc, Player target, ref float attackTimer, ref float frameType)
         {
             // Decide frames.
@@ -632,7 +548,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             if (attackTimer == initialRedirectTime + 1f)
             {
                 Vector2 bombSpawnPosition = npc.Center + npc.velocity.RotatedBy(MathHelper.PiOver2) * spinTime / totalRotations / MathHelper.TwoPi;
-                int bomb = Utilities.NewProjectileBetter(bombSpawnPosition, Vector2.Zero, ModContent.ProjectileType<ExolaserBomb>(), 1000, 0f);
+                int bomb = Utilities.NewProjectileBetter(bombSpawnPosition, Vector2.Zero, ModContent.ProjectileType<ExolaserBomb>(), PowerfulShotDamage, 0f);
                 if (Main.projectile.IndexInRange(bomb))
                     Main.projectile[bomb].ModProjectile<ExolaserBomb>().GrowTime = (int)spinTime;
             }
@@ -659,7 +575,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
             // Charge.
             if (attackTimer >= initialRedirectTime + spinBufferTime)
-                npc.velocity *= npc.velocity.Length() > chargeSpeed ? 0.98f : 1.02f;
+            {
+                npc.velocity *= npc.velocity.Length() > chargeSpeed * 0.56f ? 0.98f : 1.02f;
+                if (!npc.WithinRange(target.Center, 1200f))
+                    npc.velocity = npc.velocity.RotateTowards(npc.AngleTo(target.Center), 0.05f);
+            }
 
             // Play a sound prior to switching attacks.
             if (attackTimer == initialRedirectTime + spinBufferTime + postSpinChargeTime - TransitionSoundDelay)
@@ -683,7 +603,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             int rotorReleaseRate = 7;
             int chargeCount = 2;
             float initialChargeSpeed = 13f;
-            float finalChargeSpeed = 26f;
+            float finalChargeSpeed = 23f;
             float rotorSpeed = 25f;
             ref float chargeCounter = ref npc.Infernum().ExtraAI[0];
 
@@ -699,7 +619,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 chargePreparationTime -= 8;
                 redirectTime -= 5;
                 chargeTime -= 5;
-                finalChargeSpeed += 4f;
+                finalChargeSpeed += 3f;
             }
 
             if (ExoMechManagement.CurrentThanatosPhase >= 5)
@@ -710,7 +630,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 lasersPerRotor++;
                 rotorReleaseRate--;
                 chargeCount++;
-                finalChargeSpeed += 4f;
+                finalChargeSpeed += 3f;
             }
 
             if (ExoMechManagement.CurrentThanatosPhase >= 6)
@@ -720,7 +640,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 redirectTime -= 5;
                 chargeTime -= 8;
                 lasersPerRotor++;
-                finalChargeSpeed += 4f;
+                finalChargeSpeed += 3f;
             }
 
             // Approach the player at an increasingly slow speed.
@@ -757,6 +677,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             if (attackTimer >= slowdownTime + chargePreparationTime + redirectTime)
             {
                 npc.velocity = npc.velocity.MoveTowards(npc.velocity.SafeNormalize(Vector2.UnitY) * finalChargeSpeed, 2f);
+                if (!npc.WithinRange(target.Center, 1600f))
+                    npc.velocity = npc.velocity.RotateTowards(npc.AngleTo(target.Center), 0.05f);
 
                 if (attackTimer % rotorReleaseRate == rotorReleaseRate - 1f)
                 {
@@ -799,7 +721,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             npc.damage = 0;
 
             int initialRedirectTime = 360;
-            int lightTelegraphTime = 105;
+            int lightTelegraphTime = 95;
             int lightLaserFireDelay = 20;
             int lightLaserShootTime = LightOverloadRay.Lifetime;
             int redirectCount = 3;
@@ -883,7 +805,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 {
                     Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<OverloadBoom>(), 0, 0f);
 
-                    int light = Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<LightOverloadRay>(), 1200, 0f);
+                    int light = Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<LightOverloadRay>(), PowerfulShotDamage, 0f);
                     if (Main.projectile.IndexInRange(light))
                         Main.projectile[light].ModProjectile<LightOverloadRay>().LaserSpread = lightRaySpread * 0.53f;
                 }
@@ -894,7 +816,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             {
                 Vector2 targetDirection = target.velocity.SafeNormalize(Main.rand.NextVector2Unit());
                 Vector2 spawnPosition = target.Center - targetDirection.RotatedByRandom(1.1f) * Main.rand.NextFloat(325f, 650f) * new Vector2(1f, 0.6f);
-                Utilities.NewProjectileBetter(spawnPosition, Vector2.Zero, ModContent.ProjectileType<AresBeamExplosion>(), 550, 0f);
+                Utilities.NewProjectileBetter(spawnPosition, Vector2.Zero, ModContent.ProjectileType<AresBeamExplosion>(), StrongerNormalShotDamage, 0f);
             }
 
             // Play a sound prior to switching attacks.
@@ -914,12 +836,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
         public static void DoBehavior_MaximumOverdrive(NPC npc, Player target, ref float attackTimer, ref float frameType)
         {
             // Dash or die.
-            npc.damage = 900;
+            npc.damage = ThanatosHeadDamageMaximumOverdrive;
 
             int attackTime = 720;
             int cooloffTime = 360;
             float chargeSpeedInterpolant = Utils.InverseLerp(0f, 45f, attackTimer, true) * Utils.InverseLerp(attackTime, attackTime - 45f, attackTimer, true);
-            float chargeSpeedFactor = MathHelper.Lerp(0.3f, 1.3f, chargeSpeedInterpolant);
+            float chargeSpeedFactor = MathHelper.Lerp(0.3f, 1.25f, chargeSpeedInterpolant);
 
             ref float coolingOff = ref npc.Infernum().ExtraAI[0];
 
@@ -945,7 +867,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                     float shootSpeed = 19f;
                     Vector2 projectileDestination = target.Center;
                     Vector2 spawnPosition = target.Center + Main.rand.NextVector2CircularEdge(1500f, 1500f);
-                    int laser = Utilities.NewProjectileBetter(spawnPosition, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, 600, 0f, Main.myPlayer, 0f, npc.whoAmI);
+                    int laser = Utilities.NewProjectileBetter(spawnPosition, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, StrongerNormalShotDamage, 0f, Main.myPlayer, 0f, npc.whoAmI);
                     if (Main.projectile.IndexInRange(laser))
                     {
                         Main.projectile[laser].owner = npc.target;
@@ -972,7 +894,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             Vector2 hoverDestination = target.Center + target.velocity.SafeNormalize(Vector2.UnitX * target.direction) * new Vector2(675f, 550f);
             hoverDestination.Y -= 550f;
 
-            float idealFlySpeed = 17f;
+            float idealFlySpeed = 19.5f;
 
             if (ExoMechManagement.CurrentThanatosPhase == 4)
                 idealFlySpeed *= 0.7f;
@@ -1004,6 +926,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
         public static void DoAggressiveChargeMovement(NPC npc, Player target, float attackTimer, float speedMultiplier = 1f)
         {
+            speedMultiplier *= 1.1f;
+
             float lifeRatio = npc.life / (float)npc.lifeMax;
             float flyAcceleration = MathHelper.Lerp(0.045f, 0.037f, lifeRatio);
             float idealFlySpeed = MathHelper.Lerp(13f, 9.6f, lifeRatio);
@@ -1031,12 +955,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             }
             else
             {
-                if (ExoMechManagement.CurrentThanatosPhase >= 2)
+                if (ExoMechManagement.CurrentThanatosPhase <= 2)
+                    generalSpeedFactor *= 1.08f;
+                if (ExoMechManagement.CurrentThanatosPhase >= 3)
                     generalSpeedFactor *= 1.1f;
                 if (ExoMechManagement.CurrentThanatosPhase >= 5)
                 {
-                    generalSpeedFactor *= 1.18f;
-                    flyAcceleration *= 1.18f;
+                    generalSpeedFactor *= 1.1f;
+                    flyAcceleration *= 1.1f;
                 }
             }
 
@@ -1053,10 +979,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             if (!npc.WithinRange(destination, 250f))
             {
                 float flySpeed = npc.velocity.Length();
-                if (flySpeed < 13f)
+                if (flySpeed < 14f)
                     flySpeed += 0.06f;
 
-                if (flySpeed > 15f)
+                if (flySpeed > 16.5f)
                     flySpeed -= 0.065f;
 
                 if (directionToPlayerOrthogonality < 0.85f && directionToPlayerOrthogonality > 0.5f)
@@ -1065,7 +991,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 if (directionToPlayerOrthogonality < 0.5f && directionToPlayerOrthogonality > -0.7f)
                     flySpeed -= 0.1f;
 
-                flySpeed = MathHelper.Clamp(flySpeed, 12f, 19f) * generalSpeedFactor;
+                flySpeed = MathHelper.Clamp(flySpeed, 14f, 20.5f) * generalSpeedFactor;
                 npc.velocity = npc.velocity.RotateTowards(npc.AngleTo(destination), flyAcceleration, true) * flySpeed;
             }
 
@@ -1080,7 +1006,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
         public static void DoBehavior_DoFinalPhaseTransition(NPC npc, Player target, float phaseTransitionAnimationTime)
         {
+            // Clear away projectiles.
+            ExoMechManagement.ClearAwayTransitionProjectiles();
+
             DoProjectileShootInterceptionMovement(npc, target, 0.6f);
+
+            // Heal HP.
+            ExoMechAIUtilities.HealInFinalPhase(npc, phaseTransitionAnimationTime);
 
             // Play the transition sound at the start.
             if (phaseTransitionAnimationTime == 3f)
@@ -1092,9 +1024,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             ref float previousSpecialAttack = ref npc.Infernum().ExtraAI[18];
 
             ThanatosHeadAttackType oldAttackType = (ThanatosHeadAttackType)(int)npc.ai[0];
-            // Update learning stuff.
-            ExoMechManagement.DoPostAttackSelections(npc);
-
             bool wasCharging = oldAttackType == ThanatosHeadAttackType.AggressiveCharge ||
                 oldAttackType == ThanatosHeadAttackType.MaximumOverdrive;
 

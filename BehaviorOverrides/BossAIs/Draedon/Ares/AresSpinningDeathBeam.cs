@@ -63,6 +63,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
         {
             projectile.localAI[0] = reader.ReadSingle();
 			projectile.localAI[1] = reader.ReadSingle();
+            InitialSpinDirection = reader.ReadSingle();
 		}
 
         public override void AttachToSomething()
@@ -136,11 +137,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             if (projectile.velocity == Vector2.Zero)
                 return false;
 
-            // Don't draw the laser if its scale is too low, as that could lead to an infinite loop and out of memory crash.
-            // This has happened in multiplayer historically, so this check is important.
-            if (projectile.scale < 0.001f)
-                return false;
-
             Color beamColor = LaserOverlayColor;
             Rectangle startFrameArea = LaserBeginTexture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
             Rectangle middleFrameArea = LaserMiddleTexture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
@@ -162,13 +158,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             Vector2 centerOnLaser = projectile.Center;
 
             // Body drawing.
+            Rectangle screenArea = new Rectangle((int)(Main.screenPosition.X - 100f), (int)(Main.screenPosition.Y - 100f), Main.screenWidth + 200, Main.screenHeight + 200);
             if (laserBodyLength > 0f)
             {
                 float laserOffset = middleFrameArea.Height * projectile.scale;
                 float incrementalBodyLength = 0f;
                 while (incrementalBodyLength + 1f < laserBodyLength)
                 {
-                    spriteBatch.Draw(LaserMiddleTexture,
+                    if (!screenArea.Intersects(new Rectangle((int)centerOnLaser.X, (int)centerOnLaser.Y, 1, 1)))
+                    {
+                        centerOnLaser += projectile.velocity * laserOffset;
+                        incrementalBodyLength += laserOffset;
+                        continue;
+                    }
+
+                    Main.spriteBatch.Draw(LaserMiddleTexture,
                                      centerOnLaser - Main.screenPosition,
                                      middleFrameArea,
                                      beamColor,
@@ -208,7 +212,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
         public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
         {
-            target.Calamity().lastProjectileHit = projectile;
+            
         }
     }
 }

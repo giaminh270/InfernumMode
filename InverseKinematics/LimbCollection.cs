@@ -39,6 +39,12 @@ namespace InfernumMode.InverseKinematics
                 Limbs[i].ConnectPoint = Limbs[i - 1].EndPoint;
         }
 
+        public Limb this[int index]
+        {
+            get => Limbs[index];
+            set => Limbs[index] = value;
+        }
+
         public void Update(Vector2 connectPoint, Vector2 destination)
         {
             UpdateRule.Update(this, destination);

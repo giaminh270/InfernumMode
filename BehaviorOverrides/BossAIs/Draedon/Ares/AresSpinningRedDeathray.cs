@@ -69,7 +69,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             return Collision.CheckAABBvLineCollision(targetHitbox.TopLeft(), targetHitbox.Size(), start, end, width, ref _);
         }
 
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit) => target.Calamity().lastProjectileHit = projectile;
+        
 
         public float WidthFunction(float completionRatio)
         {
@@ -104,9 +104,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             {
                 for (float offset = 0f; offset < 5f; offset += 1.2f)
                 {
-                    BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, 35);
-                    BeamDrawer.Draw(points, projectile.Size * 0.5f + (Main.GlobalTime * 1.8f).ToRotationVector2() * offset - Main.screenPosition, 35);
-                    BeamDrawer.Draw(points, projectile.Size * 0.5f - (Main.GlobalTime * 1.8f).ToRotationVector2() * offset - Main.screenPosition, 35);
+                    BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, 24);
+                    BeamDrawer.Draw(points, projectile.Size * 0.5f + (Main.GlobalTime * 1.8f).ToRotationVector2() * offset - Main.screenPosition, 24);
+                    BeamDrawer.Draw(points, projectile.Size * 0.5f - (Main.GlobalTime * 1.8f).ToRotationVector2() * offset - Main.screenPosition, 24);
                 }
             }
             return false;

@@ -91,10 +91,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             // Fade in after telegraphs have faded.
             float positionOffset = ExoMechManagement.ExoTwinsAreInSecondPhase ? 102f : 70f;
             if (projectile.localAI[0] != 0f)
-                positionOffset -= ExoMechManagement.ExoTwinsAreInSecondPhase ? 40f : 12f;
+                positionOffset -= ExoMechManagement.ExoTwinsAreInSecondPhase ? 58f : 30f;
             Vector2 overallOffset = (ThingToAttachTo.rotation - MathHelper.PiOver2).ToRotationVector2() * positionOffset;
             if (projectile.localAI[0] != 0f)
-                overallOffset += ThingToAttachTo.rotation.ToRotationVector2() * projectile.localAI[0] * 42f;
+                overallOffset += ThingToAttachTo.rotation.ToRotationVector2() * projectile.localAI[0] * 88f;
 
             if (TelegraphDelay > TelegraphTotalTime)
             {
@@ -181,7 +181,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 
         public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
         {
-            target.Calamity().lastProjectileHit = projectile;
+            
         }
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)

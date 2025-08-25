@@ -4,9 +4,13 @@ using CalamityMod.Projectiles.BaseProjectiles;
 using CalamityMod.Skies;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using Terraria;
+using Terraria.GameContent;
+using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -14,13 +18,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 {
     public class ArtemisSpinLaser : BaseLaserbeamProjectile
     {
+        public PrimitiveTrail LaserDrawer
+        {
+            get;
+            set;
+        } = null;
+        
         public int OwnerIndex
         {
             get => (int)projectile.ai[0];
             set => projectile.ai[0] = value;
         }
 
-        public const int LaserLifetime = 90;
+        public const int LaserLifetime = 72;
         public override float MaxScale => 1f;
         public override float MaxLaserLength => 3600f;
         public override float Lifetime => LaserLifetime;
@@ -82,7 +92,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
                 return;
             }
 
-            bool notUsingReleventAttack = Main.npc[OwnerIndex].ai[0] != (int)ApolloBehaviorOverride.TwinsAttackType.LaserRayScarletBursts;
+            bool notUsingReleventAttack = Main.npc[OwnerIndex].ai[0] != (int)ApolloBehaviorOverride.TwinsAttackType.ArtemisLaserRay;
             if (Main.npc[OwnerIndex].Opacity <= 0f || notUsingReleventAttack)
             {
                 projectile.Kill();
@@ -125,74 +135,37 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
                 projectile.frame = (projectile.frame + 1) % Main.projFrames[projectile.type];
         }
 
+
+        public float LaserWidthFunction(float _) => projectile.scale * projectile.width;
+
+        public static Color LaserColorFunction(float completionRatio)
+        {
+            float colorInterpolant = (float)Math.Sin(Main.GlobalTime * -3.2f + completionRatio * 23f) * 0.5f + 0.5f;
+            return Color.Lerp(Color.Orange, Color.Red, colorInterpolant * 0.67f);
+        }
+
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             // This should never happen, but just in case.
             if (projectile.velocity == Vector2.Zero)
                 return false;
 
-            Color beamColor = LaserOverlayColor;
-            Rectangle startFrameArea = LaserBeginTexture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
-            Rectangle middleFrameArea = LaserMiddleTexture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
-            Rectangle endFrameArea = LaserEndTexture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
+            if (LaserDrawer is null)
+            	LaserDrawer = new PrimitiveTrail(LaserWidthFunction, LaserColorFunction, null, GameShaders.Misc["Infernum:ArtemisLaser"]);
 
-            // Start texture drawing.
-            Main.spriteBatch.Draw(LaserBeginTexture,
-                             projectile.Center - Main.screenPosition,
-                             startFrameArea,
-                             beamColor,
-                             projectile.rotation,
-                             LaserBeginTexture.Size() / 2f,
-                             projectile.scale,
-                             SpriteEffects.FlipVertically,
-                             0f);
+            Vector2 laserEnd = projectile.Center + projectile.velocity.SafeNormalize(Vector2.UnitY) * LaserLength;
+            Vector2[] baseDrawPoints = new Vector2[8];
+            for (int i = 0; i < baseDrawPoints.Length; i++)
+                baseDrawPoints[i] = Vector2.Lerp(projectile.Center, laserEnd, i / (float)(baseDrawPoints.Length - 1f));
 
-            // Prepare things for body drawing.
-            float laserBodyLength = LaserLength + middleFrameArea.Height;
-            Vector2 centerOnLaser = projectile.Center + projectile.velocity * projectile.scale * 5f;
+            // Select textures to pass to the shader, along with the electricity color.
+            GameShaders.Misc["Infernum:ArtemisLaser"].UseColor(Color.Cyan);
+            GameShaders.Misc["Infernum:ArtemisLaser"].UseImage("Images/Misc/Perlin");
 
-            // Body drawing.
-            if (laserBodyLength > 0f && middleFrameArea.Height >= 1f)
-            {
-                float laserOffset = middleFrameArea.Height * projectile.scale;
-                float incrementalBodyLength = 0f;
-                while (incrementalBodyLength + 1f < laserBodyLength)
-                {
-                    Main.spriteBatch.Draw(LaserMiddleTexture,
-                                     centerOnLaser - Main.screenPosition,
-                                     middleFrameArea,
-                                     beamColor,
-                                     projectile.rotation,
-                                     LaserMiddleTexture.Size() * 0.5f,
-                                     projectile.scale,
-                                     SpriteEffects.None,
-                                     0f);
-                    incrementalBodyLength += laserOffset;
-                    centerOnLaser += projectile.velocity * laserOffset;
-                    middleFrameArea.Y += LaserMiddleTexture.Height / Main.projFrames[projectile.type];
-                    if (middleFrameArea.Y + middleFrameArea.Height > LaserMiddleTexture.Height)
-                        middleFrameArea.Y = 0;
-                }
-            }
-
-            Vector2 laserEndCenter = centerOnLaser - Main.screenPosition;
-            Main.spriteBatch.Draw(LaserEndTexture,
-                             laserEndCenter,
-                             endFrameArea,
-                             beamColor,
-                             projectile.rotation,
-                             LaserEndTexture.Size() * 0.5f,
-                             projectile.scale,
-                             SpriteEffects.FlipVertically,
-                             0f);
+            LaserDrawer.Draw(baseDrawPoints, -Main.screenPosition, 54);
             return false;
         }
 
         public override bool CanHitPlayer(Player target) => projectile.scale >= 0.5f;
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            target.Calamity().lastProjectileHit = projectile;
-        }
     }
 }

@@ -1,6 +1,8 @@
 using CalamityMod;
+using CalamityMod.Items.Weapons.DraedonsArsenal;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Ares;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -44,7 +46,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             bool currentlyDisabled = AresBodyBehaviorOverride.ArmIsDisabled(npc);
             int shootTime = 150;
             int totalFlamesPerBurst = 2;
-            float flameShootSpeed = 9.33f;
+            float flameShootSpeed = 10.75f;
             float aimPredictiveness = 20f;
 
             // Nerf things while Ares' complement mech is present.
@@ -56,6 +58,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 shootTime += 60;
                 totalFlamesPerBurst += 2;
                 flameShootSpeed *= 1.2f;
+                aimPredictiveness += 6f;
             }
             if (ExoMechManagement.CurrentAresPhase >= 6)
             {
@@ -143,8 +146,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                     npc.ModNPC<AresPlasmaFlamethrower>().EnergyDrawer.AddPulse(chargeCompletion * 6f);
             }
 
-            // Fire plasma.
-            if (attackTimer >= chargeDelay && attackTimer % shootRate == shootRate - 1f)
+            // Fire plasma. This has a delay before firing, unlike the other cannons, to start a bit later than the tesla cannon, as was requested by testers.
+            if (attackTimer >= chargeDelay && (int)(attackTimer + shootRate * 0.7f) % shootRate == shootRate - 1f)
             {
                 Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/PlasmaCasterFire"), npc.Center);
 
@@ -154,11 +157,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
                     for (int i = 0; i < fireballCount; i++)
                     {
-                        int flameDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + 500;
+                        int flameDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + DraedonBehaviorOverride.StrongerNormalShotDamage;
                         Vector2 flameShootVelocity = aimDirection * flameShootSpeed;
                         int fireballType = ModContent.ProjectileType<AresPlasmaFireball>();
-                        if (ExoMechManagement.CurrentAresPhase >= 2)
-                            fireballType = ModContent.ProjectileType<AresPlasmaFireball2>();
                         if (fireballCount > 1)
                         {
                             flameShootVelocity = flameShootVelocity.RotatedByRandom(0.34f);
@@ -166,7 +167,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                                 flameShootVelocity *= Main.rand.NextFloat(0.6f, 0.9f);
                         }
 
-                        Utilities.NewProjectileBetter(endOfCannon, flameShootVelocity, fireballType, flameDamage, 0f);
+                        int plasmaFireball = Utilities.NewProjectileBetter(endOfCannon, flameShootVelocity, fireballType, flameDamage, 0f);
+                        if (Main.projectile.IndexInRange(plasmaFireball))
+                            Main.projectile[plasmaFireball].ModProjectile<AresPlasmaFireball>().GasExplosionVariant = ExoMechManagement.CurrentAresPhase >= 2;
                     }
 
                     npc.netUpdate = true;
@@ -215,6 +218,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                     null, true, GameShaders.Misc["Infernum:TwinsFlameTrail"]);
             }
 
+            // Don't draw anything if the cannon is detached. The Exowl that has it will draw it manually.
+            if (npc.Infernum().ExtraAI[ExoMechManagement.Ares_CannonInUseByExowl] == 1f)
+                return false;
+
             for (int i = 0; i < 2; i++)
             {
                 if (npc.Infernum().ExtraAI[0] > 0f)
@@ -231,7 +238,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             Rectangle frame = npc.frame;
             Vector2 origin = frame.Size() * 0.5f;
             Vector2 center = npc.Center - Main.screenPosition;
-            Color afterimageBaseColor = aresBody.Infernum().ExtraAI[13] == 1f ? Color.Red : Color.White;
+            bool enraged = aresBody.Infernum().ExtraAI[13] == 1f || ExoMechComboAttackContent.EnrageTimer > 0f;
+            Color afterimageBaseColor = enraged ? Color.Red : Color.White;
             int numAfterimages = 5;
 
             if (CalamityConfig.Instance.Afterimages)

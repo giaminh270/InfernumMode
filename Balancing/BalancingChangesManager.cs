@@ -24,7 +24,6 @@ using CalamityMod.Projectiles.Rogue;
 using CalamityMod.Projectiles.Summon;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
 using InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath;
-using InfernumMode.BehaviorOverrides.BossAIs.SlimeGod;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
@@ -36,7 +35,9 @@ namespace InfernumMode.Balancing
     {
         internal static List<IBalancingRule[]> UniversalBalancingChanges = null;
         internal static List<NPCBalancingChange> NPCSpecificBalancingChanges = null;
+
         public const float AdrenalineChargeTimeFactor = 1.6f;
+
         public const int DashDelay = 15;
 
         internal static void Load()

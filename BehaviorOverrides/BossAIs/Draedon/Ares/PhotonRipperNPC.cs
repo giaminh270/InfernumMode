@@ -1,6 +1,9 @@
 using CalamityMod;
+using CalamityMod.Items.Weapons.Ranged;
 using CalamityMod.NPCs;
 using CalamityMod.Particles;
+using CalamityMod.Sounds;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -201,7 +204,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                     // Attempt to weakly redirect towards the target after charging.
                     else if (wrappedTimer > chargeCycleTime - chargeDelay)
                     {
-                        npc.damage = 600;
+                        npc.damage = DraedonBehaviorOverride.AresPhotonRipperContactDamage;
                         npc.velocity = npc.velocity.RotateTowards(npc.AngleTo(target.Center), 0.026f);
                         npc.rotation = npc.velocity.ToRotation() + (npc.spriteDirection == 1f).ToInt() * MathHelper.Pi;
                     }
@@ -278,10 +281,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                     exoEnergy.noGravity = true;
                 }
 
-                Gore.NewGore(npc.position, npc.velocity, mod.GetGoreSlot("AresPulseCannon1"), npc.scale);
-                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase1"), npc.scale);
-                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase2"), npc.scale);
-                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase3"), npc.scale);
+                if (Main.netMode != NetmodeID.Server)
+                {
+	                Gore.NewGore(npc.position, npc.velocity, mod.GetGoreSlot("AresPulseCannon1"), npc.scale);
+	                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase1"), npc.scale);
+	                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase2"), npc.scale);
+	                Gore.NewGore(npc.position, npc.velocity, InfernumMode.CalamityMod.GetGoreSlot("AresHandBase3"), npc.scale);
+                }                
             }
         }
 
@@ -318,7 +324,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             Vector2 origin = glowmaskFrame.Size() * 0.5f;
             Rectangle frame = npc.frame;
             Vector2 center = npc.Center - Main.screenPosition;
-            Color afterimageBaseColor = aresBody.Infernum().ExtraAI[13] == 1f ? Color.Red : Color.White;
+            bool enraged = aresBody.Infernum().ExtraAI[13] == 1f || ExoMechComboAttackContent.EnrageTimer > 0f;
+            Color afterimageBaseColor = enraged ? Color.Red : Color.White;
             int numAfterimages = 5;
 
             if (CalamityConfig.Instance.Afterimages)

@@ -68,6 +68,7 @@ namespace InfernumMode.GlobalInstances
         internal static int Cryogen = -1;
         internal static int AstrumAureus = -1;
         internal static int Yharon = -1;
+
         #endregion
 
         #region Reset Effects
@@ -265,7 +266,7 @@ namespace InfernumMode.GlobalInstances
                 }
             }
 
-            if (npc.type == NPCID.MoonLordCore && !PoDWorld.HasGeneratedProfanedShrine)
+            /*if (npc.type == NPCID.MoonLordCore && !PoDWorld.HasGeneratedProfanedShrine)
             {
                 Utilities.DisplayText("A profaned shrine has erupted from the ashes at the underworld's edge!", Color.Orange);
                 PoDWorld.GenerateProfanedArena(new Terraria.World.Generation.GenerationProgress());
@@ -278,7 +279,7 @@ namespace InfernumMode.GlobalInstances
                     PoDWorld.HasBeatedInfernumNightProvBeforeDay = true;
                 PoDWorld.HasBeatedInfernumProvRegularly = true;
                 CalamityNetcode.SyncWorld();
-            }
+            }*/
         }
 
         /*public override void EditSpawnRate(Player player, ref int spawnRate, ref int maxSpawns)
@@ -320,8 +321,9 @@ namespace InfernumMode.GlobalInstances
 
             if ((npc.type == NPCID.MoonLordHand || npc.type == NPCID.MoonLordHead) && OverridingListManager.Registered(NPCID.MoonLordCore))
                 MoonLordCoreBehaviorOverride.HandleBodyPartDeathTriggers(npc, realDamage);
+
             // Make Thanatos' head take a flat multiplier in terms of final damage, as a means of allowing direct hits to be effective.
-            /*if (npc.type == ModContent.NPCType<ThanatosHead>() && OverridingListManager.Registered(npc.type))
+            if (npc.type == ModContent.NPCType<ThanatosHead>() && OverridingListManager.Registered(npc.type))
             {
                 damage = (int)(damage * ThanatosHeadBehaviorOverride.FlatDamageBoostFactor);
                 if (npc.Calamity().DR > 0.999f)
@@ -329,7 +331,7 @@ namespace InfernumMode.GlobalInstances
                     damage = 0D;
                     return false;
                 }
-            }*/
+            }
 
             return base.StrikeNPC(npc, ref damage, defense, ref knockback, hitDirection, ref crit);
         }

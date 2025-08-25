@@ -2,6 +2,8 @@ using CalamityMod;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Ares;
 using CalamityMod.Particles;
+using CalamityMod.Sounds;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks;
 using InfernumMode.OverridingSystem;
 using InfernumMode.Particles;
 using Microsoft.Xna.Framework;
@@ -46,18 +48,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             bool currentlyDisabled = AresBodyBehaviorOverride.ArmIsDisabled(npc);
             int shootTime = 135;
             int totalOrbsPerBurst = 4;
-            float aimPredictiveness = 25f;
+            float aimPredictiveness = 27f;
             float orbShootSpeed = 12f;
+            if (ExoMechManagement.CurrentAresPhase >= 5)
+                aimPredictiveness += 6.5f;
+
             Vector2 aimDirection = npc.SafeDirectionTo(target.Center + target.velocity * aimPredictiveness);
 
             // Shoot slower if pointing downward.
             orbShootSpeed *= MathHelper.Lerp(1f, 0.8f, Utils.InverseLerp(0.61f, 0.24f, aimDirection.AngleBetween(Vector2.UnitY), true));
 
             if (ExoMechManagement.CurrentAresPhase >= 2)
-            {
-                totalOrbsPerBurst = 6;
                 orbShootSpeed *= 0.75f;
-            }
 
             // Nerf things while Ares' complement mech is present.
             if (ExoMechManagement.CurrentAresPhase == 4)
@@ -65,14 +67,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
             if (ExoMechManagement.CurrentAresPhase >= 5)
             {
-                shootTime += 40;
-                totalOrbsPerBurst = 9;
-                orbShootSpeed *= 1.33f;
+                shootTime += 30;
+                orbShootSpeed *= 1.15f;
             }
             if (ExoMechManagement.CurrentAresPhase >= 6)
             {
-                shootTime += 40;
-                totalOrbsPerBurst = 11;
+                shootTime += 45;
+                totalOrbsPerBurst = 9;
             }
 
             // Get very pissed off if Ares is enraged.
@@ -167,7 +168,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int teslaOrbDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + 500;
+                    int teslaOrbDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + DraedonBehaviorOverride.StrongerNormalShotDamage;
                     int electricOrb = Utilities.NewProjectileBetter(endOfCannon, aimDirection * orbShootSpeed, ModContent.ProjectileType<AresTeslaOrb>(), teslaOrbDamage, 0f);
                     if (Main.projectile.IndexInRange(electricOrb))
                         Main.projectile[electricOrb].ai[0] = orbCounter;
@@ -185,23 +186,23 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                     // Release sparks once Ares is in the second phase.
                     if (ExoMechManagement.CurrentAresPhase >= 2)
                     {
-                        int teslaSparkDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + 500;
+                        int teslaSparkDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + DraedonBehaviorOverride.StrongerNormalShotDamage;
                         float offsetAngle = Main.rand.NextFloat(MathHelper.TwoPi);
                         for (int i = 0; i < 7; i++)
                         {
                             Vector2 sparkVelocity = (MathHelper.TwoPi * i / 7f + offsetAngle).ToRotationVector2() * 6.5f;
-                            Utilities.NewProjectileBetter(npc.Center + sparkVelocity * 6f, sparkVelocity, ModContent.ProjectileType<TeslaSpark>(), teslaSparkDamage, 0f);
+                            Utilities.NewProjectileBetter(npc.Center + sparkVelocity * 6f, sparkVelocity, ModContent.ProjectileType<AresTeslaSpark>(), teslaSparkDamage, 0f);
                         }
                     }
 
                     // As well as a of electric clouds in the third phase.
                     if (ExoMechManagement.CurrentAresPhase >= 3)
                     {
-                        int teslaGasDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + 530;
+                        int teslaGasDamage = AresBodyBehaviorOverride.ProjectileDamageBoost + DraedonBehaviorOverride.StrongerNormalShotDamage;
                         for (int i = 0; i < 85; i++)
                         {
                             Vector2 cloudShootVelocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(4f, 23f) - npc.velocity.SafeNormalize(-Vector2.UnitY) * 10f;
-                            Utilities.NewProjectileBetter(npc.Center + cloudShootVelocity * 3f, cloudShootVelocity, ModContent.ProjectileType<ElectricGas>(), teslaGasDamage, 0f);
+                            Utilities.NewProjectileBetter(npc.Center + cloudShootVelocity * 3f, cloudShootVelocity, ModContent.ProjectileType<AresTeslaGasField>(), teslaGasDamage, 0f);
                         }
                     }
                 }
@@ -247,6 +248,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                     null, true, GameShaders.Misc["Infernum:TwinsFlameTrail"]);
             }
 
+            // Don't draw anything if the cannon is detached. The Exowl that has it will draw it manually.
+            if (npc.Infernum().ExtraAI[ExoMechManagement.Ares_CannonInUseByExowl] == 1f)
+                return false;
+
             for (int i = 0; i < 2; i++)
             {
                 if (npc.Infernum().ExtraAI[0] > 0f)
@@ -263,7 +268,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             Rectangle frame = npc.frame;
             Vector2 origin = frame.Size() * 0.5f;
             Vector2 center = npc.Center - Main.screenPosition;
-            Color afterimageBaseColor = aresBody.Infernum().ExtraAI[13] == 1f ? Color.Red : Color.White;
+            bool enraged = aresBody.Infernum().ExtraAI[13] == 1f || ExoMechComboAttackContent.EnrageTimer > 0f;
+            Color afterimageBaseColor = enraged ? Color.Red : Color.White;
             int numAfterimages = 5;
 
             if (CalamityConfig.Instance.Afterimages)

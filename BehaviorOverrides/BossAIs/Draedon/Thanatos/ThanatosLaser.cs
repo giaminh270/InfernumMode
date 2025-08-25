@@ -21,7 +21,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
         public Vector2 Velocity;
         public const float TelegraphTotalTime = 55f;
         public const float TelegraphFadeTime = 15f;
-        public const float TelegraphWidth = 1700f;
+        public const float TelegraphWidth = 2300f;
         public const float LaserVelocity = 10f;
 
         public override void SetStaticDefaults()
@@ -112,6 +112,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                     projectile.spriteDirection = 1;
                     projectile.rotation = projectile.velocity.ToRotation();
                 }
+
+                if (projectile.velocity.Length() < 19f && TelegraphDelay > TelegraphTotalTime + 60f)
+                    projectile.velocity *= 1.01f;
             }
             else if (Destination == Vector2.Zero)
             {
@@ -172,11 +175,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
         {
             if (TelegraphDelay > TelegraphTotalTime)
                 target.AddBuff(ModContent.BuffType<BrimstoneFlames>(), 180);
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            target.Calamity().lastProjectileHit = projectile;
         }
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)

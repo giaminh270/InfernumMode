@@ -1,5 +1,6 @@
 using CalamityMod;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
@@ -11,7 +12,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 {
     public class ApolloPlasmaFireball : ModProjectile
     {
-        public bool ShouldExplodeDiagonally => projectile.ai[0] == 1f;
+        public bool GasExplosionVariant
+        {
+            get;
+            set;
+        } = false;
+
+        public bool ShouldExplodeDiagonally => projectile.ai[0] == 0f;
+       
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Volatile Plasma Blast");
@@ -129,14 +137,26 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
-                int projectileCount = 6;
-                int type = ModContent.ProjectileType<AresPlasmaBolt>();
-                for (int i = 0; i < projectileCount; i++)
+                if (GasExplosionVariant)
                 {
-                    Vector2 shootVelocity = (MathHelper.TwoPi * i / projectileCount).ToRotationVector2() * 0.5f;
-                    if (ShouldExplodeDiagonally)
-                        shootVelocity = shootVelocity.RotatedBy(MathHelper.Pi / projectileCount);
-                    Projectile.NewProjectile(projectile.Center, shootVelocity, type, (int)(projectile.damage * 0.8), 0f);
+                    int type = ModContent.ProjectileType<PlasmaGas>();
+                    for (int i = 0; i < 30; i++)
+                    {
+                        Vector2 plasmaVelocity = Main.rand.NextVector2Circular(15f, 15f);
+                        Projectile.NewProjectile(projectile.Center, plasmaVelocity, type, projectile.damage, 0f, Main.myPlayer);
+                    }
+                }
+                else
+                {
+                    int projectileCount = 6;
+                    int type = ModContent.ProjectileType<AresPlasmaBolt>();
+                    for (int i = 0; i < projectileCount; i++)
+                    {
+                        Vector2 shootVelocity = (MathHelper.TwoPi * i / projectileCount).ToRotationVector2() * 0.5f;
+                        if (ShouldExplodeDiagonally)
+                            shootVelocity = shootVelocity.RotatedBy(MathHelper.Pi / projectileCount);
+                        Projectile.NewProjectile(projectile.Center, shootVelocity, type, (int)(projectile.damage * 0.8), 0f);
+                    }
                 }
             }
 
@@ -175,11 +195,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
                 plasma.scale = scale;
                 plasma.noGravity = true;
             }
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            target.Calamity().lastProjectileHit = projectile;
         }
     }
 }

@@ -41,44 +41,11 @@ namespace InfernumMode
         public bool Madness = false;
         public float CurrentScreenShakePower;
         public float MusicMuffleFactor;
-		public float ShimmerSoundVolumeInterpolant;
+        public float ShimmerSoundVolumeInterpolant;
 
         public int ProvidenceRoomShatterTimer;
-        public bool ProfanedTempleAnimationHasPlayed;
-		private MLAttackSelector thanatosLaserTypeSelector = null;
-        private MLAttackSelector aresSpecialAttackTypeSelector = null;
-        private MLAttackSelector twinsSpecialAttackTypeSelector = null;
-        public MLAttackSelector ThanatosLaserTypeSelector
-        {
-            get
-            {
-                if (thanatosLaserTypeSelector is null)
-                    thanatosLaserTypeSelector = new MLAttackSelector(3, "ThanatosLaser");
-                return thanatosLaserTypeSelector;
-            }
-            set => thanatosLaserTypeSelector = value;
-        }
-        public MLAttackSelector AresSpecialAttackTypeSelector
-        {
-            get
-            {
-                if (aresSpecialAttackTypeSelector is null)
-                    aresSpecialAttackTypeSelector = new MLAttackSelector(2, "AresSpecialAttack");
-                return aresSpecialAttackTypeSelector;
-            }
-            set => twinsSpecialAttackTypeSelector = value;
-        }
-        public MLAttackSelector TwinsSpecialAttackTypeSelector
-        {
-            get
-            {
-                if (twinsSpecialAttackTypeSelector is null)
-                    twinsSpecialAttackTypeSelector = new MLAttackSelector(2, "TwinsSpecialAttack");
-                return twinsSpecialAttackTypeSelector;
-            }
-            set => twinsSpecialAttackTypeSelector = value;
-        }
 
+        public bool ProfanedTempleAnimationHasPlayed;
 
         public bool CreateALotOfHolyCinders;
 
@@ -249,25 +216,6 @@ namespace InfernumMode
 
             if (Main.netMode == NetmodeID.Server)
                 return;
-
-            /* Handle shimmer sound looping when near the Providence door.
-            if (SoundEngine.TryGetActiveSound(ShimmerSoundID, out var sound))
-            {
-                float idealVolume = Main.soundVolume * ShimmerSoundVolumeInterpolant;
-                if (sound.Sound.Volume != idealVolume)
-                    sound.Sound.Volume = idealVolume;
-
-                if (PoDWorld.HasProvidenceDoorShattered || ShimmerSoundVolumeInterpolant <= 0f)
-                    sound.Stop();
-                if (ShimmerSoundVolumeInterpolant > 0f)
-                    sound.Resume();
-            }
-            else
-            {
-                if (ShimmerSoundVolumeInterpolant > 0f && !PoDWorld.HasProvidenceDoorShattered)
-                    ShimmerSoundID = SoundEngine.PlaySound(InfernumSoundRegistry.ProvidenceDoorShimmerSoundLoop with { Volume = 0.0001f });
-            }
-            ShimmerSoundVolumeInterpolant = MathHelper.Clamp(ShimmerSoundVolumeInterpolant - 0.02f, 0f, 1f);*/
         }
 
         public override void PostUpdate()
@@ -319,8 +267,6 @@ namespace InfernumMode
             }
         }
         #endregion Update
-
-
         #region Pre Hurt
 		public override bool PreHurt(bool pvp, bool quiet, ref int damage, ref int hitDirection, ref bool crit, ref bool customDamage, ref bool playSound, ref bool genGore, ref PlayerDeathReason damageSource)
         {
@@ -344,12 +290,6 @@ namespace InfernumMode
             return base.PreKill(damage, hitDirection, pvp, ref playSound, ref genGore, ref damageSource);
         }
         #endregion
-        #region Kill
-        public override void Kill(double damage, int hitDirection, bool pvp, PlayerDeathReason damageSource)
-        {
-            ExoMechManagement.RecordAttackDeath(player);
-        }
-        #endregion Kill
         #region Life Regen
         public override void UpdateLifeRegen()
         {
@@ -372,42 +312,8 @@ namespace InfernumMode
             }
             if (Madness)
                 causeLifeRegenLoss(NPC.AnyNPCs(ModContent.NPCType<Polterghast>()) ? 800 : 50);
-            MadnessTime = Utils.Clamp(MadnessTime + (Madness ? 1 : -8), 0, 660);			
+            MadnessTime = Utils.Clamp(MadnessTime + (Madness ? 1 : -8), 0, 660);
         }
-        #endregion
-        #region Drawing
-
-        public static readonly PlayerLayer RedLightningEffect = new PlayerLayer("CalamityMod", "MiscEffectsBack", PlayerLayer.MiscEffectsBack, drawInfo =>
-        {
-            if (drawInfo.shadow != 0f || !drawInfo.drawPlayer.Infernum().RedElectrified)
-                return;
-
-            Texture2D texture2D2 = Main.glowMaskTexture[25];
-            int frame = drawInfo.drawPlayer.miscCounter / 5;
-            for (int l = 0; l < 2; l++)
-            {
-                frame %= 7;
-                Player player = drawInfo.drawPlayer;
-                SpriteEffects spriteEffects = drawInfo.drawPlayer.direction == 1 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
-                if (frame > 1 && frame < 5)
-                {
-                    Color lightningColor = Color.Red;
-                    lightningColor.A = 0;
-
-                    Rectangle frameRectangle = new Rectangle(0, frame * texture2D2.Height / 7, texture2D2.Width, texture2D2.Height / 7);
-                    Vector2 fuck = new Vector2((int)(drawInfo.position.X - Main.screenPosition.X - (player.bodyFrame.Width / 2) + (player.width / 2)), (int)(drawInfo.position.Y - Main.screenPosition.Y + player.height - player.bodyFrame.Height + 4f)) + player.bodyPosition + player.bodyFrame.Size() * 0.5f;
-                    DrawData lightningEffect = new DrawData(texture2D2, fuck, frameRectangle, lightningColor, player.bodyRotation, frameRectangle.Size() * 0.5f, 1f, spriteEffects, 0);
-                    Main.playerDrawData.Add(lightningEffect);
-                }
-                frame += 3;
-            }
-        });
-
-        public override void ModifyDrawLayers(List<PlayerLayer> layers)
-        {
-            layers.Add(RedLightningEffect);
-        }
-
         #endregion
         #region Screen Shaking
         public override void ModifyScreenPosition()
@@ -434,17 +340,14 @@ namespace InfernumMode
         {
             TagCompound tag = new TagCompound();
             tag["ProfanedTempleAnimationHasPlayed"] = ProfanedTempleAnimationHasPlayed;
-			ThanatosLaserTypeSelector?.Save(tag);
-            AresSpecialAttackTypeSelector?.Save(tag);
-            TwinsSpecialAttackTypeSelector?.Save(tag);
+			//ThanatosLaserTypeSelector?.Save(tag);
+            //AresSpecialAttackTypeSelector?.Save(tag);
+            //TwinsSpecialAttackTypeSelector?.Save(tag);
 			return tag;
         }
 
         public override void Load(TagCompound tag)
         {
-			ThanatosLaserTypeSelector = MLAttackSelector.Load(tag, "ThanatosLaser");
-            AresSpecialAttackTypeSelector = MLAttackSelector.Load(tag, "AresSpecialAttack");
-            TwinsSpecialAttackTypeSelector = MLAttackSelector.Load(tag, "TwinsSpecialAttack");
             ProfanedTempleAnimationHasPlayed = tag.GetBool("ProfanedTempleAnimationHasPlayed");
         }
         #endregion Saving and Loading
@@ -456,7 +359,7 @@ namespace InfernumMode
                 player.mount.Dismount(player);
             }
 
-            // Ensure that Revengeance Mode is always active while Infernum is active.
+            // Ensure that Death+Revengeance Mode is always active while Infernum is active.
             if (PoDWorld.InfernumMode && !CalamityWorld.revenge)
                 CalamityWorld.revenge = true;
 
@@ -467,28 +370,6 @@ namespace InfernumMode
                 CalamityWorld.malice = false;
             }
 
-            if (PoDWorld.InfernumMode && CalamityWorld.DoGSecondStageCountdown > 600)
-            {
-                for (int i = 0; i < Main.maxNPCs; i++)
-                {
-                    if (Main.npc[i].active &&
-                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("Signus") ||
-                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverHead")) ||
-                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverBody")) ||
-                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverTail")) ||
-                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverNakedHead")) ||
-                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverNakedBody")) ||
-                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverNakedTail")) ||
-                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("CeaselessVoid")) ||
-                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("DarkEnergy")) ||
-                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("DarkEnergy2")) ||
-                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("DarkEnergy3"))))
-                    {
-                        Main.npc[i].active = false;
-                    }
-                }
-                CalamityWorld.DoGSecondStageCountdown = 599;
-            }
 
             if (ShadowflameInferno)
             {
@@ -514,15 +395,6 @@ namespace InfernumMode
                     shadowflame.noGravity = true;
                 }
             }
-        }
-        #endregion
-        #region Fuck
-        public override void UpdateEquips(ref bool wallSpeedBuff, ref bool tileSpeedBuff, ref bool tileRangeBuff)
-        {
-            if (player.armor[0].type == ModContent.ItemType<AuricTeslaCuisses>())
-                player.moveSpeed -= 0.1f;
-            if (player.armor[0].type == ModContent.ItemType<AuricTeslaPlumedHelm>())
-                player.moveSpeed -= 0.15f;
         }
         #endregion
     }
