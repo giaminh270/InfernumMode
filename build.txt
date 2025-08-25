@@ -1,9 +1,9 @@
-author = Lucille Karma, Imogen
-version = 2.0.1.19
+author = Syrax
+version = 1.0.0
 displayName = Calamity Mod Infernum Mode
-modReferences = CalamityMod, SubworldLibrary, Luminance
-hideCode = false
-hideResources = false
-includeSource = true
-homepage = https://discord.gg/S9duFWAnzD
+modReferences=CalamityMod
+sortAfter=CalamityMod
+hideCode=true
+hideResources=true
+includeSource = false
 buildIgnore = *.csproj, *.user, obj\*, bin\*, .vs\*
