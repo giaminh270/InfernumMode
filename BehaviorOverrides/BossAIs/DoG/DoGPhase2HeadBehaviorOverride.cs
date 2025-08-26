@@ -152,8 +152,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             Player target = Main.player[npc.target];
 
             target.Calamity().dogTextCooldown = 20;
-            //target.Calamity().normalityRelocator = false;
-            // target.Calamity().spectralVeil = false;
+
+            // Disable teleportations.
+            target.Calamity().normalityRelocator = false;
+            target.Calamity().spectralVeil = false;
 
             npc.takenDamageMultiplier = 2f;
 

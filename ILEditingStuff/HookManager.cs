@@ -5,6 +5,7 @@ using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs;
 using CalamityMod.NPCs.ExoMechs.Ares;
 using CalamityMod.NPCs.SupremeCalamitas;
+using CalamityMod.NPCs.Yharon;
 using CalamityMod.UI;
 using CalamityMod.World;
 using MonoMod.Cil;
@@ -121,6 +122,12 @@ namespace InfernumMode.ILEditingStuff
         {
             add => HookEndpointManager.Modify(typeof(AresBody).GetMethod("CanHitPlayer", Utilities.UniversalBindingFlags), value);
             remove => HookEndpointManager.Unmodify(typeof(AresBody).GetMethod("CanHitPlayer", Utilities.UniversalBindingFlags), value);
+        }
+
+        public static event ILContext.Manipulator YharonOnHitPlayer
+        {
+            add => HookEndpointManager.Modify(typeof(Yharon).GetMethod("OnHitPlayer", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(Yharon).GetMethod("OnHitPlayer", Utilities.UniversalBindingFlags), value);
         }
 
         public static event ILContext.Manipulator NPCStatsDefineContactDamage

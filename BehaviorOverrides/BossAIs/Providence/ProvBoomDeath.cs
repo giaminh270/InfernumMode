@@ -1,4 +1,5 @@
 using CalamityMod.Projectiles;
+using CalamityMod;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -56,7 +57,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            spriteBatch.EnterShaderRegion();
+            Main.spriteBatch.EnterShaderRegion();
 
             float pulseCompletionRatio = Utils.InverseLerp(Lifetime, 0f, projectile.timeLeft, true);
             Vector2 scale = new Vector2(1.5f, 1f);
@@ -72,9 +73,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             Color pulseColor = Color.Lerp(Color.DarkOrange, Color.Orange, MathHelper.Clamp(pulseCompletionRatio * 1.75f, 0f, 1f));
             GameShaders.Misc["ForceField"].UseColor(pulseColor);
             GameShaders.Misc["ForceField"].Apply(drawData);
-            drawData.Draw(spriteBatch);
+            drawData.Draw(Main.spriteBatch);
 
-            spriteBatch.ExitShaderRegion();
+            Main.spriteBatch.ExitShaderRegion();
             return false;
         }
     }

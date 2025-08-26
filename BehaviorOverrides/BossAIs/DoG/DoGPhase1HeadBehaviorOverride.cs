@@ -211,8 +211,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
         public override bool PreAI(NPC npc)
         {
             // Disable secondary teleport effects.
-            //Main.player[npc.target].Calamity().normalityRelocator = false;
-            //Main.player[npc.target].Calamity().spectralVeil = false;
+            Main.player[npc.target].Calamity().normalityRelocator = false;
+            Main.player[npc.target].Calamity().spectralVeil = false;
 
             ref float universalFightTimer = ref npc.Infernum().ExtraAI[UniversalFightTimerIndex];
             ref float flyAcceleration = ref npc.Infernum().ExtraAI[CurrentFlyAccelerationIndex];

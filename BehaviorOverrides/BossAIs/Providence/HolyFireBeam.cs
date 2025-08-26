@@ -1,4 +1,5 @@
 using CalamityMod;
+using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.NPCs;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -70,8 +71,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             return Collision.CheckAABBvLineCollision(targetHitbox.TopLeft(), targetHitbox.Size(), start, end, width, ref _);
         }
 
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit) => target.Calamity().lastProjectileHit = projectile;
-
         public float WidthFunction(float completionRatio)
         {
             float squeezeInterpolant = Utils.InverseLerp(1f, 0.86f, completionRatio, true);
@@ -81,11 +80,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
         public Color ColorFunction(float completionRatio)
         {
             Color color = Color.Lerp(Color.Orange, Color.DarkRed, (float)Math.Pow(completionRatio, 2D));
+            if (!Main.dayTime)
+                color = Color.Lerp(Color.Cyan, Color.Lime, (float)Math.Pow(completionRatio, 2D) * 0.5f);
+
             color *= projectile.Opacity;
             return color;
         }
 
         public override bool ShouldUpdatePosition() => false;
+
+        public override void OnHitPlayer(Player target, int damage, bool crit)
+        {
+            if (Main.dayTime)
+                target.AddBuff(ModContent.BuffType<HolyFlames>(), 360);
+            else
+                target.AddBuff(ModContent.BuffType<Nightwither>(), 180);
+        }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
@@ -105,8 +115,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             }
 
             Main.instance.GraphicsDevice.BlendState = BlendState.Additive;
-            BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, 32);
-            BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, 32);
+
+            for (int i = 0; i < 2; i++)
+            	BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, 32);
             Main.instance.GraphicsDevice.BlendState = BlendState.AlphaBlend;
             Main.GlobalTime = oldGlobalTime;
             return false;

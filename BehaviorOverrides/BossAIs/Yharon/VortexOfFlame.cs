@@ -27,6 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             projectile.alpha = 255;
             projectile.timeLeft = Lifetime;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()

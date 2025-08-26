@@ -39,7 +39,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             projectile.timeLeft = Lifetime;
             projectile.MaxUpdates = 2;
             projectile.Calamity().canBreakPlayerDefense = true;
-            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)
@@ -80,6 +79,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                     bool isHalfTile = CalamityUtils.ParanoidTileRetrieval(newBottom.X, newBottom.Y - 1).halfBrick();
                     projectile.Bottom = newBottom.ToWorldCoordinates(8, isHalfTile ? 8 : 0);
                     MaxPillarHeight = (PoDWorld.ProvidenceArena.Bottom - PoDWorld.ProvidenceArena.Top) * 16f;
+
+                    for (int i = 12; i < 50; i++)
+                    {
+                        if (Collision.SolidCollision(projectile.Center - Vector2.UnitY * i, 1, 1))
+                        {
+                            projectile.Kill();
+                            return;
+                        }
+                    }
                 }
                 else
                 {
@@ -91,6 +99,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                     bool isHalfTile = CalamityUtils.ParanoidTileRetrieval(newBottom.X - 1, newBottom.Y).halfBrick();
                     projectile.Bottom = newBottom.ToWorldCoordinates(isHalfTile ? 8 : 0, 8);
                     MaxPillarHeight = (PoDWorld.ProvidenceArena.Right - PoDWorld.ProvidenceArena.Left) * 20f;
+
+                    for (int i = 12; i < 50; i++)
+                    {
+                        if (Collision.SolidCollision(projectile.Center - Vector2.UnitX * i, 1, 1))
+                        {
+                            projectile.Kill();
+                            return;
+                        }
+                    }
                 }
 
                 CurrentHeight = StartingHeight;
@@ -128,7 +145,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 if (direction.Y == 0f)
                     lineOffset.Y += 42f;
 
-                Utils.DrawLine(Main.spriteBatch, projectile.Top + lineOffset, projectile.Top - direction * (-MaxPillarHeight + 240f) + lineOffset, Color.LightGoldenrodYellow, Color.LightGoldenrodYellow, scale);
+                Utilities.DrawLineBetter(Main.spriteBatch, projectile.Top + lineOffset, projectile.Top - direction * (-MaxPillarHeight + 240f) + lineOffset, Color.LightGoldenrodYellow, scale);
             }
 
             Texture2D tipTexture = ModContent.GetTexture(Texture);
@@ -150,7 +167,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
         {
-            target.Calamity().lastProjectileHit = projectile;
+            
         }
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)

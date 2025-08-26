@@ -306,7 +306,7 @@ namespace InfernumMode.GlobalInstances
             if (!InfernumMode.CanUseCustomAIs)
                 return base.StrikeNPC(npc, ref damage, defense, ref knockback, hitDirection, ref crit);
 
-            if (npc.type == InfernumMode.CalamityMod.NPCType("Yharon") && OverridingListManager.Registered(npc.type))
+            if (npc.type == ModContent.NPCType<Yharon>() && OverridingListManager.Registered(npc.type))
             {
                 if (npc.life - (int)Math.Ceiling(damage) <= 0)
                     npc.NPCLoot();

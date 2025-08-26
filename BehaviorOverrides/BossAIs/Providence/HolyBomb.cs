@@ -34,7 +34,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public override void AI()
         {
-            projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.08f, 0f, 1f);
+            projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.08f, 0f, 0.55f);
             projectile.rotation = projectile.velocity.ToRotation() + MathHelper.PiOver2;
 
             projectile.velocity *= 0.99f;
@@ -47,19 +47,25 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
+            Texture2D texture = ModContent.GetTexture(Texture);
+            if (!Main.dayTime)
+                texture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Providence/HolyBombNight");
+
             float explosionInterpolant = Utils.InverseLerp(200f, 35f, projectile.timeLeft, true);
             float circleFadeinInterpolant = Utils.InverseLerp(0f, 0.15f, explosionInterpolant, true);
             float pulseInterpolant = Utils.InverseLerp(0.75f, 0.85f, explosionInterpolant, true);
             float colorPulse = ((float)Math.Sin(Main.GlobalTime * 6.3f + projectile.identity) * 0.5f + 0.5f) * pulseInterpolant;
             lightColor = Color.Lerp(lightColor, Color.White, 0.4f);
             lightColor.A = 128;
-            Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type]);
+            Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type], 1, texture);
 
             if (explosionInterpolant > 0f)
             {
                 Texture2D explosionTelegraphTexture = ModContent.GetTexture("InfernumMode/ExtraTextures/HollowCircleSoftEdge");
                 Vector2 scale = Vector2.One * ExplosionRadius / explosionTelegraphTexture.Size();
                 Color explosionTelegraphColor = Color.Lerp(Color.Yellow, Color.Red, colorPulse) * circleFadeinInterpolant;
+                if (!Main.dayTime)
+                    explosionTelegraphColor = Color.Lerp(Color.Cyan, Color.Lime, colorPulse * 0.67f) * circleFadeinInterpolant;
 
                 Main.spriteBatch.SetBlendState(BlendState.Additive);
                 Main.spriteBatch.Draw(explosionTelegraphTexture, projectile.Center - Main.screenPosition, null, explosionTelegraphColor, 0f, explosionTelegraphTexture.Size() * 0.5f, scale, 0, 0f);
@@ -74,7 +80,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             Main.PlaySound(SoundID.DD2_KoboldExplosion, projectile.Center);
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
-                int explosion = Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<HolySunExplosion>(), 350, 0f);
+                int explosionDamage = Main.dayTime ? 350 : 600;
+                int explosion = Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<HolySunExplosion>(), explosionDamage, 0f);
                 if (Main.projectile.IndexInRange(explosion))
                     Main.projectile[explosion].ModProjectile<HolySunExplosion>().MaxRadius = ExplosionRadius * 0.7f;
             }

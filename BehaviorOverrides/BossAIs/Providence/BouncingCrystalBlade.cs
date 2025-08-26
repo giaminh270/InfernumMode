@@ -31,6 +31,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
         {
             projectile.Opacity = Utils.InverseLerp(0f, 16f, projectile.timeLeft, true);
             projectile.rotation += Math.Sign(projectile.velocity.X) * 0.5f;
+            projectile.tileCollide = projectile.timeLeft < 630;
         }
 
         public override void Kill(int timeLeft)
@@ -49,12 +50,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             float oldScale = projectile.scale;
             projectile.scale *= 1.2f;
             lightColor = Color.Lerp(lightColor, Main.hslToRgb(projectile.identity / 7f % 1f, 1f, 0.5f), 0.9f);
-            lightColor.A = 128;
+            lightColor.A = 0;
             Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type]);
             projectile.scale = oldScale;
 
-            lightColor = Color.Lerp(lightColor, Color.White, 0.5f);
-            lightColor.A = 128;
+            lightColor = Color.Lerp(lightColor, Color.White, 0.4f);
+            lightColor.A = 0;
             Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type]);
             return false;
         }

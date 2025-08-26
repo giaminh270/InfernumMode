@@ -87,7 +87,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 
         public override void Kill(int timeLeft)
         {
-            Main.PlaySound(SoundID.Item, (int)projectile.position.X, (int)projectile.position.Y, 14, 0.5f, 0f);
+            Main.PlaySound(SoundID.Item14, projectile.Center);
             CalamityGlobalProjectile.ExpandHitboxBy(projectile, 144);
             for (int d = 0; d < 2; d++)
             {
@@ -113,7 +113,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 
         public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
         {
-            target.Calamity().lastProjectileHit = projectile;
+            
         }
     }
 }

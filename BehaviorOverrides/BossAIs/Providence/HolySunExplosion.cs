@@ -1,4 +1,5 @@
 using CalamityMod;
+using CalamityMod.Buffs.DamageOverTime;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -41,14 +42,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             Time++;
         }
 
-        public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox) => Utilities.CircularCollision(targetHitbox.Center.ToVector2(), projHitbox, Radius * 0.8f);
+        public override void OnHitPlayer(Player target, int damage, bool crit)
+        {
+            if (Main.dayTime)
+                target.AddBuff(ModContent.BuffType<HolyFlames>(), 240);
+            else
+                target.AddBuff(ModContent.BuffType<Nightwither>(), 120);
+        }
+
+        public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox) => Utilities.CircularCollision(targetHitbox.Center.ToVector2(), projHitbox, Radius * 0.725f);
 
         public float SunWidthFunction(float completionRatio) => Radius * (float)Math.Sin(MathHelper.Pi * completionRatio);
 
         public Color SunColorFunction(float completionRatio)
         {
-            Color sunColor = Main.dayTime ? Color.Yellow : Color.Cyan;
-            return Color.Lerp(sunColor, Color.White, (float)Math.Sin(MathHelper.Pi * completionRatio) * 0.5f + 0.3f) * projectile.Opacity;
+            if (!Main.dayTime)
+                return Color.Lerp(Color.Cyan, Color.Lime, 0.33f) * projectile.Opacity;
+
+            return Color.Lerp(Color.Yellow, Color.White, (float)Math.Sin(MathHelper.Pi * completionRatio) * 0.5f + 0.3f) * projectile.Opacity;
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)

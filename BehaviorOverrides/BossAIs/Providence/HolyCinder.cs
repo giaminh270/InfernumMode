@@ -1,3 +1,4 @@
+using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Dusts;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -37,7 +38,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             projectile.frameCounter++;
             projectile.frame = projectile.frameCounter / 5 % Main.projFrames[projectile.type];
             projectile.rotation = projectile.velocity.ToRotation() - MathHelper.PiOver2;
-            projectile.tileCollide = Time > 30f;
+            projectile.tileCollide = Time > 120f;
             Time++;
         }
 
@@ -52,6 +53,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             }
         }
 
+        public override void OnHitPlayer(Player target, int damage, bool crit)
+        {
+            if (Main.dayTime)
+                target.AddBuff(ModContent.BuffType<HolyFlames>(), 120);
+            else
+                target.AddBuff(ModContent.BuffType<Nightwither>(), 60);
+        }
+
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             float telegraphInterpolant = Utils.InverseLerp(0f, 45f, Time, true);
@@ -61,7 +70,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             Main.spriteBatch.DrawLineBetter(projectile.Center, projectile.Center + projectile.velocity.SafeNormalize(Vector2.UnitY) * 6000f, Color.Yellow * telegraphInterpolant, telegraphInterpolant * 3f);
             lightColor = Color.Lerp(lightColor, Color.White, 0.4f);
             lightColor.A = 128;
-            Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type]);
+
+            Texture2D texture = ModContent.GetTexture(Texture);
+            if (!Main.dayTime)
+                texture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Providence/HolyCinderNight");
+            Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type], 1, texture);
             return false;
         }
 

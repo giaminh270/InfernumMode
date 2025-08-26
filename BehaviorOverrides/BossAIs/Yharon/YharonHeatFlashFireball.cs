@@ -1,4 +1,5 @@
 using CalamityMod.Buffs.DamageOverTime;
+using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -22,6 +23,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             projectile.ignoreWater = true;
             projectile.alpha = 50;
             projectile.timeLeft = Lifetime;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -32,6 +34,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
         }
 
         public override bool CanDamage() => projectile.timeLeft < Lifetime - 30;
+
+        public override Color? GetAlpha(Color lightColor) => Color.White * projectile.Opacity;
 
         public override void Kill(int timeLeft)
         {
