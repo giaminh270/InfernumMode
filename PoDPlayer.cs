@@ -82,8 +82,10 @@ namespace InfernumMode
 
         public Vector2 ScreenFocusPosition;
         public float ScreenFocusInterpolant = 0f;
+
         internal Point? CornerOne = null;
         internal Point? CornerTwo = null;
+
         public bool ProfanedLavaFountain
         {
             get;
@@ -121,7 +123,8 @@ namespace InfernumMode
             return true;
         }
         #endregion Nurse Cheese Death
-        #region Skies
+        
+		#region Skies
         internal static readonly FieldInfo EffectsField = typeof(SkyManager).GetField("_effects", BindingFlags.NonPublic | BindingFlags.Instance);
         public override void UpdateBiomeVisuals()
         {
@@ -153,20 +156,19 @@ namespace InfernumMode
                 NPC perforatorHiveNPC = perforatorHive >= 0 ? Main.npc[perforatorHive] : null;
                 player.ManageSpecialBiomeVisuals("InfernumMode:Perforators", perforatorHiveNPC != null && perforatorHiveNPC.localAI[1] > 0f);
 
-                bool useDoG = DoGSkyInfernum.CanSkyBeActive;
-                if (useDoG)
-                    SkyManager.Instance.Activate("InfernumMode:DoG", player.Center);
-                else
-                    SkyManager.Instance.Deactivate("InfernumMode:DoG");
+				bool useDoGInfernumSky = NPC.AnyNPCs(InfernumMode.CalamityMod.NPCType("DevourerofGodsHead"));
+				player.ManageSpecialBiomeVisuals("InfernumMode:DoG", useDoGInfernumSky);
             }
         }
         #endregion
+		
         #region Reset Effects
         public override void ResetEffects()
         {
             RedElectrified = false;
             ShadowflameInferno = false;
             DarkFlames = false;
+            Madness = false;
             ScreenFocusInterpolant = 0f;
             MusicMuffleFactor = 0f;
 
@@ -362,13 +364,17 @@ namespace InfernumMode
             // Ensure that Death+Revengeance Mode is always active while Infernum is active.
             if (PoDWorld.InfernumMode && !CalamityWorld.revenge)
                 CalamityWorld.revenge = true;
+            if (PoDWorld.InfernumMode && !CalamityWorld.death)
+                CalamityWorld.death = true;
+		    if (PoDWorld.InfernumMode && !CalamityWorld.malice)
+	        	CalamityWorld.death = true;	
 
-            // Ensure that Malice Mode is never active while Infernum is active.
+            /* Ensure that Malice Mode is never active while Infernum is active.
             if (PoDWorld.InfernumMode && CalamityWorld.malice)
             {
                 CalamityUtils.DisplayLocalizedText("Mods.CalamityMod.MaliceText2", Color.Crimson);
                 CalamityWorld.malice = false;
-            }
+            }*/
 
 
             if (ShadowflameInferno)

@@ -493,6 +493,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                         else
                             aimRotation = aimRotation.AngleTowards(npc.AngleTo(target.Center), 0.18f);
 
+                        float shootSpeed = Main.rand.NextFloat(12f, 14f) + npc.Distance(target.Center) * 0.011f;
+                        shootSpeed *= Utilities.Remap(attackTimer, hoverTime, hoverTime + 75f, 0.35f, 1f);
+						
                         Vector2 fireballShootVelocity = aimRotation.ToRotationVector2() * Main.rand.NextFloat(12f, 14f);
                         fireballShootVelocity = fireballShootVelocity.RotatedByRandom(MathHelper.Pi * 0.1f);
                         if (BossRushEvent.BossRushActive)

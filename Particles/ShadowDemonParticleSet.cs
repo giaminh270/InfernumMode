@@ -1,5 +1,4 @@
-﻿using CalamityMod.Particles;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,13 +8,12 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.Particles
 {
-    public class ShadowDemonParticleSet : BaseFusableParticleSet
+    public class ShadowDemonParticleSet : InfernumBaseFusableParticleSet
     {
 		
         public override float BorderSize => 3f;
         public override bool BorderShouldBeSolid => false;
         public override Color BorderColor => Color.Lerp(Color.Fuchsia, Color.Black, 0.7f) * 0.85f;
-		public override FusableParticleRenderLayer RenderLayer => FusableParticleRenderLayer.OverPlayers;
 
 
         public override List<Effect> BackgroundShaders => new List<Effect>()

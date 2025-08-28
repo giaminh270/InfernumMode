@@ -13,6 +13,7 @@ using System;
 using System.Linq;
 using System.IO;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;

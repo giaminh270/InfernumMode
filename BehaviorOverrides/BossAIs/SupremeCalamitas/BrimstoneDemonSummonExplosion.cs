@@ -22,6 +22,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.timeLeft = 480;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -51,6 +52,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             if (Main.netMode == NetmodeID.MultiplayerClient)
                 return;
 
+            Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<SuicideBomberDemonExplosion>(), 0, 0f);
             Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<SuicideBomberDemonHostile>(), 650, 0f);
         }
 

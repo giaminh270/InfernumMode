@@ -9,6 +9,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
     public class CondemnationArrowSCal : ModProjectile
     {
+        public PrimitiveTrailCopy TrailDrawer = null;
+
         public ref float Time => ref projectile.ai[0];
 
         public override void SetStaticDefaults()

@@ -51,7 +51,7 @@ namespace InfernumMode
 	
         internal static bool CanUseCustomAIs => (!BossRushEvent.BossRushActive || BossRushApplies) && PoDWorld.InfernumMode;
 
-        internal static bool BossRushApplies => true;
+        internal static bool BossRushApplies => false;
 
         internal static readonly Color HiveMindSkyColor = new Color(53, 42, 82);
 
@@ -100,7 +100,11 @@ namespace InfernumMode
 
             if (Main.netMode != NetmodeID.Server)
             {
-                CryogenBehaviorOverride.SetupCustomBossIcon();
+                AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/Cryogen/CryogenMapIcon", -1);
+                AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/SupremeCalamitas/SepulcherMapIcon", -1);
+
+                Ref<Effect> madnessShader = new Ref<Effect>(GetEffect("Effects/Madness"));
+                Filters.Scene["InfernumMode:Madness"] = new Filter(new MadnessScreenShaderData(madnessShader, "DyePass"), EffectPriority.VeryHigh);
 
                 Ref<Effect> aewPsychicEnergyShader = new Ref<Effect>(GetEffect("Effects/AEWPsychicDistortionShader"));
                 GameShaders.Misc["Infernum:AEWPsychicEnergy"] = new MiscShaderData(aewPsychicEnergyShader, "DistortionPass");
@@ -188,22 +192,32 @@ namespace InfernumMode
 
                 // Screen shaders.
 
-		        Filters.Scene["InfernumMode:HiveMind"] = new Filter(new HiveMindScreenShaderData("FilterMiniTower").UseColor(HiveMindSkyColor).UseOpacity(0.6f), EffectPriority.VeryHigh);
-		        SkyManager.Instance["InfernumMode:HiveMind"] = new HiveMindSky();
+                Filters.Scene["InfernumMode:HiveMind"] = new Filter(new HiveMindScreenShaderData("FilterMiniTower").UseColor(HiveMindSkyColor).UseOpacity(0.6f), EffectPriority.VeryHigh);
+                SkyManager.Instance["InfernumMode:HiveMind"] = new HiveMindSky();
 
-		        Filters.Scene["InfernumMode:Perforators"] = new Filter(new PerforatorScreenShaderData("FilterMiniTower").UseColor(new Color(255, 60, 30)).UseOpacity(0.445f), EffectPriority.VeryHigh);
-		        SkyManager.Instance["InfernumMode:Perforators"] = new PerforatorSky();
+                Filters.Scene["InfernumMode:Perforators"] = new Filter(new PerforatorScreenShaderData("FilterMiniTower").UseColor(new Color(255, 60, 30)).UseOpacity(0.445f), EffectPriority.VeryHigh);
+                SkyManager.Instance["InfernumMode:Perforators"] = new PerforatorSky();
 
-		        Filters.Scene["InfernumMode:Dragonfolly"] = new Filter(new DragonfollyScreenShaderData("FilterMiniTower").UseColor(Color.Red).UseOpacity(0.6f), EffectPriority.VeryHigh);
-		        SkyManager.Instance["InfernumMode:Dragonfolly"] = new DragonfollySky();
+                Filters.Scene["InfernumMode:Dragonfolly"] = new Filter(new DragonfollyScreenShaderData("FilterMiniTower").UseColor(Color.Red).UseOpacity(0.6f), EffectPriority.VeryHigh);
+                SkyManager.Instance["InfernumMode:Dragonfolly"] = new DragonfollySky();
 
-		        Filters.Scene["InfernumMode:Deus"] = new Filter(new DeusScreenShaderData("FilterMiniTower").UseColor(Color.Lerp(Color.Purple, Color.Black, 0.75f)).UseOpacity(0.24f), EffectPriority.VeryHigh);
-		        SkyManager.Instance["InfernumMode:Deus"] = new DeusSky();
+                Filters.Scene["InfernumMode:Deus"] = new Filter(new DeusScreenShaderData("FilterMiniTower").UseColor(Color.Lerp(Color.Purple, Color.Black, 0.75f)).UseOpacity(0.24f), EffectPriority.VeryHigh);
+                SkyManager.Instance["InfernumMode:Deus"] = new DeusSky();
 
-		        Filters.Scene["InfernumMode:OldDuke"] = new Filter(new OldDukeScreenShaderData("FilterMiniTower").UseColor(Color.Lerp(Color.Lime, Color.Black, 0.9f)).UseOpacity(0.6f), EffectPriority.VeryHigh);
+                Filters.Scene["InfernumMode:NightProvidence"] = new Filter(new NightProvidenceShaderData("FilterMiniTower").UseOpacity(0.67f), EffectPriority.VeryHigh);
+                SkyManager.Instance["InfernumMode:NightProvidence"] = new NightProvidenceSky();
+
+                Filters.Scene["InfernumMode:OldDuke"] = new Filter(new OldDukeScreenShaderData("FilterMiniTower").UseOpacity(0.6f), EffectPriority.VeryHigh);
                 SkyManager.Instance["InfernumMode:OldDuke"] = new OldDukeSky();
 
+                Filters.Scene["InfernumMode:DoG"] = new Filter(new PerforatorScreenShaderData("FilterMiniTower").UseColor(0.4f, 0.1f, 1.0f).UseOpacity(0.5f), EffectPriority.VeryHigh);
                 SkyManager.Instance["InfernumMode:DoG"] = new DoGSkyInfernum();
+
+                Ref<Effect> scalScreenShader = new Ref<Effect>(GetEffect("Effects/SCalFireBGShader"));
+                Filters.Scene["InfernumMode:SCal"] = new Filter(new SCalScreenShaderData(scalScreenShader, "DyePass").UseColor(0.3f, 0f, 0f).UseOpacity(0.5f), EffectPriority.VeryHigh);
+                SkyManager.Instance["InfernumMode:SCal"] = new SCalSkyInfernum();
+
+                SkyManager.Instance["InfernumMode:Madness"] = new MadnessSky();
             }
 
             if (BossRushApplies)

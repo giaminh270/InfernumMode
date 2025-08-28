@@ -16,7 +16,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
         public PrimitiveTrailCopy FireDrawer;
 
         public ref float Time => ref projectile.ai[0];
+        
         public ref float Radius => ref projectile.ai[1];
+        
         public override void SetStaticDefaults() => DisplayName.SetDefault("Demonic Explosion");
 
         public override void SetDefaults()
@@ -29,6 +31,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.timeLeft = 84;
             projectile.MaxUpdates = 2;
             projectile.scale = 1f;
+            projectile.hide = true;
             projectile.Calamity().canBreakPlayerDefense = true;
         }
 
@@ -49,6 +52,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
         {
             Color sunColor = Main.dayTime ? Color.Yellow : Color.Cyan;
             return Color.Lerp(sunColor, Color.White, (float)Math.Sin(MathHelper.Pi * completionRatio) * 0.5f + 0.3f) * projectile.Opacity;
+        }
+
+        public override void DrawBehind(int index, List<int> behindNPCsAndTiles, List<int> behindNPCs, List<int> behindProjectiles, List<int> overPlayers)
+        {
+            behindNPCs.Add(index);
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
@@ -75,7 +83,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                     drawPoints.Add(Vector2.Lerp(projectile.Center - offsetDirection * Radius / 2f, projectile.Center + offsetDirection * Radius / 2f, i / 16f));
                 }
 
-                FireDrawer.Draw(drawPoints, -Main.screenPosition, 24);
+                FireDrawer.Draw(drawPoints, -Main.screenPosition, 14);
             }
             return false;
         }

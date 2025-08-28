@@ -55,9 +55,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             Vector2 destinationOffset = (MathHelper.TwoPi * npc.whoAmI / 13f).ToRotationVector2() * 32f;
             npc.velocity = (npc.velocity * 34f + npc.SafeDirectionTo(slimeGod.Center + destinationOffset) * flySpeed) / 35f;
 
-			float distance = npc.Distance(slimeGod.Center);
-			float progress = MathHelper.Clamp((distance - 240f) / (80f - 240f), 0f, 1f);
-			npc.Opacity = 1f + progress * (0.1f - 1f);
+            npc.Opacity = Utilities.Remap(npc.Distance(slimeGod.Center), 240f, 80f, 1f, 0.1f);
             if (npc.Opacity <= 0.1f)
                 npc.active = false;
 

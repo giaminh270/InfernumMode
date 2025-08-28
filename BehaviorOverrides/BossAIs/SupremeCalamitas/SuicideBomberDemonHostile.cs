@@ -59,7 +59,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 projectile.owner = Player.FindClosest(projectile.Center, 1, 1);
 
             // Rapidly fade in.
-            projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.025f, 0f, 1f);
+            projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.1f, 0f, 1f);
 
             // Anti-clumping behavior.
             float pushForce = 0.08f;
@@ -198,9 +198,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public override bool CanDamage() => projectile.Opacity >= 1f;
 
-        public float FlameTrailWidthFunction(float completionRatio) => MathHelper.SmoothStep(21f, 8f, completionRatio);
+        public static float FlameTrailWidthFunction(float completionRatio) => MathHelper.SmoothStep(21f, 8f, completionRatio);
 
-        public Color FlameTrailColorFunction(float completionRatio)
+        public static Color FlameTrailColorFunction(float completionRatio)
         {
             float trailOpacity = Utils.InverseLerp(0.8f, 0.27f, completionRatio, true) * Utils.InverseLerp(0f, 0.067f, completionRatio, true);
             Color startingColor = Color.Lerp(Color.Cyan, Color.White, 0.4f);

@@ -1,8 +1,10 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using System;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.GameContent;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
@@ -30,7 +32,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public override void AI()
         {
-            projectile.Opacity = Utils.InverseLerp(0f, 15f, Time, true);
+            projectile.Opacity = Utils.InverseLerp(0f, 6f, Time, true);
             projectile.frameCounter++;
             projectile.frame = projectile.frameCounter / 5 % Main.projFrames[projectile.type];
 
@@ -40,8 +42,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 projectile.rotation += MathHelper.Pi;
 
             // Slow down dramatically on the vertical axis and speed upon the horizontal one.
-            projectile.velocity.X *= 1.02f;
-            projectile.velocity.Y *= 0.96f;
+            if (Math.Abs(projectile.velocity.X) < 25f)
+                projectile.velocity.X *= 1.034f;
+            projectile.velocity.Y *= 0.9825f;
 
             Time++;
         }
@@ -59,7 +62,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type], 1, Main.projectileTexture[projectile.type], false);
+            Utilities.DrawAfterimagesCentered(projectile, Color.White, ProjectileID.Sets.TrailingMode[projectile.type], 1, Main.projectileTexture[projectile.type], false);
             return false;
         }
     }

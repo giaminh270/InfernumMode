@@ -1,9 +1,11 @@
 using CalamityMod.NPCs;
+using CalamityMod.NPCs.DevourerofGods;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.Graphics.Effects;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -20,8 +22,9 @@ namespace InfernumMode.Skies
             public Color LightningColor;
         }
 
-        public float BackgroundIntensity;
-        public float LightningIntensity;
+        public bool isActive = false;
+        public float Intensity = 0f;
+        public int EdgyWormIndex = -1;
         public List<Lightning> LightningBolts = new List<Lightning>();
         public static bool CanSkyBeActive
         {
@@ -50,63 +53,65 @@ namespace InfernumMode.Skies
                 };
                 (SkyManager.Instance["InfernumMode:DoG"] as DoGSkyInfernum).LightningBolts.Add(lightning);
             }
-
-            // Make the sky flash if enough lightning bolts are created.
-            if (count >= 10)
-            {
-                (SkyManager.Instance["InfernumMode:DoG"] as DoGSkyInfernum).LightningIntensity = 1f;
-                playSound = true;
-            }
-
             if (playSound && !Main.gamePaused)
             {
                 var lightningSound = Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ThunderStrike"), Main.LocalPlayer.Center);
                 if (lightningSound != null)
                     lightningSound.Volume *= 0.5f;
             }
-        }
-
+		}	
+			
         public override void Update(GameTime gameTime)
         {
-            if (!CanSkyBeActive)
-            {
-                LightningIntensity = 0f;
-                BackgroundIntensity = MathHelper.Clamp(BackgroundIntensity - 0.08f, 0f, 1f);
-                LightningBolts.Clear();
-                Deactivate();
-                return;
-            }
-
-            LightningIntensity = MathHelper.Clamp(LightningIntensity * 0.95f - 0.025f, 0f, 1f);
-            BackgroundIntensity = MathHelper.Clamp(BackgroundIntensity + 0.01f, 0f, 1f);
+            if (isActive && Intensity < 1f)
+                Intensity += 0.01f;
+            else if (!isActive && Intensity > 0f)
+                Intensity -= 0.01f;
 
             for (int i = 0; i < LightningBolts.Count; i++)
             {
                 LightningBolts[i].Lifetime--;
             }
+            LightningBolts.RemoveAll(l => l.Lifetime <= 0);
+        }
 
-            Opacity = BackgroundIntensity;
+        private float GetIntensity()
+        {
+            UpdatePIndex();
+            return 1f;
+        }
+
+        public override Color OnTileColor(Color inColor)
+        {
+            float Intensity = this.GetIntensity();
+            return new Color(Vector4.Lerp(new Vector4(0.5f, 0.8f, 1f, 1f), inColor.ToVector4(), 1f - Intensity));
+        }
+
+        private bool UpdatePIndex()
+        {
+            int ProvType = ModContent.NPCType<DevourerofGodsHead>();
+            if (EdgyWormIndex >= 0 && Main.npc[EdgyWormIndex].active && Main.npc[EdgyWormIndex].type == ProvType)
+            {
+                return true;
+            }
+            EdgyWormIndex = -1;
+            for (int i = 0; i < Main.maxNPCs; i++)
+            {
+                if (Main.npc[i].active && Main.npc[i].type == ProvType)
+                {
+                    EdgyWormIndex = i;
+                    break;
+                }
+            }
+            return EdgyWormIndex != -1;
         }
 
         public override void Draw(SpriteBatch spriteBatch, float minDepth, float maxDepth)
         {
-            if (!CanSkyBeActive)
-                return;
-
-            if (maxDepth >= float.MaxValue)
+            if (maxDepth >= 0 && minDepth < 0)
             {
-                // Draw lightning in the background based on Main.magicPixel.
-                // It is a long, white vertical strip that exists for some reason.
-                // This lightning effect is achieved by expanding this to fit the entire background and then drawing it as a distinct element.
-                Vector2 scale = new Vector2(Main.screenWidth * 1.1f / Main.magicPixel.Width, Main.screenHeight * 1.1f / Main.magicPixel.Height);
-                Vector2 screenArea = new Vector2(Main.screenWidth, Main.screenHeight) * 0.5f;
-                Color drawColor = Color.White * MathHelper.Lerp(0f, 0.24f, LightningIntensity) * BackgroundIntensity;
-
-                // Draw a grey background as base.
-                spriteBatch.Draw(Main.magicPixel, screenArea, null, OnTileColor(Color.Transparent), 0f, Main.magicPixel.Size() * 0.5f, scale, SpriteEffects.None, 0f);
-
-                for (int i = 0; i < 2; i++)
-                    spriteBatch.Draw(Main.magicPixel, screenArea, null, drawColor, 0f, Main.magicPixel.Size() * 0.5f, scale, SpriteEffects.None, 0f);
+                float Intensity = this.GetIntensity();
+                Main.spriteBatch.Draw(Main.blackTileTexture, new Rectangle(0, 0, Main.screenWidth, Main.screenHeight), Color.Black * Intensity);
             }
 
             Texture2D flashTexture = ModContent.GetTexture("Terraria/Misc/VortexSky/Flash");
@@ -131,19 +136,34 @@ namespace InfernumMode.Skies
                         texture = flashTexture;
 
                     float opacity = life * spaceFade / 20f;
-                    spriteBatch.Draw(texture, position, null, LightningBolts[i].LightningColor * opacity, 0f, Vector2.Zero, boltScale.X * 5f, SpriteEffects.None, 0f);
+                    Main.spriteBatch.Draw(texture, position, null, LightningBolts[i].LightningColor * opacity, 0f, Vector2.Zero, boltScale.X * 5f, SpriteEffects.None, 0f);
                 }
             }
         }
 
-        public override float GetCloudAlpha() => 0f;
+        public override float GetCloudAlpha()
+        {
+            return 0f;
+        }
 
-        public override void Reset() { }
+        public override void Activate(Vector2 position, params object[] args)
+        {
+            isActive = true;
+        }
 
-        public override void Activate(Vector2 position, params object[] args) { }
+        public override void Deactivate(params object[] args)
+        {
+            isActive = false;
+        }
 
-        public override void Deactivate(params object[] args) { }
+        public override void Reset()
+        {
+            isActive = false;
+        }
 
-        public override bool IsActive() => CanSkyBeActive && !Main.gameMenu;
+        public override bool IsActive()
+        {
+            return isActive || Intensity > 0f;
+        }
     }
 }

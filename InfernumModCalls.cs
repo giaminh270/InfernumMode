@@ -25,14 +25,14 @@ namespace InfernumMode
                 case "SetInfernumActive":
                     PoDWorld.InfernumMode = (bool)args[1];
                     break;
-				case "CanPlayMusicForNPC":
+                case "CanPlayMusicForNPC":
                     int npcID = (int)args[1];
                     return CanPlayMusicForNPC(npcID);
             }
             return null;
         }
-		
-		public static bool CanPlayMusicForNPC(int npcID)
+
+        public static bool CanPlayMusicForNPC(int npcID)
         {
             if (npcID == NPCID.EyeofCthulhu)
                 return NPC.AnyNPCs(npcID);

@@ -1,6 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 
-namespace InfernumMode
+namespace InfernumMode.DataStructures
 {
 
     // Restarting the sprite batch for each different projectile is analogously equivalent to creating an entire new factory just to build a single car.

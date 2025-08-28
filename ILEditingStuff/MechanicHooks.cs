@@ -8,6 +8,7 @@ using InfernumMode.Balancing;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon;
 using InfernumMode.BehaviorOverrides.BossAIs.Golem;
 using InfernumMode.BehaviorOverrides.BossAIs.Providence;
+using InfernumMode.DataStructures;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
@@ -343,14 +344,6 @@ namespace InfernumMode.ILEditingStuff
                 Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.LinearClamp, DepthStencilState.None, Main.instance.Rasterizer, null, Matrix.Identity);
                 
                 Vector2 scale = new Vector2(Main.screenWidth, Main.screenHeight) / Main.magicPixel.Size() * Main.GameViewMatrix.Zoom * 2f;
-                /*GameShaders.Misc["Infernum:MoonLordBGDistortion"].Shader.Parameters["uTopLeftFreeArea"].SetValue(topLeft);
-                GameShaders.Misc["Infernum:MoonLordBGDistortion"].Shader.Parameters["uBottomRightFreeArea"].SetValue(bottomRight);
-                GameShaders.Misc["Infernum:MoonLordBGDistortion"].Shader.Parameters["uZoomMatrix"].SetValue(zoomMatrix);
-                GameShaders.Misc["Infernum:MoonLordBGDistortion"].UseColor(Color.Gray);
-                GameShaders.Misc["Infernum:MoonLordBGDistortion"].UseSecondaryColor(Color.Turquoise);
-                GameShaders.Misc["Infernum:MoonLordBGDistortion"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/CultistRayMap"));
-                GameShaders.Misc["Infernum:MoonLordBGDistortion"].Apply();
-                Vector2 hell = new Vector2(Main.screenWidth * (Main.GameViewMatrix.Zoom.X - 1f), Main.screenHeight * (Main.GameViewMatrix.Zoom.Y - 1f));*/
                 Main.spriteBatch.Draw(Main.magicPixel, Vector2.Zero, null, Color.Black, 0f, Vector2.Zero, scale * 1.5f, 0, 0f);
 
                 Main.spriteBatch.End();
@@ -362,4 +355,52 @@ namespace InfernumMode.ILEditingStuff
 
         public void Unload() => On.Terraria.Main.DrawSurfaceBG -= PrepareShaderForBG;
     }
+	
+	public class InfernumAdditiveDrawingSystem : IHookEdit
+	{
+        private static void AdditiveDrawing(ILContext il)
+        {
+            ILCursor cursor = new ILCursor(il);
+            if (!cursor.TryGotoNext(MoveType.After, i => i.MatchCall<MoonlordDeathDrama>("DrawWhite")))
+                return;
+
+            cursor.EmitDelegate<Action>(() =>
+            {
+                Main.spriteBatch.SetBlendState(BlendState.Additive);
+
+                // Draw Projectiles.
+                for (int i = 0; i < Main.maxProjectiles; i++)
+                {
+                    if (!Main.projectile[i].active)
+                        continue;
+
+                    if (Main.projectile[i].modProjectile is IAdditiveDrawer)
+					{
+						IAdditiveDrawer d = (IAdditiveDrawer)Main.projectile[i].modProjectile;
+						d.AdditiveDraw(Main.spriteBatch);
+					}
+                }
+
+                // Draw NPCs.
+                for (int i = 0; i < Main.maxNPCs; i++)
+                {
+                    if (!Main.npc[i].active)
+                        continue;
+
+                    if (Main.npc[i].modNPC is IAdditiveDrawer)
+					{
+						IAdditiveDrawer d = (IAdditiveDrawer)Main.npc[i].modNPC;
+                        d.AdditiveDraw(Main.spriteBatch);
+					}
+                }
+
+                Main.spriteBatch.SetBlendState(BlendState.AlphaBlend);
+            });
+        }
+        public void Load() => IL.Terraria.Main.DoDraw += AdditiveDrawing;
+
+        public void Unload() => IL.Terraria.Main.DoDraw -= AdditiveDrawing;		
+	}
+
+
 }

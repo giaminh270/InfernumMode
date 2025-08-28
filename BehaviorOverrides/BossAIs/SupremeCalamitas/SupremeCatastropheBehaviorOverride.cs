@@ -1,25 +1,28 @@
 using CalamityMod.NPCs.SupremeCalamitas;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using System;
 using Terraria;
 using Terraria.ModLoader;
+
+using SCalNPC = CalamityMod.NPCs.SupremeCalamitas.SupremeCalamitas;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
     public class SupremeCatastropheBehaviorOverride : NPCBehaviorOverride
     {
+        public override int? NPCIDToDeferToForTips => ModContent.NPCType<SCalNPC>();
+
         public override int NPCOverrideType => ModContent.NPCType<SupremeCatastrophe>();
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame;
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame | NPCOverrideContext.NPCPreDraw;
 
-        #region AI
         public override bool PreAI(NPC npc)
         {
             SupremeCataclysmBehaviorOverride.DoAI(npc);
             return false;
         }
-        #endregion AI
 
         #region Frames and Drawcode
         public override void FindFrame(NPC npc, int frameHeight)
@@ -51,6 +54,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             npc.frame.X = xFrame * npc.frame.Width;
             npc.frame.Y = yFrame * npc.frame.Height;
         }
+        
+        public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor) => SupremeCataclysmBehaviorOverride.DrawBrother(npc, spriteBatch, lightColor);
         #endregion Frames and Drawcode
     }
 }

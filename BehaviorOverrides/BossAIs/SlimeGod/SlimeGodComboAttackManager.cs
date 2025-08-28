@@ -188,8 +188,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                 if (chargeOffsetDirection == 0f)
                     chargeOffsetDirection = 1f;
 
-				float progress = MathHelper.Clamp(attackTimer / maxHoverTime, 0f, 1f);
-				float hoverSpeed = 23.5f + progress * 15f;
+                float hoverSpeed = Utilities.Remap(attackTimer, 0f, maxHoverTime, 23.5f, 38.5f);
                 Vector2 hoverDestination = getHoverDestination(npc);
                 npc.velocity = Vector2.Lerp(npc.velocity, Vector2.Zero.MoveTowards(hoverDestination - npc.Center, hoverSpeed), 0.2f);
                 npc.noTileCollide = true;
@@ -212,8 +211,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             // Slam downward.
             if (attackTimer < maxHoverTime + maxSlamTime)
             {
-				float progress = MathHelper.Clamp((attackTimer - maxHoverTime) / 45f, 0f, 1f);
-				float gravity = 1.3f + progress * 1.3f;
+                float gravity = Utilities.Remap(attackTimer - maxHoverTime, 0f, 45f, 1.3f, 2.6f);
                 npc.noGravity = true;
                 npc.velocity.X *= 0.8f;
                 npc.noTileCollide = npc.Bottom.Y < target.Bottom.Y;

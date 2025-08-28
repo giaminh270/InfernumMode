@@ -153,8 +153,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             backglowInterpolant = Utils.InverseLerp(dustAnimationTime / 2f - 20f, dustAnimationTime - 1f, attackTimer, true);
 
             // Spin 2 win.
-			float progress = MathHelper.Clamp((attackTimer - 15f) / (dustAnimationTime - 30f), 0f, 1f);
-			float spinSpeed = progress * (MathHelper.Pi / 24f);
+            float spinSpeed = Utilities.Remap(attackTimer, 15f, dustAnimationTime - 15f, 0f, MathHelper.Pi / 24f);
             npc.rotation += spinSpeed;
             npc.velocity *= 0.95f;
 

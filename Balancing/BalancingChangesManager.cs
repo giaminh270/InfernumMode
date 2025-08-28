@@ -64,8 +64,9 @@ namespace InfernumMode.Balancing
             int inkCloud3 = ProjectileType<InkCloud3>();
 
             float aresPierceResistFactor = 0.925f;
-            //float sepulcherPierceResistFactor = 0.375f;
-            //var sepulcherProjResists1 = new ProjectileResistBalancingRule(0.3f, ProjectileType<DragonRageStaff>(), ProjectileType<DragonRageFireball>(), ProjectileType<MurasamaSlash>());
+            float sepulcherPierceResistFactor = 0.375f;
+
+            var sepulcherProjResists1 = new ProjectileResistBalancingRule(0.3f, ProjectileType<DragonRageStaff>(), ProjectileType<DragonRageFireball>(), ProjectileType<MurasamaSlash>());
             var sepulcherProjResists2 = new ProjectileResistBalancingRule(0.2f, ProjectileType<ChickenExplosion>());
 
             NPCSpecificBalancingChanges = new List<NPCBalancingChange>()
@@ -138,13 +139,11 @@ namespace InfernumMode.Balancing
                 
                 // Old Duke.
                 new NPCBalancingChange(NPCType<OldDuke>(), Do(new ProjectileResistBalancingRule(0.65f, ProjectileType<FatesRevealFlame>()))),
+
                 // The Devourer of Gods.
                 new NPCBalancingChange(NPCType<DevourerofGodsBody>(), Do(new ProjectileResistBalancingRule(0.45f, ProjectileID.MoonlordBullet, ProjectileID.MoonlordArrow, ProjectileID.MoonlordArrowTrail))),
                 new NPCBalancingChange(NPCType<DevourerofGodsBody>(), Do(new ProjectileResistBalancingRule(0.5f, ProjectileType<TerrorBeam>(), ProjectileType<TerrorBlast>()))),
                 new NPCBalancingChange(NPCType<DevourerofGodsHead>(), Do(new ProjectileResistBalancingRule(0.5f, ProjectileType<TerrorBeam>(), ProjectileType<TerrorBlast>()))),
-
-                // Yharon.
-                // new NPCBalancingChange(NPCType<Yharon>(), Do(new ProjectileResistBalancingRule(0.4f, ProjectileType<SarosAura>(), ProjectileType<SarosSunfire>(), ProjectileType<SarosMicrosun>()))),
 
                 // Exo Mechs.
                 new NPCBalancingChange(NPCType<AresBody>(), Do(new PierceResistBalancingRule(aresPierceResistFactor))),
@@ -163,6 +162,12 @@ namespace InfernumMode.Balancing
                 new NPCBalancingChange(NPCType<ThanatosBody2>(), Do(new ProjectileResistBalancingRule(0.4f, ProjectileType<DragonRageFireball>()))),
 
                 // Supreme Calamitas.
+                new NPCBalancingChange(NPCType<SCalWormBody>(), Do(new PierceResistBalancingRule(sepulcherPierceResistFactor))),
+                new NPCBalancingChange(NPCType<SCalWormBodyWeak>(), Do(new PierceResistBalancingRule(sepulcherPierceResistFactor))),
+                new NPCBalancingChange(NPCType<SCalWormBody>(), Do(sepulcherProjResists1)),
+                new NPCBalancingChange(NPCType<SCalWormBodyWeak>(), Do(sepulcherProjResists1)),
+                new NPCBalancingChange(NPCType<SCalWormBody>(), Do(sepulcherProjResists2)),
+                new NPCBalancingChange(NPCType<SCalWormBodyWeak>(), Do(sepulcherProjResists2)),
                 new NPCBalancingChange(NPCType<SupremeCalamitas>(), Do(new ProjectileResistBalancingRule(0.55f, ProjectileType<InfernadoFriendly>()))),
             };
         }

@@ -1,9 +1,12 @@
+using CalamityMod.Buffs.StatBuffs;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.Enums;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -40,6 +43,10 @@ namespace InfernumMode.BehaviorOverrides.MinibossAIs.Betsy
 
             // Clear pickoff enemies.
             OldOnesArmyMinibossChanges.ClearPickoffOOAEnemies();
+
+            // Give the target the boss effects buff.
+            if (!target.Invalid && target.Type == NPCTargetType.Player && npc.WithinRange(target.Center, 6400f))
+                Main.player[npc.target].AddBuff(ModContent.BuffType<BossZen>(), 2);
 
             if (attackDelay < 90f)
             {

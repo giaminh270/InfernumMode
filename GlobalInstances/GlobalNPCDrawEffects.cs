@@ -14,6 +14,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -89,6 +90,9 @@ namespace InfernumMode.GlobalInstances
             // Have Cryogen use a custom map icon.
             if (npc.type == ModContent.NPCType<Cryogen>())
                 index = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/Cryogen/CryogenMapIcon");
+            // Have Sepulcher use a custom map icon.
+            if (npc.type == ModContent.NPCType<SCalWormHead>())
+                index = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/SupremeCalamitas/SepulcherMapIcon");
         }
 
         public override void BossHeadRotation(NPC npc, ref float rotation)

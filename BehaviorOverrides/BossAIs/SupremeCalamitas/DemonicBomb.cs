@@ -1,4 +1,5 @@
 using CalamityMod;
+using CalamityMod.Projectiles.Boss;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -10,7 +11,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
     public class DemonicBomb : ModProjectile
     {
-        public float ExplosionRadius => projectile.ai[0];
+        public bool ExplodeIntoDarts;
+
+        public ref float ExplosionRadius => ref projectile.ai[0];
 
         public override void SetStaticDefaults()
         {
@@ -18,7 +21,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             Main.projFrames[projectile.type] = 6;
             ProjectileID.Sets.TrailingMode[projectile.type] = 0;
             ProjectileID.Sets.TrailCacheLength[projectile.type] = 4;
-
         }
 
         public override void SetDefaults()
@@ -34,7 +36,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public override void AI()
         {
-            projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.08f, 0f, 1f);
+            projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.08f, 0f, 0.55f);
 
             projectile.velocity *= 0.99f;
             projectile.frameCounter++;
@@ -73,9 +75,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             Main.PlaySound(SoundID.DD2_KoboldExplosion, projectile.Center);
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
-                int explosion = Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<DemonicExplosion>(), 900, 0f);
+                int explosion = Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<DemonicExplosion>(), 660, 0f);
                 if (Main.projectile.IndexInRange(explosion))
                     Main.projectile[explosion].ModProjectile<DemonicExplosion>().MaxRadius = ExplosionRadius * 0.7f;
+                if (ExplodeIntoDarts)
+                {
+                    for (int i = 0; i < 6; i++)
+                    {
+                        Vector2 dartVelocity = (MathHelper.TwoPi * i / 6f).ToRotationVector2() * 7.4f;
+                        Utilities.NewProjectileBetter(projectile.Center, dartVelocity, ModContent.ProjectileType<BrimstoneBarrage>(), 500, 0f);
+                    }
+                }
             }
 
             // Do some some mild screen-shake effects to accomodate the explosion.

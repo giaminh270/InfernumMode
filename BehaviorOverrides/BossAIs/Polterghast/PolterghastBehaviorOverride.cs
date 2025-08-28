@@ -954,20 +954,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
         {
             int slowdownTime = 60;
             int shootTime = 240;
-            float soulSpeed;
-			if (attackTimer <= slowdownTime)
-			{
-				soulSpeed = 7.11f;
-			}
-			else if (attackTimer >= slowdownTime + 100f)
-			{
-				soulSpeed = 20.5f;
-			}
-			else
-			{
-				float progress = (attackTimer - slowdownTime) / 100f;
-				soulSpeed = 7.11f + progress * (20.5f - 7.11f);
-			}
+			float soulSpeed = Utilities.Remap(attackTimer, slowdownTime, slowdownTime + 100f, 7.11f, 20.5f);
             int attackDuration = slowdownTime + shootTime;
 
             // Slow down and look at the target.
@@ -1308,6 +1295,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
 
             vignetteInterpolant = Utils.InverseLerp(0f, vignetteFadeinTime, attackTimer, true);
 
+            // Hurt the player if they leave the circle.
+            if (attackTimer < finalAttackStartTime + soulBurstDelay && !npc.WithinRange(target.Center, MinGhostCircleRadius + 90f))
+                target.AddBuff(ModContent.BuffType<Madness>(), 8);
+			
             if (attackTimer < attackDelay)
                 return;
 

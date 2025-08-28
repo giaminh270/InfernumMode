@@ -220,7 +220,7 @@ namespace InfernumMode.ILEditingStuff
             }));
             cursor.Emit(OpCodes.Ret);
         }
-
+		
         public void Load()
         {
             ModifyPreAINPC += NPCPreAIChange;

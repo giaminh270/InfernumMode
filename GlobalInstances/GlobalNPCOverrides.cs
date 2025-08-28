@@ -344,13 +344,13 @@ namespace InfernumMode.GlobalInstances
             BalancingChangesManager.ApplyFromProjectile(npc, ref damage, projectile);
         }
 
-        /*public override bool? DrawHealthBar(NPC npc, byte hbPosition, ref float scale, ref Vector2 position)
+        public override bool? DrawHealthBar(NPC npc, byte hbPosition, ref float scale, ref Vector2 position)
         {
             if (!InfernumMode.CanUseCustomAIs)
                 return base.DrawHealthBar(npc, hbPosition, ref scale, ref position);
 
             return base.DrawHealthBar(npc, hbPosition, ref scale, ref position);
-        }*/
+        }
 
         public override bool CheckDead(NPC npc)
         {

@@ -172,4 +172,5 @@ namespace InfernumMode.ILEditingStuff
 
         public void Unload() => AresBodyCanHitPlayer -= LetAresHitPlayer;
     }
+	
 }

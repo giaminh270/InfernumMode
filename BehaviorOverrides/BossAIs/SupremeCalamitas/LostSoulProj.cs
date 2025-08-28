@@ -34,6 +34,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.1f, 0f, 1f);
             projectile.rotation = projectile.velocity.ToRotation();
             projectile.spriteDirection = (Math.Cos(projectile.rotation) > 0f).ToDirectionInt();
+            if (projectile.spriteDirection == -1)
+                projectile.rotation += MathHelper.Pi;
             projectile.frameCounter++;
             projectile.frame = projectile.frameCounter / 5 % Main.projFrames[projectile.type];
 

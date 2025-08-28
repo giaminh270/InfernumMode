@@ -4,6 +4,7 @@ using CalamityMod.Items.SummonItems;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs;
 using CalamityMod.NPCs.ExoMechs.Ares;
+using CalamityMod.NPCs.Providence;
 using CalamityMod.NPCs.SupremeCalamitas;
 using CalamityMod.NPCs.Yharon;
 using CalamityMod.UI;
@@ -106,6 +107,12 @@ namespace InfernumMode.ILEditingStuff
             remove => HookEndpointManager.Unmodify(typeof(SCalWormBody).GetMethod("ModifyHitByProjectile", Utilities.UniversalBindingFlags), value);
         }
 
+        public static event ILContext.Manipulator SepulcherBody2ModifyProjectile
+        {
+            add => HookEndpointManager.Modify(typeof(SCalWormBodyWeak).GetMethod("ModifyHitByProjectile", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(SCalWormBodyWeak).GetMethod("ModifyHitByProjectile", Utilities.UniversalBindingFlags), value);
+        }
+
         public static event ILContext.Manipulator SepulcherTailModifyProjectile
         {
             add => HookEndpointManager.Modify(typeof(SCalWormTail).GetMethod("ModifyHitByProjectile", Utilities.UniversalBindingFlags), value);
@@ -128,6 +135,12 @@ namespace InfernumMode.ILEditingStuff
         {
             add => HookEndpointManager.Modify(typeof(Yharon).GetMethod("OnHitPlayer", Utilities.UniversalBindingFlags), value);
             remove => HookEndpointManager.Unmodify(typeof(Yharon).GetMethod("OnHitPlayer", Utilities.UniversalBindingFlags), value);
+        }
+
+        public static event ILContext.Manipulator SCalOnHitPlayer
+        {
+            add => HookEndpointManager.Modify(typeof(SupremeCalamitas).GetMethod("OnHitPlayer", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(SupremeCalamitas).GetMethod("OnHitPlayer", Utilities.UniversalBindingFlags), value);
         }
 
         public static event ILContext.Manipulator NPCStatsDefineContactDamage

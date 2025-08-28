@@ -266,5 +266,10 @@ namespace InfernumMode
         {
             return MathHelper.Lerp(toMin, toMax, Utils.InverseLerp(fromMin, fromMax, fromValue, clamped));
         }
+		
+		public static float AperiodicSin(float x, float dx = 0f, float a = MathHelper.Pi, float b = MathHelper.E)
+        {
+            return (float)(Math.Sin(x * a + dx) + Math.Sin(x * b + dx)) * 0.5f;
+        }
     }
 }

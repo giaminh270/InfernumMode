@@ -1,3 +1,4 @@
+using CalamityMod.NPCs.SupremeCalamitas;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -30,6 +31,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public override void AI()
         {
+            // Die of Supreme Cataclysm is not present.
+            if (!NPC.AnyNPCs(ModContent.NPCType<SupremeCataclysm>()))
+            {
+                projectile.Kill();
+                return;
+            }
+
             CreateVisuals();
             PerformMovement();
             Time++;
@@ -62,8 +70,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
         {
             int initialAccelerationTime = 30;
             int redirectTime = 70;
-            float maxRedirectSpeed = 16f;
-            float maxAccelerateSpeed = 42f;
+            float maxRedirectSpeed = 15f;
+            float maxAccelerateSpeed = 37f;
             float currentSpeed = projectile.velocity.Length();
 
             // Accelerate a little bit prior to redirecting.
@@ -81,7 +89,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
             // After redirecting, accelerate a bit.
             if (Time >= initialAccelerationTime + redirectTime && currentSpeed < maxAccelerateSpeed)
-                projectile.velocity *= 1.032f;
+                projectile.velocity *= 1.028f;
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)

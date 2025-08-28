@@ -1,19 +1,21 @@
+using CalamityMod;
 using CalamityMod.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.Graphics.Shaders;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
     public class SupremeCalamitasBrotherPortal : ModProjectile
     {
-        public ref float Time => ref projectile.ai[0];
+        public int NPCIDToSpawn => (int)projectile.ai[0];
 
-        public const int Lifetime = 360;
+        public ref float Time => ref projectile.ai[1];
 
-        public const int PortalCreationDelay = 105;
+        public const int Lifetime = 150;
 
         public override void SetStaticDefaults() => DisplayName.SetDefault("Dark Portal");
 
@@ -24,19 +26,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.ignoreWater = true;
             projectile.tileCollide = false;
             projectile.penetrate = -1;
-            projectile.timeLeft = 360;
+            projectile.timeLeft = Lifetime;
             projectile.scale = 0f;
             cooldownSlot = 1;
         }
 
         public override void AI()
         {
-            projectile.scale = Utils.InverseLerp(0f, 24f, Time, true);
+            projectile.scale = Utils.InverseLerp(0f, Lifetime * 0.4f, Time, true) * Utils.InverseLerp(1f, Lifetime * 0.9f, Time, true);
             projectile.Opacity = projectile.scale;
 
             // Create a lot of light particles around the portal.
             float particleSpawnChance = Utilities.Remap(Time, 0f, 60f, 0.1f, 0.9f);
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 2; i++)
             {
                 if (Main.rand.NextFloat() > particleSpawnChance)
                     continue;
@@ -49,12 +51,27 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 GeneralParticleHandler.SpawnParticle(light);
             }
 
+            // Summon the brother and create a massive explosion before having the portal close.
+            if (Time == (int)(Lifetime * 0.8f))
+            {
+                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/WyrmElectricCharge"), projectile.Center);
+                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/HeavyExplosion"), projectile.Center);
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    int explosion = Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<DemonicExplosion>(), 0, 0f);
+                    if (Main.projectile.IndexInRange(explosion))
+                        Main.projectile[explosion].ModProjectile<DemonicExplosion>().MaxRadius = 800f;
+
+                    NPC.NewNPC((int)projectile.Center.X, (int)projectile.Center.Y, NPCIDToSpawn);
+                }
+            }
+
             Time++;
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            spriteBatch.EnterShaderRegion();
+            Main.spriteBatch.EnterShaderRegion();
 
             float fade = Utils.InverseLerp(0f, 45f, Time, true) * Utils.InverseLerp(0f, 45f, projectile.timeLeft, true);
             Texture2D noiseTexture = ModContent.GetTexture("CalamityMod/ExtraTextures/VoronoiShapes");
@@ -65,8 +82,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             GameShaders.Misc["CalamityMod:DoGPortal"].UseSecondaryColor(Color.Red);
             GameShaders.Misc["CalamityMod:DoGPortal"].Apply();
 
-            spriteBatch.Draw(noiseTexture, drawPosition2, null, Color.White, 0f, origin, projectile.scale * 4f, SpriteEffects.None, 0f);
-            spriteBatch.ExitShaderRegion();
+            Main.spriteBatch.Draw(noiseTexture, drawPosition2, null, Color.White, 0f, origin, new Vector2(projectile.scale * 0.6f, 1f) * 4f, SpriteEffects.None, 0f);
+            Main.spriteBatch.ExitShaderRegion();
             return false;
         }
     }
