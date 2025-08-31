@@ -8,6 +8,7 @@ using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
 using Terraria;
+using Terraria.DataStructures;
 using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -38,6 +39,21 @@ namespace InfernumMode.ILEditingStuff
         public void Load() => On.Terraria.Gore.NewGore += AlterGores;
 
         public void Unload() => On.Terraria.Gore.NewGore -= AlterGores;
+    }
+
+    public class GetRidOfOnHitDebuffsHook : IHookEdit
+    {
+        public void Load()
+        {
+            YharonOnHitPlayer += SepulcherOnHitProjectileEffectRemovalHook.EarlyReturn;
+            SCalOnHitPlayer += SepulcherOnHitProjectileEffectRemovalHook.EarlyReturn;
+        }
+
+        public void Unload()
+        {
+            YharonOnHitPlayer -= SepulcherOnHitProjectileEffectRemovalHook.EarlyReturn;
+            SCalOnHitPlayer -= SepulcherOnHitProjectileEffectRemovalHook.EarlyReturn;
+        }
     }
 
     public class AureusPlatformWalkingHook : IHookEdit
@@ -144,11 +160,28 @@ namespace InfernumMode.ILEditingStuff
             cursor.Emit(OpCodes.Ldarg_1);
             cursor.EmitDelegate<Action<Player>>(player =>
             {
-                Main.PlaySound(SoundID.Roar, player.position, 0);
+                int scourgeID = ModContent.NPCType<DesertScourgeHead>();
+                if (NPC.AnyNPCs(scourgeID))
+                    return;
+                Main.PlaySound(SoundID.Roar, player.Center, 0);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
-                    NPC.SpawnOnPlayer(player.whoAmI, ModContent.NPCType<DesertScourgeHead>());
+                    NPC.SpawnOnPlayer(player.whoAmI, scourgeID);
                 else
-                    NetMessage.SendData(MessageID.SpawnBoss, -1, -1, null, player.whoAmI, ModContent.NPCType<DesertScourgeHead>());
+                    NetMessage.SendData(MessageID.SpawnBoss, -1, -1, null, player.whoAmI, scourgeID);
+
+                // Summon nuisances if not in Infernum mode.
+                if (CalamityWorld.revenge && !InfernumMode.CanUseCustomAIs)
+                {
+                    if (Main.netMode != NetmodeID.MultiplayerClient)
+                        NPC.SpawnOnPlayer(player.whoAmI, ModContent.NPCType<DesertNuisanceHead>());
+                    else
+                        NetMessage.SendData(MessageID.SpawnBoss, -1, -1, null, player.whoAmI, ModContent.NPCType<DesertNuisanceHead>());
+
+                    if (Main.netMode != NetmodeID.MultiplayerClient)
+                        NPC.SpawnOnPlayer(player.whoAmI, ModContent.NPCType<DesertNuisanceHead>());
+                    else
+                        NetMessage.SendData(MessageID.SpawnBoss, -1, -1, null, player.whoAmI, ModContent.NPCType<DesertNuisanceHead>());
+                }
             });
             cursor.Emit(OpCodes.Ldc_I4_1);
             cursor.Emit(OpCodes.Ret);
@@ -172,5 +205,4 @@ namespace InfernumMode.ILEditingStuff
 
         public void Unload() => AresBodyCanHitPlayer -= LetAresHitPlayer;
     }
-	
 }

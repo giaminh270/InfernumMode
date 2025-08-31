@@ -32,6 +32,7 @@ using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.UI;
 using InfernumMode;
+using InfernumMode.Particles;
 using CalamityMod.World;
 
 using static CalamityMod.CalamityMod;
@@ -79,8 +80,14 @@ namespace InfernumMode
 			
         public override void Load()
         {
+            // However, render targets and certain other graphical objects can only be created on the main thread.
+			
             Instance = this;
             CalamityMod = ModLoader.GetMod("CalamityMod");
+			
+			InfernumFusableParticleManager.LoadParticleRenderSets();
+			Main.OnPreDraw += PrepareRenderTargets;		
+			
 
 
             OverridingListManager.Load();
@@ -108,6 +115,12 @@ namespace InfernumMode
 
                 Ref<Effect> aewPsychicEnergyShader = new Ref<Effect>(GetEffect("Effects/AEWPsychicDistortionShader"));
                 GameShaders.Misc["Infernum:AEWPsychicEnergy"] = new MiscShaderData(aewPsychicEnergyShader, "DistortionPass");
+				
+                Ref<Effect> BaseFusableParticleEdgeShader = new Ref<Effect>(GetEffect("Effects/ParticleFusion/InfernumBaseFusableParticleEdgeShader"));
+                GameShaders.Misc["Infernum:BaseFusableParticleEdge"] = new MiscShaderData(BaseFusableParticleEdgeShader, "ParticlePass");
+				
+				Ref<Effect> AdditiveFusableParticleEdgeShader = new Ref<Effect>(GetEffect("Effects/ParticleFusion/InfernumBaseFusableParticleEdgeShader"));
+                GameShaders.Misc["Infernum:AdditiveFusableParticleEdge"] = new MiscShaderData(AdditiveFusableParticleEdgeShader, "ParticlePass");
 
                 Ref<Effect> gradientShader = new Ref<Effect>(GetEffect("Effects/GradientWingShader"));
                 GameShaders.Misc["Infernum:GradientWingShader"] = new MiscShaderData(gradientShader, "GradientPass");
@@ -343,10 +356,33 @@ namespace InfernumMode
         {
             IntroScreenManager.Unload();
             OverridingListManager.Unload();
-            BalancingChangesManager.Unload();
+            BalancingChangesManager.Unload();	
             HookManager.Unload();
             Instance = null;
             CalamityMod = null;
+			InfernumFusableParticleManager.UnloadParticleRenderSets();
+			Main.OnPreDraw -= PrepareRenderTargets;	
         }
+		
+        #region Fusable Particle Updating
+        public override void MidUpdateProjectileItem()
+        {
+            // Update all fusable particles.
+            // These are really only visual and as such don't really need any complex netcode.
+            foreach (InfernumBaseFusableParticleSet.FusableParticleRenderCollection particleSet in InfernumFusableParticleManager.ParticleSets)
+            {
+                foreach (InfernumBaseFusableParticleSet.FusableParticle particle in particleSet.ParticleSet.Particles)
+                    particleSet.ParticleSet.UpdateBehavior(particle);
+            }
+        }
+        #endregion
+		
+		#region Render Target Management
+        public static void PrepareRenderTargets(GameTime gameTime)
+        {
+            InfernumFusableParticleManager.PrepareFusableParticleTargets();
+            DeathAshParticle.PrepareRenderTargets();
+        }
+        #endregion Render Target Management
     }
 }

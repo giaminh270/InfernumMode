@@ -14,7 +14,7 @@ namespace InfernumMode.Particles
         public override float BorderSize => 3f;
         public override bool BorderShouldBeSolid => false;
         public override Color BorderColor => Color.Lerp(Color.Fuchsia, Color.Black, 0.7f) * 0.85f;
-
+		public override InfernumFusableParticleRenderLayer RenderLayer => InfernumFusableParticleRenderLayer.OverNPCsBeforeProjectiles;
 
         public override List<Effect> BackgroundShaders => new List<Effect>()
         {

@@ -1,9 +1,8 @@
 using CalamityMod;
 using CalamityMod.DataStructures;
 using CalamityMod.NPCs;
-using CalamityMod.Sounds;
-using CalamityMod.Particles;
 using InfernumMode.Particles;
+using CalamityMod.Sounds;
 using InfernumMode;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -343,21 +342,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             // Place a hard limit on particle sizes.
             if (particleSize > 500f)
                 particleSize = 500f;
-			var particleSet = InfernumFusableParticleManager.GetParticleSetByType<ShadowDemonParticleSet>();
-			if (particleSet == null)
-				return;
 
             int particleSpawnCount = Main.rand.NextBool(8) ? 3 : 1;
             for (int i = 0; i < particleSpawnCount; i++)
             {
                 // Summon a base particle.
                 Vector2 spawnPosition = npc.Center + Main.rand.NextVector2Circular(1f, 1f) * particleSize / 26f;
-				particleSet.SpawnParticle(spawnPosition, particleSize);
+                InfernumFusableParticleManager.GetParticleSetByType<ShadowDemonParticleSet>()?.SpawnParticle(spawnPosition, particleSize);
 
                 // And an "ahead" particle that spawns based on current movement.
                 // This causes the "head" of the overall thing to have bumps when moving.
                 spawnPosition += npc.velocity.RotatedByRandom(1.38f) * particleSize / 105f;
-				particleSet.SpawnParticle(spawnPosition, particleSize * 0.4f);
+                InfernumFusableParticleManager.GetParticleSetByType<ShadowDemonParticleSet>()?.SpawnParticle(spawnPosition, particleSize * 0.4f);
             }
         }
 

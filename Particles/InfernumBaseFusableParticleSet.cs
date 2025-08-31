@@ -62,7 +62,7 @@ namespace InfernumMode.Particles
         public virtual bool BorderShouldBeSolid => false;
         public virtual Color BorderColor => Color.Transparent;
         public virtual void PrepareOptionalShaderData(Effect effect, int index) { }
-		//public abstract FusableParticleRenderLayer RenderLayer { get; }
+		public abstract InfernumFusableParticleRenderLayer RenderLayer { get; }
         public abstract List<Effect> BackgroundShaders { get; }
         public abstract List<Texture2D> BackgroundTextures { get; }
         public abstract FusableParticle SpawnParticle(Vector2 center, float sizeStrength);

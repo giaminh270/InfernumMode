@@ -224,15 +224,8 @@ namespace InfernumMode.Particles
             // Reload particle sets if they are completely unloaded for some reason.
             if (ParticleSets.Count <= 0)
                 LoadParticleRenderSets(true);
-			
-			var particleSet = ParticleSets.FirstOrDefault(s => s.ParticleSet?.GetType() == typeof(T));
-			if (particleSet == null)
-			{
-				return null;
-			}
 
-            //return ParticleSets.First(s => s.ParticleSet.GetType() == typeof(T)).ParticleSet as T;
-			return particleSet.ParticleSet as T;
+            return ParticleSets.First(s => s.ParticleSet.GetType() == typeof(T)).ParticleSet as T;
         }
     }
 }

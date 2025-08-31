@@ -13,6 +13,9 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
+using CalamityMod.Items.Dyes;
+using CalamityMod.Particles;
+using InfernumMode.Particles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +23,7 @@ using Terraria;
 using Terraria.GameContent;
 using Terraria.GameContent.Events;
 using Terraria.Graphics.Shaders;
+using Terraria.Graphics.Effects;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.UI.Chat;
@@ -272,6 +276,18 @@ namespace InfernumMode.ILEditingStuff
                 Main.spriteBatch.End();
                 Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, Main.DefaultSamplerState, DepthStencilState.None, Main.instance.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
                 DrawCacheAdditiveLighting.Clear();
+
+                // Draw the madness effect.
+                if (InfernumMode.CanUseCustomAIs)
+                {
+                    Main.spriteBatch.End();
+                    Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.LinearWrap, DepthStencilState.None, Main.instance.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
+
+                    Filters.Scene["InfernumMode:Madness"].GetShader().UseSecondaryColor(Color.DarkViolet);
+                    Filters.Scene["InfernumMode:Madness"].Apply();
+                    Main.spriteBatch.Draw(ModContent.GetTexture("Terraria/Misc/noise"), new Rectangle(-2, -2, Main.screenWidth + 4, Main.screenHeight + 4), new Rectangle(0, 0, 1, 1), Color.White);
+                    Main.spriteBatch.ExitShaderRegion();
+                }
             });
         }
 
@@ -401,6 +417,50 @@ namespace InfernumMode.ILEditingStuff
 
         public void Unload() => IL.Terraria.Main.DoDraw -= AdditiveDrawing;		
 	}
+	
+	#region General Particle Rendering	
+	public class InfernumFusableParticle : IHookEdit
+	{
+        /*private static void DrawFusableParticles(On.Terraria.Main.orig_SortDrawCacheWorms orig, Main self)
+        {
+            DeathAshParticle.DrawAll();
+            InfernumFusableParticleManager.RenderAllFusableParticles();
 
+            orig(self);
+        }
 
+        private static void DrawForegroundParticles(On.Terraria.Main.orig_DrawInfernoRings orig, Main self)
+        {
+            GeneralParticleHandler.DrawAllParticles(Main.spriteBatch);
+            orig(self);
+        }
+
+        private static void ResetRenderTargetSizes(On.Terraria.Main.orig_SetDisplayMode orig, int width, int height, bool fullscreen)
+        {
+            if (InfernumFusableParticleManager.HasBeenFormallyDefined)
+                InfernumFusableParticleManager.LoadParticleRenderSets(true, width, height);
+            orig(width, height, fullscreen);
+        }*/
+		
+        private static void DrawGeneralParticles(On.Terraria.Main.orig_DrawInterface orig, Main self, GameTime gameTime)
+        {
+            GeneralParticleHandler.DrawAllParticles(Main.spriteBatch);
+            DeathAshParticle.DrawAll();
+
+            orig(self, gameTime);
+        }
+
+        private static void DrawFusableParticles(On.Terraria.Main.orig_SortDrawCacheWorms orig, Main self)
+        {
+            InfernumFusableParticleManager.RenderAllFusableParticles();
+
+            orig(self);
+        }		
+		
+        public void Load() => On.Terraria.Main.SortDrawCacheWorms += DrawFusableParticles;
+
+        public void Unload() => On.Terraria.Main.SortDrawCacheWorms -= DrawFusableParticles;	
+
+	}
+	#endregion General Particle Rendering
 }
