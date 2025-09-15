@@ -14,8 +14,7 @@ using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.World.Generation;
 
-
-namespace InfernumMode
+namespace InfernumMode.Projectiles
 {
     public class ProvidenceSummonerProjectile : ModProjectile
     {
@@ -100,11 +99,11 @@ namespace InfernumMode
         {
             Main.LocalPlayer.Calamity().GeneralScreenShakePower = Utils.InverseLerp(2300f, 1300f, Main.LocalPlayer.Distance(projectile.Center), true) * 16f;
 
-            // Make the crystal shatter.
-            Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.NPCKilled, "Sounds/NPCKilled/ProvidenceDeath"), projectile.Center);
-
-            for (int i = 1; i <= 4; i++)
-                Gore.NewGore(projectile.Center, Main.rand.NextVector2Circular(8f, 8f), mod.GetGoreSlot($"ProfanedCoreGore{i}"), projectile.scale);
+            if (Main.netMode != NetmodeID.Server)
+            {
+                for (int i = 1; i <= 4; i++)
+                	Gore.NewGore(projectile.Center, Main.rand.NextVector2Circular(8f, 8f), mod.GetGoreSlot($"ProfanedCoreGore{i}"), projectile.scale);
+            }
 
             // Emit fire.
             for (int i = 0; i < 32; i++)
@@ -121,27 +120,6 @@ namespace InfernumMode
             {
                 CalamityUtils.SpawnBossBetter(projectile.Center - Vector2.UnitY * 325f, ModContent.NPCType<Providence>());
                 Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<ProvSummonFlameExplosion>(), 0, 0f);
-
-                // Break existing tiles.
-                // This is done to ensure that there are no unexpected tiles that may trivialize the platforming aspect of the fight.
-                int[] validTiles = new int[]
-                {
-                    ModContent.TileType<ProfanedSlab>(),
-                    ModContent.TileType<RunicProfanedBrick>(),
-                    ModContent.TileType<ProvidenceSummoner>(),
-                };
-                for (int i = PoDWorld.ProvidenceArena.Left; i < PoDWorld.ProvidenceArena.Right; i++)
-                {
-                    for (int j = PoDWorld.ProvidenceArena.Top; j < PoDWorld.ProvidenceArena.Bottom; j++)
-                    {
-                        Tile tile = CalamityUtils.ParanoidTileRetrieval(i, j);
-                        if (tile.active() && (Main.tileSolid[tile.type] || Main.tileSolidTop[tile.type]))
-                        {
-                            if (!validTiles.Contains(tile.type))
-                                WorldGen.KillTile(i, j);
-                        }
-                    }
-                }
             }
         }
 

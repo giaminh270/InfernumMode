@@ -67,7 +67,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
                 npc.velocity.Y = MathHelper.Clamp(npc.velocity.Y - 0.4f, -20f, 6f);
                 if (npc.timeLeft < 180)
                     npc.timeLeft = 180;
-                if (!npc.WithinRange(target.Center, 2000f))
+                if (!npc.WithinRange(target.Center, 2000f) || target.dead)
                     npc.active = false;
                 return false;
             }

@@ -1,12 +1,15 @@
 using CalamityMod;
 using CalamityMod.CalPlayer;
+using CalamityMod.Items.SummonItems;
 using CalamityMod.Items.TreasureBags;
 using CalamityMod.NPCs.DevourerofGods;
 using InfernumMode.Balancing;
-
 using InfernumMode.BehaviorOverrides.BossAIs.DoG;
+using InfernumMode.Items;
+using InfernumMode.Projectiles;
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
+using System.Linq;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -31,24 +34,47 @@ namespace InfernumMode
         {
             if (item.type == ItemID.CelestialSigil)
             {
-                foreach (TooltipLine line2 in tooltips)
+                var tooltip0 = tooltips.FirstOrDefault(x => x.Name == "Tooltip0" && x.mod == "Terraria");
+                if (tooltip0 != null)
                 {
-                    if (line2.mod == "Terraria" && line2.Name == "Tooltip0")
+                    tooltip0.text = 
+                        "Summons the Moon Lord immediately\n" +
+                        "Creates an arena at the player's position\n" +
+                        "Not consumable.";
+                }
+            }
+
+            if (InfernumMode.CanUseCustomAIs && item.type == ModContent.ItemType<ProfanedShard>())
+            {
+                var tooltip1 = tooltips.FirstOrDefault(x => x.Name == "Tooltip1" && x.mod == "Terraria");
+                if (tooltip1 != null)
+                {
+                    tooltip1.text = "Summons the Profaned Guardians when used in the profaned garden at the far right of the underworld";
+
+                    tooltips.RemoveAt(tooltips.IndexOf(tooltip1) + 1);
+                    if (!PoDWorld.HasGeneratedProfanedShrine)
                     {
-                        line2.text = "Summons the Moon Lord immediately\n" +
-                                     "Creates an arena at the player's position\n" +
-                                     "Not consumable.";
+                        TooltipLine warningTooltip = new TooltipLine(mod, "Warning",
+                            "Your world does not currently have a garden. kill the Moon Lord again to generate it\n" +
+                            "Be sure to grab the Hell schematic first if you do this, as the garden might destroy the lab");
+                        warningTooltip.overrideColor = Color.Orange;
+                        tooltips.Insert(tooltips.IndexOf(tooltip1) + 1, warningTooltip);
                     }
                 }
             }
 
-            if (item.type == ItemID.LihzahrdPowerCell)
+            if (InfernumMode.CanUseCustomAIs && item.type == ModContent.ItemType<ProfanedCoreUnlimited>())
             {
-                foreach (TooltipLine line2 in tooltips)
-                {
-                    if (line2.mod == "Terraria" && line2.Name == "Tooltip0")
-                        line2.text += "\nCreates a rectangular arena around the altar. If the altar is inside of the temple solid tiles within the arena are broken";
-                }
+                var tooltip1 = tooltips.FirstOrDefault(x => x.Name == "Tooltip1" && x.mod == "Terraria");
+                if (tooltip1 != null)
+                    tooltip1.text = "Summons Providence when used at the alter in the profaned temple at the far right of the underworld";
+            }
+
+            if (InfernumMode.CanUseCustomAIs && item.type == ItemID.LihzahrdPowerCell)
+            {
+                var tooltip0 = tooltips.FirstOrDefault(x => x.Name == "Tooltip0" && x.mod == "Terraria");
+                if (tooltip0 != null)
+                    tooltip0.text += "\nCreates a rectangular arena around the altar. If the altar is inside of the temple solid tiles within the arena are broken";
             }
         }
 
@@ -71,7 +97,7 @@ namespace InfernumMode
 
         public override bool CanUseItem(Item item, Player player)
         {
-            if (item.type == ItemID.RodofDiscord && (NPC.AnyNPCs(ModContent.NPCType<DevourerofGodsHead>())))
+            if (InfernumMode.CanUseCustomAIs && item.type == ItemID.RodofDiscord && NPC.AnyNPCs(ModContent.NPCType<DevourerofGodsHead>()))
             {
                 if (PoDWorld.InfernumMode)
                 {
@@ -79,6 +105,8 @@ namespace InfernumMode
                     return false;
                 }
             }
+            if (InfernumMode.CanUseCustomAIs && (item.type == ModContent.ItemType<ProfanedShard>() || item.type == ModContent.ItemType<ProfanedCoreUnlimited>()))
+                return false;
             return base.CanUseItem(item, player);
         }
         public override bool UseItem(Item item, Player player)
@@ -116,12 +144,6 @@ namespace InfernumMode
                 itemCount = Main.rand.Next(10, 20);
                 player.QuickSpawnItem(ItemID.TissueSample, itemCount);
             }
-        }
-
-        public override void UpdateAccessory(Item item, Player player, bool hideVisual)
-        {
-            if (item.prefix == PrefixID.Quick2)
-                player.moveSpeed -= 0.02f;
         }
     }
 }

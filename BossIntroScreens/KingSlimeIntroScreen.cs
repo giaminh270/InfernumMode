@@ -5,7 +5,6 @@ using Terraria.Audio;
 using Terraria.ID;
 
 using TMLSoundType = Terraria.ModLoader.SoundType;
-
 namespace InfernumMode.BossIntroScreens
 {
     public class KingSlimeIntroScreen : BaseIntroScreen

@@ -1,3 +1,4 @@
+using CalamityMod.Events;
 using CalamityMod.NPCs.ExoMechs;
 using InfernumMode.BehaviorOverrides.BossAIs.MoonLord;
 using InfernumMode.Particles;
@@ -29,20 +30,14 @@ namespace InfernumMode
                 case "CanPlayMusicForNPC":
                     int npcID = (int)args[1];
                     return CanPlayMusicForNPC(npcID);
-                /*case "LoadParticleInstances":
-                    if (args.Length != 2 || !(args[1] is Mod))
-                        return new ArgumentNullException("ERROR: Must specify a Mod instance to load particles from.");
-
-                    GeneralParticleHandler.LoadModParticleInstances(args[1] as Mod);
-                    InfernumFusableParticleManager.ExtraModsToLoadSetsFrom.Add(args[1] as Mod);
-                    InfernumFusableParticleManager.LoadParticleRenderSets(true);
-                    return null;*/				
             }
             return null;
         }
 
         public static bool CanPlayMusicForNPC(int npcID)
         {
+            if (BossRushEvent.BossRushActive)
+                return false;
             if (npcID == NPCID.EyeofCthulhu)
                 return NPC.AnyNPCs(npcID);
             if (npcID == NPCID.SkeletronHead)

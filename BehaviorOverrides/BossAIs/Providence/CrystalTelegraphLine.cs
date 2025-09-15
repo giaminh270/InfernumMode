@@ -39,7 +39,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             float telegraphWidth = MathHelper.Lerp(0.3f, 3f, CalamityUtils.Convert01To010(Time / Lifetime));
 
             // Draw a telegraph line outward.
-            Color telegraphColor = Main.dayTime ? Color.Yellow : Color.Lerp(Color.Cyan, Color.Green, 0.15f);
+            Color telegraphColor = !ProvidenceBehaviorOverride.IsEnraged ? Color.Yellow : Color.Lerp(Color.Cyan, Color.Green, 0.15f);
             Vector2 start = projectile.Center;
             Vector2 end = projectile.Center + projectile.velocity.SafeNormalize(Vector2.UnitY) * 3000f;
             Main.spriteBatch.DrawLineBetter(start, end, telegraphColor, telegraphWidth);

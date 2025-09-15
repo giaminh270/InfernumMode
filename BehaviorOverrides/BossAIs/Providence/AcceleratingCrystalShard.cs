@@ -43,8 +43,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             float oldScale = projectile.scale;
             projectile.scale *= 1.2f;
             Color rainbowColor = Main.hslToRgb(projectile.identity / 7f % 1f, 1f, 0.5f);
-            if (!Main.dayTime)
+            if (ProvidenceBehaviorOverride.IsEnraged)
                 rainbowColor = Color.Lerp(Color.Cyan, Color.Green, projectile.identity / 7f % 0.6f);
+
             lightColor = Color.Lerp(lightColor, rainbowColor, 0.9f);
             lightColor.A = 0;
             Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type]);
@@ -55,14 +56,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type]);
 
             return false;
-        }
-
-        public override void OnHitPlayer(Player target, int damage, bool crit)
-        {
-            if (Main.dayTime)
-                target.AddBuff(ModContent.BuffType<HolyFlames>(), 120);
-            else
-                target.AddBuff(ModContent.BuffType<Nightwither>(), 60);
         }
 
         public override bool CanDamage() => projectile.alpha < 20;

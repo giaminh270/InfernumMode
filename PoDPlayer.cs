@@ -13,17 +13,17 @@ using InfernumMode.Buffs;
 using InfernumMode.Dusts;
 using InfernumMode.MachineLearning;
 using InfernumMode;
-using InfernumMode.Biomes;
 using InfernumMode.Tiles;
 using InfernumMode.Skies;
+using InfernumMode.Projectiles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Terraria;
-
 using Terraria.DataStructures;
 using Terraria.Graphics.Effects;
 using Terraria.ID;
@@ -49,8 +49,6 @@ namespace InfernumMode
 
         public bool CreateALotOfHolyCinders;
 
-
-
         public float MadnessInterpolant => MathHelper.Clamp(MadnessTime / 600f, 0f, 1f);
 
         public bool InProfanedArena
@@ -62,6 +60,7 @@ namespace InfernumMode
                 arena.Y *= 16;
                 arena.Width *= 16;
                 arena.Height *= 16;
+
                 return player.Hitbox.Intersects(arena);
             }
         }
@@ -221,20 +220,7 @@ namespace InfernumMode
         }
 
         public override void PostUpdate()
-        {
-            // Keep the player out of the providence arena if the door is around.
-            if (PoDWorld.ProvidenceDoorXPosition != 0 && !PoDWorld.HasProvidenceDoorShattered && player.Bottom.Y >= (Main.maxTilesY - 220f) * 16f)
-            {
-                bool passedDoor = false;
-                float doorX = PoDWorld.ProvidenceDoorXPosition;
-                while (player.Right.X >= doorX || (passedDoor && Collision.SolidCollision(player.TopLeft, player.width, player.height)))
-                {
-                    player.velocity.X = 0f;
-                    player.position.X -= 0.1f;
-                    passedDoor = true;
-                }
-            }
-
+        {						
             if (Main.myPlayer != player.whoAmI || !ZoneProfaned || !player.ZoneUnderworldHeight)
                 return;
 
@@ -339,14 +325,12 @@ namespace InfernumMode
         #endregion
         #region Saving and Loading
         public override TagCompound Save()
-        {
-            TagCompound tag = new TagCompound();
-            tag["ProfanedTempleAnimationHasPlayed"] = ProfanedTempleAnimationHasPlayed;
-			//ThanatosLaserTypeSelector?.Save(tag);
-            //AresSpecialAttackTypeSelector?.Save(tag);
-            //TwinsSpecialAttackTypeSelector?.Save(tag);
-			return tag;
-        }
+		{
+			return new TagCompound
+			{
+				["ProfanedTempleAnimationHasPlayed"] = ProfanedTempleAnimationHasPlayed
+			};
+		}
 
         public override void Load(TagCompound tag)
         {
@@ -361,13 +345,13 @@ namespace InfernumMode
                 player.mount.Dismount(player);
             }
 
-            // Ensure that Death+Revengeance Mode is always active while Infernum is active.
+            // Ensure that Death+Revengeance+Malice Mode is always active while Infernum is active.
             if (PoDWorld.InfernumMode && !CalamityWorld.revenge)
                 CalamityWorld.revenge = true;
             if (PoDWorld.InfernumMode && !CalamityWorld.death)
                 CalamityWorld.death = true;
 		    if (PoDWorld.InfernumMode && !CalamityWorld.malice)
-	        	CalamityWorld.death = true;	
+	        	CalamityWorld.malice = true;	
 
             /* Ensure that Malice Mode is never active while Infernum is active.
             if (PoDWorld.InfernumMode && CalamityWorld.malice)
@@ -403,5 +387,34 @@ namespace InfernumMode
             }
         }
         #endregion
+		
+        public override void UpdateBiomes()
+        {
+            ZoneProfaned = !player.ZoneDungeon && ((PoDWorld.ProfanedTile > 350 && player.ZoneUnderworldHeight) || player.Infernum().InProfanedArena);
+		}			
+		
+        public override bool CustomBiomesMatch(Player other)
+        {
+            PoDPlayer modOther = other.Infernum();		
+            return ZoneProfaned == modOther.ZoneProfaned;
+		}
+        public override void CopyCustomBiomesTo(Player other)
+        {
+            PoDPlayer modOther = other.Infernum();
+            modOther.ZoneProfaned = ZoneProfaned;
+        }
+		
+        public override void SendCustomBiomes(BinaryWriter writer)
+        {
+            BitsByte flags = new BitsByte();
+            flags[0] = ZoneProfaned;
+            writer.Write(flags);
+        }	
+
+        public override void ReceiveCustomBiomes(BinaryReader reader)
+        {
+            BitsByte flags = reader.ReadByte();
+            ZoneProfaned = flags[0];
+        }		
     }
 }

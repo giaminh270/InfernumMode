@@ -8,8 +8,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-
-namespace InfernumMode
+namespace InfernumMode.Projectiles
 {
     public class GuardiansSummonerProjectile : ModProjectile
     {
@@ -36,6 +35,8 @@ namespace InfernumMode
             // Play a rumble sound.
             if (Time == 75f)
                 Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/LeviathanSummonBase"), projectile.Center);
+            if (Time >= 75f)
+                Main.LocalPlayer.Infernum().CreateALotOfHolyCinders = true;
 
             if (Time >= 210f)
             {

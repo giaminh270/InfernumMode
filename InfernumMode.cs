@@ -1,5 +1,8 @@
-using CalamityMod.Schematics;
+using InfernumMode.Schematics;
 using CalamityMod.Events;
+using CalamityMod.CalPlayer;
+using CalamityMod.Waters;
+using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs;
 using CalamityMod.NPCs.ExoMechs.Apollo;
 using CalamityMod.NPCs.ExoMechs.Ares;
@@ -23,6 +26,8 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 using System.IO;
+using System;
+using System.Linq;
 using System.Reflection;
 using Terraria;
 using Terraria.Graphics.Effects;
@@ -31,6 +36,7 @@ using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.UI;
+using InfernumMode.Projectiles;
 using InfernumMode;
 using InfernumMode.Particles;
 using CalamityMod.World;
@@ -52,10 +58,18 @@ namespace InfernumMode
 	
         internal static bool CanUseCustomAIs => (!BossRushEvent.BossRushActive || BossRushApplies) && PoDWorld.InfernumMode;
 
-        internal static bool BossRushApplies => false;
+        internal static bool BossRushApplies => true;
 
         internal static readonly Color HiveMindSkyColor = new Color(53, 42, 82);
 
+        internal static List<CustomLavaStyle> CustomLavaStyles
+        {
+            get => (List<CustomLavaStyle>)typeof(CustomLavaManagement).GetField("CustomLavaStyles", Utilities.UniversalBindingFlags).GetValue(null);
+            set => typeof(CustomLavaManagement).GetField("CustomLavaStyles", Utilities.UniversalBindingFlags).SetValue(null, value);
+        }
+		
+        internal static MethodInfo LoadMethod = typeof(CustomLavaStyle).GetMethod("Load", Utilities.UniversalBindingFlags);		
+		
         public static float BlackFade
         {
             get;
@@ -73,15 +87,10 @@ namespace InfernumMode
             get;
             set;
         }
-		internal static Dictionary<string, SchematicMetaTile[,]> TileMaps =>
-            typeof(SchematicManager).GetField("TileMaps", Utilities.UniversalBindingFlags).GetValue(null) as Dictionary<string, SchematicMetaTile[,]>;
 			
-		internal static readonly MethodInfo ImportSchematicMethod = typeof(CalamitySchematicIO).GetMethod("ImportSchematic", Utilities.UniversalBindingFlags);	
 			
         public override void Load()
         {
-            // However, render targets and certain other graphical objects can only be created on the main thread.
-			
             Instance = this;
             CalamityMod = ModLoader.GetMod("CalamityMod");
 			
@@ -238,24 +247,120 @@ namespace InfernumMode
 
             if (Main.netMode != NetmodeID.Server)
                 GeneralParticleHandler.LoadModParticleInstances(this);
-			
-            //TileMaps["Profaned Arena"] = LoadInfernumSchematic("Schematics/ProfanedArena.csch");
+            InfernumSchematicManager.Load();
+
+			if (CustomLavaStyles is null)
+				CustomLavaStyles = new List<CustomLavaStyle>();
+            foreach (Type type in typeof(InfernumMode).Assembly.GetTypes())
+            {
+                // Ignore abstract types; they cannot have instances.
+                // Also ignore types which do not derive from CustomLavaStyle.
+                if (!type.IsSubclassOf(typeof(CustomLavaStyle)) || type.IsAbstract)
+                    continue;
+
+                CustomLavaStyles.Add(Activator.CreateInstance(type) as CustomLavaStyle);
+                LoadMethod.Invoke(CustomLavaStyles.Last(), new object[0]);
+			}
         }
 		
-		/*public static SchematicMetaTile[,] LoadInfernumSchematic(string filename)
+        public override void UpdateMusic(ref int music, ref MusicPriority priority)
         {
-            SchematicMetaTile[,] ret = null;
-            using (Stream st = InfernumMode.Instance.GetFileStream(filename, true))
-                ret = (SchematicMetaTile[,])ImportSchematicMethod.Invoke(null, new object[] { st });
+            if (Main.musicVolume != 0)
+            {
+                if (Main.myPlayer != -1 && !Main.gameMenu && Main.LocalPlayer.active)
+                {
+                    Player p = Main.LocalPlayer;
+                    if (p.InProfaned())
+                    {
+                        if (!CalamityPlayer.areThereAnyDamnBosses)
+                        {
+                            music = Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/ProfanedTemple");
+                            priority = MusicPriority.Environment;
+                        }
+                    }
+						
+					if (NPC.AnyNPCs(NPCID.EyeofCthulhu))
+					{
+						music = Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/EyeOfCthulhu");
+						priority = MusicPriority.BossLow;
+					}
 
-            return ret;
-        }*/
+					if (NPC.AnyNPCs(NPCID.SkeletronHead))
+					{
+						music = Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/Boss3");
+						priority = MusicPriority.BossLow;
+					}
 
+					if (NPC.AnyNPCs(NPCID.SkeletronPrime) || NPC.AnyNPCs(NPCID.Retinazer) || NPC.AnyNPCs(NPCID.Spazmatism) || NPC.AnyNPCs(NPCID.TheDestroyer))
+					{
+						music = Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/MechBosses");
+						priority = MusicPriority.BossLow;
+					}
+
+					if (NPC.AnyNPCs(NPCID.DukeFishron))
+					{
+						music = Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/DukeFishron");
+						priority = MusicPriority.BossMedium;
+					}
+
+					if (NPC.AnyNPCs(NPCID.CultistBoss))
+					{
+						music = Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/LunaticCultist");
+						priority = MusicPriority.BossMedium;
+					}
+
+					int moonLordIndex = NPC.FindFirstNPC(NPCID.MoonLordCore);
+					if (moonLordIndex != -1)
+					{
+						NPC moonLord = Main.npc[moonLordIndex];
+
+						music = Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/MoonLord");
+						if (moonLord.Infernum().ExtraAI[10] < MoonLordCoreBehaviorOverride.IntroSoundLength)
+							music = 0;
+						Main.musicFade[Main.curMusic] = 1f;
+						priority = MusicPriority.BossHigh;
+					}
+
+					if (DoGPhase2HeadBehaviorOverride.InPhase2 && CalamityWorld.DoGSecondStageCountdown <= 530 && CalamityWorld.DoGSecondStageCountdown > 50)
+					{
+						music = (CalamityMod as CalamityMod.CalamityMod).GetMusicFromMusicMod("DevourerOfGodsP2") ?? MusicID.LunarBoss;
+						priority = MusicPriority.BossHigh;
+					}
+
+					bool areExoMechsAround = NPC.AnyNPCs(ModContent.NPCType<AresBody>()) ||
+						NPC.AnyNPCs(ModContent.NPCType<ThanatosHead>()) ||
+						NPC.AnyNPCs(ModContent.NPCType<Apollo>());
+
+					if (areExoMechsAround)
+					{
+						int draedon = NPC.FindFirstNPC(ModContent.NPCType<Draedon>());
+						if (draedon >= 0 && Main.npc[draedon].Infernum().ExtraAI[0] < DraedonBehaviorOverride.IntroSoundLength)
+							music = 0;
+						else
+							music = Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/ExoMechBosses");
+						priority = MusicPriority.BossHigh;
+					}
+
+					if (DraedonThemeTimer > 0f)
+					{
+						DraedonThemeTimer++;
+						if (DraedonThemeTimer >= DraedonBehaviorOverride.PostBattleMusicLength)
+							DraedonThemeTimer = 0f;
+						else
+							music = Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/Draedon");
+						priority = MusicPriority.BossHigh;
+					}
+				}
+			}
+        }		
+		
         public override void PostUpdateEverything()
         {
             // Disable natural GSS spawns.
             if (CanUseCustomAIs)
                 sharkKillCount = 0;
+            //if (!NPC.AnyNPCs(ModContent.NPCType<Draedon>()))
+            //    CalamityGlobalNPC.draedon = -1;			
         }
         
         public override void HandlePacket(BinaryReader reader, int whoAmI) => NetcodeHandler.ReceivePacket(this, reader, whoAmI);
@@ -362,6 +467,7 @@ namespace InfernumMode
             CalamityMod = null;
 			InfernumFusableParticleManager.UnloadParticleRenderSets();
 			Main.OnPreDraw -= PrepareRenderTargets;	
+            InfernumSchematicManager.Unload();			
         }
 		
         #region Fusable Particle Updating

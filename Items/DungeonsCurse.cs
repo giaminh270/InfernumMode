@@ -16,7 +16,8 @@ namespace InfernumMode.Items
         {
             DisplayName.SetDefault("Dungeon's Curse");
             Tooltip.SetDefault("Summons Skeletron\n" +
-                "Can only be used at night\n" +
+                "Skeletron enrages during daytime\n" +
+                "It becomes nighttime if this item is used during daytime\n" +
                 "Not consumable");
         }
 
@@ -31,19 +32,21 @@ namespace InfernumMode.Items
             item.consumable = false;
         }
 
-        public override bool CanUseItem(Player player) => !NPC.AnyNPCs(NPCID.SkeletronHead) && !Main.dayTime;
+        public override bool CanUseItem(Player player) => !NPC.AnyNPCs(NPCID.SkeletronHead);
 
         public override void AddRecipes()
         {
             ModRecipe recipe = new ModRecipe(mod);
             recipe.AddIngredient(ModContent.ItemType<AncientBoneDust>(), 3);
             recipe.AddIngredient(ItemID.Vertebrae, 7);
+            recipe.AddTile(TileID.DemonAltar);
             recipe.SetResult(this);
             recipe.AddRecipe();
 
             recipe = new ModRecipe(mod);
             recipe.AddIngredient(ModContent.ItemType<AncientBoneDust>(), 3);
             recipe.AddIngredient(ItemID.RottenChunk, 7);
+            recipe.AddTile(TileID.DemonAltar);
             recipe.SetResult(this);
             recipe.AddRecipe();
         }
@@ -67,6 +70,14 @@ namespace InfernumMode.Items
         {
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
+                // Ensure that it's night-time.
+                if (Main.dayTime)
+                {
+                    Main.time = 0.0;
+                    Main.dayTime = !Main.dayTime;
+                    CalamityNetcode.SyncWorld();
+                }
+
                 Vector2 spawnPosition = player.Center - Vector2.UnitY * 800f;
                 NPC.NewNPC((int)spawnPosition.X, (int)spawnPosition.Y, NPCID.SkeletronHead);
             }

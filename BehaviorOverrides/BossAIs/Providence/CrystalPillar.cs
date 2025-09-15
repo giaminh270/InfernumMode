@@ -2,7 +2,6 @@ using CalamityMod;
 using InfernumMode.Miscellaneous;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-
 using System;
 using System.IO;
 using Terraria;
@@ -98,7 +97,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                     }), out newBottom);
                     bool isHalfTile = CalamityUtils.ParanoidTileRetrieval(newBottom.X - 1, newBottom.Y).halfBrick();
                     projectile.Bottom = newBottom.ToWorldCoordinates(isHalfTile ? 8 : 0, 8);
-                    MaxPillarHeight = (PoDWorld.ProvidenceArena.Right - PoDWorld.ProvidenceArena.Left) * 20f;
+                    MaxPillarHeight = (PoDWorld.ProvidenceArena.Right - PoDWorld.ProvidenceArena.Left) * 5f;
 
                     for (int i = 12; i < 50; i++)
                     {

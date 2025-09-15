@@ -53,14 +53,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             }
         }
 
-        public override void OnHitPlayer(Player target, int damage, bool crit)
-        {
-            if (Main.dayTime)
-                target.AddBuff(ModContent.BuffType<HolyFlames>(), 120);
-            else
-                target.AddBuff(ModContent.BuffType<Nightwither>(), 60);
-        }
-
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             float telegraphInterpolant = Utils.InverseLerp(0f, 45f, Time, true);
@@ -72,7 +64,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             lightColor.A = 128;
 
             Texture2D texture = ModContent.GetTexture(Texture);
-            if (!Main.dayTime)
+            if (ProvidenceBehaviorOverride.IsEnraged)
                 texture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Providence/HolyCinderNight");
             Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type], 1, texture);
             return false;

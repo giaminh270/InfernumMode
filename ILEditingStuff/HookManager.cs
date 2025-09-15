@@ -1,5 +1,6 @@
 using CalamityMod;
 using CalamityMod.CalPlayer;
+using CalamityMod.Events;
 using CalamityMod.Items.SummonItems;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs;
@@ -7,6 +8,7 @@ using CalamityMod.NPCs.ExoMechs.Ares;
 using CalamityMod.NPCs.Providence;
 using CalamityMod.NPCs.SupremeCalamitas;
 using CalamityMod.NPCs.Yharon;
+using CalamityMod.Skies;
 using CalamityMod.UI;
 using CalamityMod.World;
 using MonoMod.Cil;
@@ -165,6 +167,30 @@ namespace InfernumMode.ILEditingStuff
         {
             add => HookEndpointManager.Modify(typeof(AresBody).GetMethod("DropExoMechLoot", Utilities.UniversalBindingFlags), value);
             remove => HookEndpointManager.Unmodify(typeof(AresBody).GetMethod("DropExoMechLoot", Utilities.UniversalBindingFlags), value);
+        }
+
+        public static event ILContext.Manipulator UpdateRippers
+        {
+            add => HookEndpointManager.Modify(typeof(CalamityPlayer).GetMethod("UpdateRippers", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(CalamityPlayer).GetMethod("UpdateRippers", Utilities.UniversalBindingFlags), value);
+        }
+
+        public static event ILContext.Manipulator GetAdrenalineDamage
+        {
+            add => HookEndpointManager.Modify(typeof(CalamityUtils).GetMethod("GetAdrenalineDamage", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(CalamityUtils).GetMethod("GetAdrenalineDamage", Utilities.UniversalBindingFlags), value);
+        }
+
+        public static event ILContext.Manipulator PlaceHellLab
+        {
+            add => HookEndpointManager.Modify(typeof(DraedonStructures).GetMethod("PlaceHellLab", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(DraedonStructures).GetMethod("PlaceHellLab", Utilities.UniversalBindingFlags), value);
+        }
+
+        public static event ILContext.Manipulator SpawnProvLootBox
+        {
+            add => HookEndpointManager.Modify(typeof(Providence).GetMethod("SpawnLootBox", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(Providence).GetMethod("SpawnLootBox", Utilities.UniversalBindingFlags), value);
         }
     }
 }

@@ -198,6 +198,7 @@ namespace InfernumMode.ILEditingStuff
         public void Unload() => ExoMechSelectionUIDraw -= DrawSelectionUI;
     }
 
+
     public class DrawBlackEffectHook : IHookEdit
     {
         public static List<int> DrawCacheBeforeBlack = new List<int>(Main.maxProjectiles);
@@ -420,28 +421,7 @@ namespace InfernumMode.ILEditingStuff
 	
 	#region General Particle Rendering	
 	public class InfernumFusableParticle : IHookEdit
-	{
-        /*private static void DrawFusableParticles(On.Terraria.Main.orig_SortDrawCacheWorms orig, Main self)
-        {
-            DeathAshParticle.DrawAll();
-            InfernumFusableParticleManager.RenderAllFusableParticles();
-
-            orig(self);
-        }
-
-        private static void DrawForegroundParticles(On.Terraria.Main.orig_DrawInfernoRings orig, Main self)
-        {
-            GeneralParticleHandler.DrawAllParticles(Main.spriteBatch);
-            orig(self);
-        }
-
-        private static void ResetRenderTargetSizes(On.Terraria.Main.orig_SetDisplayMode orig, int width, int height, bool fullscreen)
-        {
-            if (InfernumFusableParticleManager.HasBeenFormallyDefined)
-                InfernumFusableParticleManager.LoadParticleRenderSets(true, width, height);
-            orig(width, height, fullscreen);
-        }*/
-		
+	{		
         private static void DrawGeneralParticles(On.Terraria.Main.orig_DrawInterface orig, Main self, GameTime gameTime)
         {
             GeneralParticleHandler.DrawAllParticles(Main.spriteBatch);

@@ -2,13 +2,15 @@ using Microsoft.Xna.Framework;
 using System.Collections.Generic;
 using System.IO;
 using Terraria;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode
 {
     public enum InfernumPacketType : short
     {
-        SendExtraNPCData
+        SendExtraNPCData,
+        SyncInfernumActive
     }
 
     public class InfernumNPCSyncInformation
@@ -18,7 +20,7 @@ namespace InfernumMode
         public int TotalUniqueIndicesUsed;
         public int[] ExtraAIIndicesUsed;
         public float[] ExtraAIValues;
-        public Rectangle Arena;
+        public Rectangle ArenaRectangle;
 
         public bool TryToApplyToNPC()
         {
@@ -34,8 +36,8 @@ namespace InfernumMode
                 Main.npc[NPCIndex].realLife = CachedRealLife;
             for (int i = 0; i < TotalUniqueIndicesUsed; i++)
                 Main.npc[NPCIndex].Infernum().ExtraAI[ExtraAIIndicesUsed[i]] = ExtraAIValues[i];
-            if (Arena != default)
-                Main.npc[NPCIndex].Infernum().Arena = Arena;
+            if (ArenaRectangle != default)
+                Main.npc[NPCIndex].Infernum().Arena = ArenaRectangle;
 
             return true;
         }
@@ -43,7 +45,37 @@ namespace InfernumMode
 
     public static class NetcodeHandler
     {
-        public static List<InfernumNPCSyncInformation> PendingSyncs = new List<InfernumNPCSyncInformation>();
+        internal static List<InfernumNPCSyncInformation> PendingSyncs = new List<InfernumNPCSyncInformation>();
+
+        public static void SyncInfernumActivity(int sender)
+        {
+            // Don't bother trying to send packets in singleplayer.
+            if (Main.netMode == NetmodeID.SinglePlayer)
+                return;
+
+            ModPacket packet = InfernumMode.Instance.GetPacket();
+            BitsByte containmentFlagWrapper = new BitsByte();
+            containmentFlagWrapper[0] = PoDWorld.InfernumMode;
+
+            packet.Write((byte)InfernumPacketType.SyncInfernumActive);
+            packet.Write(sender);
+            packet.Write(containmentFlagWrapper);
+            packet.Send(-1, sender);
+        }
+
+        public static void RecieveInfernumActivitySync(BinaryReader reader)
+        {
+            int sender = reader.ReadInt32();
+            BitsByte flag = reader.ReadByte();
+           	PoDWorld.InfernumMode = flag[0];
+
+            // Send the packet again to the other clients if this packet was received on the server.
+            // Since ModPackets go solely to the server when sent by a client this is necesssary
+            // to ensure that all clients are informed of what happened.
+            if (Main.netMode == NetmodeID.Server)
+                SyncInfernumActivity(sender);
+        }
+
         public static void ReceivePacket(Mod mod, BinaryReader reader, int whoAmI)
         {
             InfernumPacketType packetType = (InfernumPacketType)reader.ReadInt16();
@@ -55,7 +87,7 @@ namespace InfernumMode
                     int totalUniqueAIIndicesUsed = reader.ReadInt32();
                     int[] indicesUsed = new int[totalUniqueAIIndicesUsed];
                     float[] aiValues = new float[totalUniqueAIIndicesUsed];
-                    Rectangle Arena = new Rectangle(reader.ReadInt32(), reader.ReadInt32(), reader.ReadInt32(), reader.ReadInt32());
+                    Rectangle arenaRectangle = new Rectangle(reader.ReadInt32(), reader.ReadInt32(), reader.ReadInt32(), reader.ReadInt32());
 
                     for (int i = 0; i < totalUniqueAIIndicesUsed; i++)
                     {
@@ -69,12 +101,18 @@ namespace InfernumMode
                         TotalUniqueIndicesUsed = totalUniqueAIIndicesUsed,
                         ExtraAIIndicesUsed = indicesUsed,
                         ExtraAIValues = aiValues,
-                        Arena = Arena
+                        ArenaRectangle = arenaRectangle
                     };
 
                     if (!syncInformation.TryToApplyToNPC())
                         PendingSyncs.Add(syncInformation);
+                    break;
 
+                case InfernumPacketType.SyncInfernumActive:
+                    // Send the packet again to the other clients if this packet was received on the server.
+                    // Since ModPackets go solely to the server when sent by a client this is necesssary
+                    // to ensure that all clients are informed of what happened.
+                    RecieveInfernumActivitySync(reader);
                     break;
             }
         }

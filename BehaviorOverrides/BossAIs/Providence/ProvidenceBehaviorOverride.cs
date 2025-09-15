@@ -1,4 +1,5 @@
 using CalamityMod;
+using CalamityMod.Events;
 using CalamityMod.NPCs;
 using CalamityMod.Particles;
 using CalamityMod.Projectiles.Boss;
@@ -6,7 +7,7 @@ using CalamityMod.Sounds;
 using InfernumMode.BehaviorOverrides.BossAIs.Yharon;
 using InfernumMode.Buffs;
 using InfernumMode.OverridingSystem;
-
+using InfernumMode.Projectiles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -69,6 +70,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public static readonly Color[] NightPalette = new Color[] { new Color(119, 232, 194), new Color(117, 201, 229), new Color(117, 93, 229) };
 
+        public static bool IsEnraged => !Main.dayTime || BossRushEvent.BossRushActive;
+
         public override float[] PhaseLifeRatioThresholds => new float[]
         {
             Phase2LifeRatio,
@@ -88,8 +91,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             ref float wasSummonedAtNight = ref npc.Infernum().ExtraAI[7];
             ref float phase2AnimationTimer = ref npc.Infernum().ExtraAI[8];
 
-            bool shouldDespawnAtNight = wasSummonedAtNight == 0f && !Main.dayTime && attackType != (int)ProvidenceAttackType.SpawnEffect;
-            bool shouldDespawnAtDay = wasSummonedAtNight == 1f && Main.dayTime && attackType != (int)ProvidenceAttackType.SpawnEffect;
+            bool shouldDespawnAtNight = wasSummonedAtNight == 0f && IsEnraged && attackType != (int)ProvidenceAttackType.SpawnEffect;
+            bool shouldDespawnAtDay = wasSummonedAtNight == 1f && !IsEnraged && attackType != (int)ProvidenceAttackType.SpawnEffect;
             bool shouldDespawnBecauseOfTime = shouldDespawnAtNight || shouldDespawnAtDay;
 
             Vector2 crystalCenter = npc.Center + new Vector2(8f, 56f);
@@ -105,7 +108,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             npc.height = 450;
             npc.defense = 50;
             npc.dontTakeDamage = false;
-            npc.Calamity().DR = 0.35f;
+            npc.Calamity().DR = BossRushEvent.BossRushActive ? 0.65f : 0.35f;
             npc.Infernum().Arena = arenaArea;
             if (drawState == (int)ProvidenceFrameDrawingType.CocoonState)
                 npc.defense = CocoonDefense;
@@ -277,9 +280,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                     npc.ai[2] = -1f;
                     SelectNextAttack(npc);
 
-                    Color textColor = Main.dayTime ? Color.Yellow : Color.Lerp(Color.Cyan, Color.Lime, 0.15f);
+                    Color textColor = !IsEnraged ? Color.Yellow : Color.Lerp(Color.Cyan, Color.Lime, 0.15f);
                     string text = "The blazing air rises...";
-                    if (!Main.dayTime)
+                    if (IsEnraged)
                         text = "The blue flames roar...";
 
                     Utilities.DisplayText(text, textColor);
@@ -430,7 +433,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             // Determine if summoned at night.
             if (attackTimer == 1f)
             {
-                wasSummonedAtNight = (!Main.dayTime).ToInt();
+                wasSummonedAtNight = (IsEnraged).ToInt();
                 npc.netUpdate = true;
             }
 
@@ -467,7 +470,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             int blastShootRate = 24;
             float moltenBlastSpeed = MathHelper.Lerp(14f, 20f, 1f - lifeRatio);
 
-            if (!Main.dayTime)
+            if (IsEnraged)
             {
                 blastShootCount += 3;
                 totalBlobsFromBlasts += 3;
@@ -492,7 +495,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int blastDamage = Main.dayTime ? 225 : 350;
+                    int blastDamage = !IsEnraged ? 225 : 350;
                     Vector2 moltenBlastSpawnPosition = npc.Center + npc.velocity * 7f;
                     Vector2 moltenBlastVelocity = npc.SafeDirectionTo(target.Center) * moltenBlastSpeed;
                     int blast = Utilities.NewProjectileBetter(moltenBlastSpawnPosition, moltenBlastVelocity, ModContent.ProjectileType<MoltenBlast>(), blastDamage, 0f);
@@ -526,7 +529,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 offsetPerSpike -= 15f;
             }
 
-            if (!Main.dayTime)
+            if (IsEnraged)
             {
                 spikeCreationRate -= 7;
                 spikeCount = 3;
@@ -544,7 +547,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             // Release spikes.
             if (attackTimer >= spikeCreationDelay && (attackTimer - spikeCreationDelay) % spikeCreationRate == 0f)
             {
-                int spikeDamage = Main.dayTime ? 225 : 350;
+                int spikeDamage = !IsEnraged ? 225 : 350;
 
                 // Upward spikes.
                 if (spikeCounter % 2f == 0f)
@@ -603,7 +606,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 bombExplosionRadius += 150f;
             }
 
-            if (!Main.dayTime)
+            if (IsEnraged)
                 bombExplosionRadius += 225f;
 
             ref float bombShootCounter = ref npc.Infernum().ExtraAI[1];
@@ -636,7 +639,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                         }
 
                         // Release molten bolts.
-                        int fireBoltDamage = Main.dayTime ? 220 : 335;
+                        int fireBoltDamage = !IsEnraged ? 220 : 335;
                         for (int i = 0; i < boltCount; i++)
                         {
                             float offsetAngle = MathHelper.Lerp(-0.64f, 0.64f, i / (float)(boltCount - 1f));
@@ -678,7 +681,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 crystalFanCount--;
             }
 
-            if (!Main.dayTime)
+            if (IsEnraged)
             {
                 crystalReleaseRate = 1;
                 maxFanOffsetAngle += 0.24f;
@@ -729,14 +732,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 for (int i = 0; i < 4; i++)
                 {
                     Vector2 fireSpawnPosition = npc.Center + leftDirection * Main.rand.NextFloat(1250f);
-                    Dust fire = Dust.NewDustPerfect(fireSpawnPosition, Main.dayTime ? 222 : 221);
+                    Dust fire = Dust.NewDustPerfect(fireSpawnPosition, !IsEnraged ? 222 : 221);
                     fire.scale = 1.5f;
                     fire.fadeIn = 0.4f;
                     fire.velocity = leftDirection * Main.rand.NextFloat(8f);
                     fire.noGravity = true;
 
                     fireSpawnPosition = npc.Center + rightDirection * Main.rand.NextFloat(1250f);
-                    fire = Dust.NewDustPerfect(fireSpawnPosition, Main.dayTime ? 222 : 221);
+                    fire = Dust.NewDustPerfect(fireSpawnPosition, !IsEnraged ? 222 : 221);
                     fire.scale = 1.5f;
                     fire.fadeIn = 0.4f;
                     fire.velocity = rightDirection * Main.rand.NextFloat(8f);
@@ -748,7 +751,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 {
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        int crystalShardDamage = Main.dayTime ? 225 : 350;
+                        int crystalShardDamage = !IsEnraged ? 225 : 350;
                         float fanInterpolant = Utils.InverseLerp(0f, crystalReleaseRate * crystalReleaseCount, attackTimer - crystalFireDelay, true);
                         float offsetAngle = MathHelper.Lerp(-maxFanOffsetAngle, maxFanOffsetAngle, fanInterpolant);
                         if (useSinusoidalFan)
@@ -833,7 +836,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastShoot"), target.Center);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int cinderDamage = Main.dayTime ? 225 : 350;
+                    int cinderDamage = !IsEnraged ? 225 : 350;
                     for (float x = arenaArea.Left; x < arenaArea.Right; x += offsetPerCinder)
                     {
                         Vector2 cinderSpawnPosition = new Vector2(x + offsetPerCinder, arenaArea.Top);
@@ -874,12 +877,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             if (inPhase3)
                 totalCrystalsPerBurst++;
             
-            if (!Main.dayTime)
+            if (IsEnraged)
             {
                 crystalBurstShootRate -= 4;
                 totalCrystalsPerBurst += 5;
             }
-
+            
             ref float burstTimer = ref npc.Infernum().ExtraAI[2];
             ref float burstCounter = ref npc.Infernum().ExtraAI[3];
 
@@ -909,7 +912,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                     Main.PlaySound(SoundID.Item109, target.Center);
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        int crystalShardDamage = Main.dayTime ? 250 : 400;
+                        int crystalShardDamage = !IsEnraged ? 250 : 400;
                         float xSpeedOffset = target.velocity.X + Main.rand.NextFloat(-5f, 5f);
                         Vector2 shootPosition = npc.Center - Vector2.UnitY * 36f;
                         for (int i = 0; i < totalCrystalsPerBurst; i++)
@@ -964,7 +967,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/MeatySlash"), npc.Center);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int bladeDamage = Main.dayTime ? 225 : 350;
+                    int bladeDamage = !IsEnraged ? 225 : 350;
                     float offsetAngle = Main.rand.NextBool() ? MathHelper.Pi / crystalCount : 0f;
                     for (int i = 0; i < crystalCount; i++)
                     {
@@ -984,7 +987,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             float bladeSpeed = 12f;
             float maxLaserAngularVelocity = MathHelper.ToRadians(0.78f + (1f - lifeRatio) * 0.195f);
             
-            if (!Main.dayTime)
+            if (IsEnraged)
             {
                 bladeRelaseRate -= 10;
                 bladeSpeed += 3f;
@@ -1013,7 +1016,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             if (attackTimer == 1f)
             {
                 laserCount = 13f;
-                if (!Main.dayTime)
+                if (IsEnraged)
                     laserCount = 17f;
 
                 laserOffsetAngle = Main.rand.NextFloat(MathHelper.TwoPi);
@@ -1050,7 +1053,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyRay"), target.Center);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int beamDamage = Main.dayTime ? 375 : 600;
+                    int beamDamage = !IsEnraged ? 375 : 600;
                     for (int i = 0; i < laserCount; i++)
                     {
                         float offsetAngleInterpolant = i / laserCount;
@@ -1115,7 +1118,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 // Release a spiral of crystals.
                 if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % crystalShootRate == crystalShootRate - 1f)
                 {
-                    int crystalShardDamage = Main.dayTime ? 225 : 375;
+                    int crystalShardDamage = !IsEnraged ? 225 : 375;
                     Vector2 spiralVelocity = ((attackTimer - shootDelay) * MathHelper.TwoPi / 105f).ToRotationVector2() * crystalShootSpeed;
                     Utilities.NewProjectileBetter(crystalCenter, spiralVelocity, ModContent.ProjectileType<AcceleratingCrystalShard>(), crystalShardDamage, 0f);
                     int telegraph = Utilities.NewProjectileBetter(crystalCenter, spiralVelocity.SafeNormalize(Vector2.UnitY), ModContent.ProjectileType<CrystalTelegraphLine>(), 0, 0f);
@@ -1124,7 +1127,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 }
 
                 // Release bursts of spears.
-                int spearDamage = Main.dayTime ? 225 : 375;
+                int spearDamage = !IsEnraged ? 225 : 375;
                 if (attackTimer % spearBurstReleaseRate == spearBurstReleaseRate - 1f)
                 {
                     Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastShoot"), target.Center);
@@ -1163,7 +1166,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             float boltSpeed = 11f;
             float holyBlastSpeed = MathHelper.Lerp(14f, 21f, 1f - lifeRatio);
 
-            if (!Main.dayTime)
+            if (IsEnraged)
             {
                 blastShootRate -= 3;
                 boltCount += 3;
@@ -1190,7 +1193,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int fireDamage = Main.dayTime ? 235 : 375;
+                    int fireDamage = !IsEnraged ? 235 : 375;
                     Vector2 holyBlastSpawnPosition = npc.Center + npc.velocity * 7f;
                     Vector2 holyBlastVelocity = npc.SafeDirectionTo(target.Center) * holyBlastSpeed;
                     Utilities.NewProjectileBetter(holyBlastSpawnPosition, holyBlastVelocity, ModContent.ProjectileType<HolyBlast>(), fireDamage, 0f);
@@ -1241,14 +1244,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             float maxFlySpeed = (speedBoost + 17f) * speedFactor;
             
             // Fly faster at night.
-            if (!Main.dayTime)
+            if (IsEnraged)
             {
                 maxFlySpeed *= 1.35f;
                 acceleration *= 1.35f;
             }
 
             // Fly faster at night.
-            if (!Main.dayTime)
+            if (IsEnraged)
             {
                 maxFlySpeed *= 1.35f;
                 acceleration *= 1.35f;
@@ -1424,20 +1427,20 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             Color deathEffectColor = new Color(6, 6, 6, 0);
             float deathEffectInterpolant = Utils.InverseLerp(0f, 35f, npc.Infernum().ExtraAI[6], true);
 
-            if (Main.dayTime)
+            if (!IsEnraged)
             {
                 Color c = Color.Lerp(new Color(255, 120, 0, 128), deathEffectColor, deathEffectInterpolant);
                 Main.spriteBatch.Draw(wingTexture, baseDrawPosition, frame, c * npc.Opacity, npc.rotation, drawOrigin, npc.scale, spriteEffects, 0f);
             }
             else
             {
-                Color nightWingColor = Color.Lerp(new Color(80, 80, 255, 128), deathEffectColor, deathEffectInterpolant) * npc.Opacity;
+                Color nightWingColor = Color.Lerp(new Color(0, 255, 191, 0), deathEffectColor, deathEffectInterpolant) * npc.Opacity;
                 Main.spriteBatch.Draw(wingTexture, baseDrawPosition, frame, nightWingColor, npc.rotation, drawOrigin, npc.scale, spriteEffects, 0f);
-                /*for (int i = 0; i < 2; i++)
+                for (int i = 0; i < 6; i++)
                 {
                     Vector2 wingOffset = (MathHelper.TwoPi * i / 6f + Main.GlobalTime * 0.72f).ToRotationVector2() * npc.Opacity * wingVibrance * 2f;
                     Main.spriteBatch.Draw(wingTexture, baseDrawPosition + wingOffset, frame, nightWingColor * 0.55f, npc.rotation, drawOrigin, npc.scale, spriteEffects, 0f);
-                }*/
+                }
             }
         }
 
@@ -1591,9 +1594,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
                 Color baseColor = Color.White * (MathHelper.Lerp(0.4f, 0.8f, burnIntensity) / totalProvidencesToDraw * 7f);
                 baseColor.A = 0;
-
                 baseColor = Color.Lerp(Color.White, baseColor, burnIntensity);
-                if (!Main.dayTime)
+                if (IsEnraged)
                     baseColor = Color.Lerp(baseColor, Color.Cyan, 0.5f);
 
                 drawProvidenceInstance(drawPosition, 0, baseColor);
@@ -1609,7 +1611,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 if (telegraphOpacity <= 0f)
                     return false;
 
-                Color telegraphColor = (Main.dayTime ? Color.Yellow * npc.Opacity : Color.Cyan) * telegraphOpacity;
+                Color telegraphColor = (!IsEnraged ? Color.Yellow : Color.Cyan) * telegraphOpacity;
                 telegraphColor.A = 127;
                 for (int i = 0; i < laserCount; i++)
                 {

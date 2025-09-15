@@ -241,13 +241,13 @@ namespace InfernumMode
 				vertices.Add(new VertexPositionColorTexture(new Vector3(rightEdgeInner - Main.screenPosition, 0f), Color.White, new Vector2(nextCompletionRatio, 0f)));
 				vertices.Add(new VertexPositionColorTexture(new Vector3(leftEdgeInner - Main.screenPosition, 0f), Color.White, new Vector2(completionRatio, 0f)));
 
-				triangleIndices.Add((short)(i * 4));
-				triangleIndices.Add((short)(i * 4 + 1));
-				triangleIndices.Add((short)(i * 4 + 2));
-				triangleIndices.Add((short)(i * 4));
-				triangleIndices.Add((short)(i * 4 + 2));
-				triangleIndices.Add((short)(i * 4 + 3));
-			}
-		}		
+                triangleIndices.Add((short)(i * 4));
+                triangleIndices.Add((short)(i * 4 + 1));
+                triangleIndices.Add((short)(i * 4 + 2));
+                triangleIndices.Add((short)(i * 4));
+                triangleIndices.Add((short)(i * 4 + 2));
+                triangleIndices.Add((short)(i * 4 + 3));
+            }
+        }
     }
 }

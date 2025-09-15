@@ -266,7 +266,7 @@ namespace InfernumMode.GlobalInstances
                 }
             }
 
-            /*if (npc.type == NPCID.MoonLordCore && !PoDWorld.HasGeneratedProfanedShrine)
+            if (npc.type == NPCID.MoonLordCore && !PoDWorld.HasGeneratedProfanedShrine)
             {
                 Utilities.DisplayText("A profaned shrine has erupted from the ashes at the underworld's edge!", Color.Orange);
                 PoDWorld.GenerateProfanedArena(new Terraria.World.Generation.GenerationProgress());
@@ -279,17 +279,17 @@ namespace InfernumMode.GlobalInstances
                     PoDWorld.HasBeatedInfernumNightProvBeforeDay = true;
                 PoDWorld.HasBeatedInfernumProvRegularly = true;
                 CalamityNetcode.SyncWorld();
-            }*/
+            }
         }
 
-        /*public override void EditSpawnRate(Player player, ref int spawnRate, ref int maxSpawns)
+        public override void EditSpawnRate(Player player, ref int spawnRate, ref int maxSpawns)
         {
             if (player.Infernum().ZoneProfaned)
             {
                 spawnRate *= 40000;
                 maxSpawns = 0;
             }
-        }*/
+        }
 
         public override bool CanHitPlayer(NPC npc, Player target, ref int cooldownSlot)
         {
@@ -342,14 +342,6 @@ namespace InfernumMode.GlobalInstances
                 return;
 
             BalancingChangesManager.ApplyFromProjectile(npc, ref damage, projectile);
-        }
-
-        public override bool? DrawHealthBar(NPC npc, byte hbPosition, ref float scale, ref Vector2 position)
-        {
-            if (!InfernumMode.CanUseCustomAIs)
-                return base.DrawHealthBar(npc, hbPosition, ref scale, ref position);
-
-            return base.DrawHealthBar(npc, hbPosition, ref scale, ref position);
         }
 
         public override bool CheckDead(NPC npc)

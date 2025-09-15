@@ -2,14 +2,15 @@ using CalamityMod;
 using CalamityMod.Balancing;
 using CalamityMod.NPCs.AstrumAureus;
 using CalamityMod.NPCs.DesertScourge;
+using CalamityMod.Schematics;
 using CalamityMod.World;
 using Microsoft.Xna.Framework;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
 using Terraria;
-using Terraria.DataStructures;
 using Terraria.GameContent;
+using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
 using static InfernumMode.ILEditingStuff.HookManager;
@@ -41,6 +42,61 @@ namespace InfernumMode.ILEditingStuff
         public void Unload() => On.Terraria.Gore.NewGore -= AlterGores;
     }
 
+    public class MoveDraedonHellLabHook : IHookEdit
+    {
+        internal static void SlideOverHellLab(ILContext il)
+        {
+            ILCursor cursor = new ILCursor(il);
+            cursor.EmitDelegate<Action>(() =>
+            {
+                int tries = 0;
+                string mapKey = "Hell Laboratory";
+                SchematicMetaTile[,] schematic = CalamitySchematicIO.LoadSchematic("Schematics/HellLaboratory.csch");
+
+                do
+                {
+                    int underworldTop = Main.maxTilesY - 200;
+                    int placementPositionX = WorldGen.genRand.Next((int)(Main.maxTilesX * 0.7), (int)(Main.maxTilesX * 0.82));
+                    int placementPositionY = WorldGen.genRand.Next(Main.maxTilesY - 150, Main.maxTilesY - 125);
+
+                    Point placementPoint = new Point(placementPositionX, placementPositionY);
+                    Vector2 schematicSize = new Vector2(schematic.GetLength(0), schematic.GetLength(1));
+                    int xCheckArea = 30;
+                    bool canGenerateInLocation = true;
+
+                    // new Vector2 is used here since a lambda expression cannot capture a ref, out, or in parameter.
+                    float totalTiles = (schematicSize.X + xCheckArea * 2) * schematicSize.Y;
+                    for (int x = placementPoint.X - xCheckArea; x < placementPoint.X + schematicSize.X + xCheckArea; x++)
+                    {
+                        for (int y = placementPoint.Y; y < placementPoint.Y + schematicSize.Y; y++)
+                        {
+                            Tile tile = CalamityUtils.ParanoidTileRetrieval(x, y);
+                            if (DraedonStructures.ShouldAvoidLocation(new Point(x, y), false))
+                                canGenerateInLocation = false;
+                        }
+                    }
+                    if (!canGenerateInLocation)
+                    {
+                        tries++;
+                    }
+                    else
+                    {
+                        bool hasPlacedMurasama = false;
+                        SchematicManager.PlaceSchematic(mapKey, new Point(placementPoint.X, placementPoint.Y), SchematicAnchor.TopLeft, ref hasPlacedMurasama, new Action<Chest, int, bool>(DraedonStructures.FillHellLaboratoryChest));
+                        CalamityWorld.HellLabCenter = placementPoint.ToWorldCoordinates() + new Vector2(schematic.GetLength(0), schematic.GetLength(1)) * 8f;
+                        break;
+                    }
+                }
+                while (tries <= 50000);
+            });
+            cursor.Emit(OpCodes.Ret);
+        }
+
+        public void Load() => PlaceHellLab += SlideOverHellLab;
+
+        public void Unload() => PlaceHellLab -= SlideOverHellLab;
+    }
+
     public class GetRidOfOnHitDebuffsHook : IHookEdit
     {
         public void Load()
@@ -54,6 +110,13 @@ namespace InfernumMode.ILEditingStuff
             YharonOnHitPlayer -= SepulcherOnHitProjectileEffectRemovalHook.EarlyReturn;
             SCalOnHitPlayer -= SepulcherOnHitProjectileEffectRemovalHook.EarlyReturn;
         }
+    }
+
+    public class GetRidOfProvidenceLootBoxHook : IHookEdit
+    {
+        public void Load() => SpawnProvLootBox += SepulcherOnHitProjectileEffectRemovalHook.EarlyReturn;
+
+        public void Unload() => SpawnProvLootBox -= SepulcherOnHitProjectileEffectRemovalHook.EarlyReturn;
     }
 
     public class AureusPlatformWalkingHook : IHookEdit
@@ -89,33 +152,6 @@ namespace InfernumMode.ILEditingStuff
         public void Unload() => IL.Terraria.GameContent.Events.ScreenDarkness.Update -= AdjustFishronScreenDistanceRequirement;
     }
 
-    /*public class UseCustomShineParticlesForInfernumParticlesHook : IHookEdit
-    {
-        internal static void EmitFireParticles(On.Terraria.GameContent.Drawing.TileDrawing.orig_DrawTiles_EmitParticles orig, TileDrawing self, int j, int i, Tile tileCache, ushort typeCache, short tileFrameX, short tileFrameY, Color tileLight)
-        {
-            ModTile mt = TileLoader.GetTile(tileCache.TileType);
-            if ((tileLight.R > 20 || tileLight.B > 20 || tileLight.G > 20) && Main.rand.NextBool(12) && mt != null)
-            {
-                Dust fire = Dust.NewDustDirect(new Vector2(i * 16, j * 16), 16, 16, Main.rand.NextBool() ? 267 : 6, 0f, 0f, 254, Color.White, 1.4f);
-                fire.velocity = -Vector2.UnitY.RotatedByRandom(0.5f);
-                fire.color = Color.Lerp(Color.Yellow, Color.Red, Main.rand.NextFloat(0.7f));
-                fire.noGravity = true;
-            }
-
-            // I LOVE RANDOM ERRORS IN VANILLA METHODS THAT DISRUPT MY GODDAMN DEBUGGING ENVIRONMENT.
-            // It's so FUN!
-            try
-            {
-                orig(self, i, j, tileCache, typeCache, tileFrameX, tileFrameY, tileLight);
-            }
-            catch (IndexOutOfRangeException) { }
-        }
-
-        public void Load() => On.Terraria.GameContent.Drawing.TileDrawing.DrawTiles_EmitParticles += EmitFireParticles;
-
-        public void Unload() => On.Terraria.GameContent.Drawing.TileDrawing.DrawTiles_EmitParticles -= EmitFireParticles;
-    }*/
-
     public class LessenDesertTileRequirementsHook : IHookEdit
     {
         internal static void MakeDesertRequirementsMoreLenient(On.Terraria.Player.orig_UpdateBiomes orig, Player self)
@@ -141,6 +177,7 @@ namespace InfernumMode.ILEditingStuff
         {
             SepulcherHeadModifyProjectile += EarlyReturn;
             SepulcherBodyModifyProjectile += EarlyReturn;
+            SepulcherBody2ModifyProjectile += EarlyReturn;
             SepulcherTailModifyProjectile += EarlyReturn;
         }
 
@@ -148,6 +185,7 @@ namespace InfernumMode.ILEditingStuff
         {
             SepulcherHeadModifyProjectile -= EarlyReturn;
             SepulcherBodyModifyProjectile -= EarlyReturn;
+            SepulcherBody2ModifyProjectile -= EarlyReturn;
             SepulcherTailModifyProjectile -= EarlyReturn;
         }
     }
@@ -163,6 +201,7 @@ namespace InfernumMode.ILEditingStuff
                 int scourgeID = ModContent.NPCType<DesertScourgeHead>();
                 if (NPC.AnyNPCs(scourgeID))
                     return;
+
                 Main.PlaySound(SoundID.Roar, player.Center, 0);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                     NPC.SpawnOnPlayer(player.whoAmI, scourgeID);

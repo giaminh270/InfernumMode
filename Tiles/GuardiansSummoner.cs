@@ -1,4 +1,5 @@
 using CalamityMod;
+using InfernumMode.Projectiles;
 using CalamityMod.Events;
 using CalamityMod.Items.SummonItems;
 using CalamityMod.NPCs.ProfanedGuardians;
@@ -78,7 +79,7 @@ namespace InfernumMode.Tiles
 
         public override void MouseOver(int i, int j)
         {
-            Main.LocalPlayer.showItemIcon2 = ModContent.ItemType<ProfanedCoreUnlimited>();
+            Main.LocalPlayer.showItemIcon2 = ModContent.ItemType<ProfanedShard>();
             Main.LocalPlayer.noThrow = 2;
             Main.LocalPlayer.showItemIcon = true;
         }

@@ -1,31 +1,30 @@
-using CalamityMod;
 using InfernumMode.Miscellaneous;
 using Microsoft.Xna.Framework;
 using Terraria;
-using Terraria.ID;
 using Terraria.World.Generation;
 
 namespace InfernumMode
 {
     public static partial class Utilities
     {
-        public static Point GetGroundPositionFrom(Point p, GenSearch search = null)
-        {
-			if (search == null)
-				search = new Searches.Down(9001);
-            if (!WorldUtils.Find(p, Searches.Chain(search, new Conditions.IsSolid(), new CustomTileConditions.ActiveAndNotActuated()), out Point result))
-                return result;
-            return result;
-        }
-
         public static Vector2 GetGroundPositionFrom(Vector2 v, GenSearch search = null)
         {
+            Point tileCoordinates = v.ToTileCoordinates();
+            if (!WorldGen.InWorld(tileCoordinates.X, tileCoordinates.Y))
+                return v;
+            
             if (search is null)
                 search = new Searches.Down(9001);
-            if (!WorldUtils.Find(v.ToTileCoordinates(), Searches.Chain(search, new Conditions.IsSolid(), new CustomTileConditions.ActiveAndNotActuated()), out Point result))
+            
+            if (!WorldUtils.Find(tileCoordinates, Searches.Chain(search, new Conditions.IsSolid(), new CustomTileConditions.ActiveAndNotActuated()), out Point result))
                 return v;
+            
+            if (!WorldGen.InWorld(result.X, result.Y))
+                return v;
+            
             return result.ToWorldCoordinates();
         }
+
 
         public static bool RotatingHitboxCollision(this Entity entity, Vector2 targetTopLeft, Vector2 targetHitboxDimensions, Vector2? directionOverride = null)
         {
@@ -65,26 +64,6 @@ namespace InfernumMode
             distance = distance1 + distance2;
             return distance <= distanceConstant;
         }
-
-        public static bool ActualSolidCollisionTop(Vector2 topLeft, int width, int height)
-        {
-            int x = (int)(topLeft.X / 16f);
-            int y = (int)(topLeft.Y / 16f);
-            for (int i = x; i < x + width / 16; i++)
-            {
-                for (int j = y; j < y + height / 16; j++)
-                {
-                    Tile t = CalamityUtils.ParanoidTileRetrieval(i, j);
-		            if (!t.active() || t.inActive())
-                        continue;
-
-		            if (t.type == TileID.Platforms || Main.tileSolidTop[t.type])
-                        return true;
-                }
-            }
-
-            bool halfCorrectCheck = Collision.SolidCollision(topLeft, width, height);
-            return halfCorrectCheck;
-        }
+		
     }
 }

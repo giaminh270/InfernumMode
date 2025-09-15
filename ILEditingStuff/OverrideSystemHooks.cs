@@ -1,4 +1,5 @@
 using CalamityMod.NPCs;
+using CalamityMod.Projectiles;
 using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;

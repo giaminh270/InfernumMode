@@ -4,8 +4,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-
-namespace InfernumMode
+namespace InfernumMode.Projectiles
 {
     public class ProfanedTempleCinder : ModProjectile
     {

@@ -11,7 +11,8 @@ namespace InfernumMode.Items
         {
             DisplayName.SetDefault("Flesh Chunk");
             Tooltip.SetDefault("Summons the Wall of Flesh\n" +
-                "Can only be used in the underworld");
+                "Can only be used in the underworld\n" +
+                "Not consumable");
         }
 
         public override void SetDefaults()
@@ -34,6 +35,7 @@ namespace InfernumMode.Items
             recipe.AddIngredient(ModContent.ItemType<BloodOrb>(), 5);
             recipe.AddIngredient(ModContent.ItemType<DemonicBoneAsh>(), 5);
             recipe.AddIngredient(ItemID.ShadowScale, 10);
+            recipe.AddTile(TileID.DemonAltar);
             recipe.SetResult(this);
             recipe.AddRecipe();
 
@@ -42,6 +44,7 @@ namespace InfernumMode.Items
             recipe.AddIngredient(ModContent.ItemType<BloodOrb>(), 5);
             recipe.AddIngredient(ModContent.ItemType<DemonicBoneAsh>(), 5);
             recipe.AddIngredient(ItemID.TissueSample, 10);
+            recipe.AddTile(TileID.DemonAltar);
             recipe.SetResult(this);
             recipe.AddRecipe();
         }

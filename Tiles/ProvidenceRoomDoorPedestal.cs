@@ -3,6 +3,7 @@ using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Tiles.FurnitureProfaned;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using InfernumMode;
 using Terraria;
 using Terraria.ID;
 using CalamityMod.World;
@@ -14,7 +15,6 @@ using System.Collections.Generic;
 using System;
 using System.IO;
 
-
 namespace InfernumMode.Tiles
 {
     public class ProvidenceRoomDoorPedestal : ModTile
@@ -23,7 +23,7 @@ namespace InfernumMode.Tiles
         public const int Height = 1;
 
         public override void SetDefaults()
-        {
+        {		
             minPick = int.MaxValue;
             Main.tileFrameImportant[Type] = true;
             Main.tileNoAttach[Type] = true;
@@ -93,10 +93,6 @@ namespace InfernumMode.Tiles
             if (shatterTimer == 2)
 				Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceDoorShatter"));
 
-            // Do some screen shake anticipation effects.
-            //if (close && CalamityWorld.downedGuardians)
-            //    Main.LocalPlayer.Calamity().GeneralScreenShakePower = Utils.Remap(shatterTimer, 240f, 360f, 1f, 16f);
-
             // Have the door shatter into a bunch of crystals.
             if (CalamityWorld.downedGuardians && shatterTimer >= 360f)
             {
@@ -133,7 +129,6 @@ namespace InfernumMode.Tiles
                 Main.LocalPlayer.Hurt(PlayerDeathReason.ByCustomReason($"{Main.LocalPlayer.name} was somehow impaled by a pillar of crystals."), 100, 0);
                 Main.LocalPlayer.AddBuff(Main.dayTime ? ModContent.BuffType<HolyFlames>() : ModContent.BuffType<Nightwither>(), 180);
             }
-            //Main.LocalPlayer.Infernum().ShimmerSoundVolumeInterpolant = Utils.Remap(Main.LocalPlayer.Distance(bottom), 750f, 100f, 0f, 0.4f);
         }
 
         public override void DrawEffects(int i, int j, SpriteBatch spriteBatch, ref Color drawColor, ref int nextSpecialDrawIndex)
@@ -143,14 +138,9 @@ namespace InfernumMode.Tiles
             if (xFrameOffset != 0 || yFrameOffset != 0)
                 return;
 
-            if ((Main.tile[i - 1, j - 1].type != Type || Main.tile[i, j - 1].type != Type || Main.tile[i + 1, j - 1].type != Type ||
-                Main.tile[i - 1, j - 2].type != Type || Main.tile[i, j - 2].type != Type || Main.tile[i + 1, j - 2].type != Type) && 
-                nextSpecialDrawIndex < Main.specX.Length)
-            {
-                Main.specX[nextSpecialDrawIndex] = i;
-                Main.specY[nextSpecialDrawIndex] = j;
-                nextSpecialDrawIndex++;
-            }
+			Main.specX[nextSpecialDrawIndex] = i;
+			Main.specY[nextSpecialDrawIndex] = j;
+			nextSpecialDrawIndex++;
         }
 
         public override void SpecialDraw(int i, int j, SpriteBatch spriteBatch)

@@ -1,0 +1,31 @@
+using CalamityMod.NPCs.CeaselessVoid;
+using Microsoft.Xna.Framework;
+using System;
+using Terraria;
+using Terraria.Audio;
+using Terraria.ModLoader;
+
+using TMLSoundType = Terraria.ModLoader.SoundType;
+namespace InfernumMode.BossIntroScreens
+{
+    public class CeaselessVoidIntroScreen : BaseIntroScreen
+    {
+        public override TextColorData TextColor => new TextColorData(completionRatio =>
+        {
+            float voidInterpolant = Utils.InverseLerp(0.77f, 1f, (float)Math.Sin(AnimationCompletion * MathHelper.Pi * 3f + completionRatio * MathHelper.Pi) * 0.5f + 0.5f);
+            Color metalColor = new Color(167, 181, 209);
+            Color voidColor = new Color(12, 18, 27);
+            return Color.Lerp(metalColor, voidColor, voidInterpolant);
+        });
+
+        public override bool TextShouldBeCentered => true;
+
+        public override bool ShouldCoverScreen => false;
+
+        public override string TextToDisplay => "The Never-Ending\nCeaseless Void";
+
+        public override bool ShouldBeActive() => NPC.AnyNPCs(ModContent.NPCType<CeaselessVoid>());
+
+        public override LegacySoundStyle SoundToPlayWithTextCreation => null;
+    }
+}

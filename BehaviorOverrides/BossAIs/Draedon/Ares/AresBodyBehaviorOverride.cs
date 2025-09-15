@@ -972,7 +972,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 foreach (NPC photonRipper in photonRippers)
                 {
                     int direction = (photonRipper.Infernum().ExtraAI[0] == 1f).ToDirectionInt();
-                    DrawArmFunction.Invoke(npc.modNPC, new object[] { spriteBatch, photonRipper.Center, Main.screenPosition, armGlowmaskColor, direction, true });
+                    DrawArmFunction.Invoke(npc.modNPC, new object[] { spriteBatch, photonRipper.Center, armGlowmaskColor, direction, true });
                 }
             }
 
