@@ -15,6 +15,8 @@ using System.IO;
 using System.Collections.Generic;
 using Terraria.Graphics.Shaders;
 using Terraria;
+using Terraria.DataStructures;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -26,9 +28,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
     {
         public override int NPCOverrideType => ModContent.NPCType<CeaselessVoidBoss>();
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCSetDefaults;
-
-        public const int BulletHellTime = 900;
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCSetDefaults | NPCOverrideContext.NPCPreDraw;
 
         #region Enumerations
         public enum CeaselessVoidAttackType
@@ -43,6 +43,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
         #endregion
 
         #region Set Defaults
+
         public const float Phase2LifeRatio = 0.65f;
 
         public const float Phase3LifeRatio = 0.3f;
@@ -98,6 +99,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
             npc.TargetClosestIfTargetIsInvalid();
             Player target = Main.player[npc.target];
 
+            // Set the global whoAmI variable.
             CalamityGlobalNPC.voidBoss = npc.whoAmI;
 
             if (!target.active || target.dead || !npc.WithinRange(target.Center, 7200f))
@@ -482,7 +484,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
 
                 npc.netUpdate = true;
             }
-
         }
 
         public static void DoBehavior_SlowEnergySpirals(NPC npc, bool phase2, bool phase3, bool enraged, Player target, ref float attackTimer)
@@ -541,7 +542,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
 
             if (attackTimer >= 480f)
                 SelectNewAttack(npc);
-
         }
 
         public static void DoBehavior_DarkEnergyBulletHell(NPC npc, Player target, ref float attackTimer)
@@ -704,15 +704,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
             Texture2D texture = Main.npcTexture[npc.type];
             Texture2D glowmask = ModContent.GetTexture("CalamityMod/NPCs/CeaselessVoid/CeaselessVoidGlow");
             Texture2D voidTexture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/CeaselessVoid/CeaselessVoidVoidStuff");
-            spriteBatch.Draw(texture, npc.Center - Main.screenPosition, npc.frame, npc.GetAlpha(lightColor), npc.rotation, npc.frame.Size() * 0.5f, npc.scale, 0, 0f);
-            spriteBatch.Draw(glowmask, npc.Center - Main.screenPosition, npc.frame, npc.GetAlpha(Color.White), npc.rotation, npc.frame.Size() * 0.5f, npc.scale, 0, 0f);
+            Main.spriteBatch.Draw(texture, npc.Center - Main.screenPosition, npc.frame, npc.GetAlpha(lightColor), npc.rotation, npc.frame.Size() * 0.5f, npc.scale, 0, 0f);
+            Main.spriteBatch.Draw(glowmask, npc.Center - Main.screenPosition, npc.frame, npc.GetAlpha(Color.White), npc.rotation, npc.frame.Size() * 0.5f, npc.scale, 0, 0f);
 
             Main.spriteBatch.EnterShaderRegion();
 
-            Main.spriteBatch.Draw(voidTexture, (npc.Center - Main.screenPosition), npc.frame, npc.GetAlpha(Color.White), npc.rotation, npc.frame.Size() * 0.5f, npc.scale, 0, 0);
+            DrawData drawData = new DrawData(voidTexture, npc.Center - Main.screenPosition, npc.frame, npc.GetAlpha(Color.White), npc.rotation, npc.frame.Size() * 0.5f, npc.scale, 0, 0);
             GameShaders.Misc["Infernum:RealityTear2"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/Stars"));
-            //GameShaders.Misc["Infernum:RealityTear2"].Apply(drawData);
-            //drawData.Draw(Main.spriteBatch);
+            GameShaders.Misc["Infernum:RealityTear2"].Apply(drawData);
+            drawData.Draw(Main.spriteBatch);
             Main.spriteBatch.ExitShaderRegion();
             return false;
         }

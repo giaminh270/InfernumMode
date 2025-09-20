@@ -24,8 +24,8 @@ namespace InfernumMode.Items
 
         public override void SetDefaults()
         {
-            item.width = 18;
-            item.height = 18;
+            item.width = 42;
+            item.height = 50;
             item.rare = ItemRarityID.Lime;
             item.useAnimation = 45;
             item.useTime = 45;
@@ -49,15 +49,15 @@ namespace InfernumMode.Items
         public override bool PreDrawInInventory(SpriteBatch spriteBatch, Vector2 position, Rectangle frameI, Color drawColor, Color itemColor, Vector2 origin, float scale)
         {
             Texture2D texture = ModContent.GetTexture("InfernumMode/Items/LeviathanDetector_Animated");
-            Rectangle f = item.GetCurrentFrame(ref frame, ref frameCounter, 8, 5);
-            Main.spriteBatch.Draw(texture, position, f, Color.White, 0f, f.Size() * new Vector2(0.16f, 0.25f), scale, SpriteEffects.None, 0);
+            Rectangle f = item.GetCurrentFrame(ref frame, ref frameCounter, 5, 8);
+            Main.spriteBatch.Draw(texture, position, f, Color.White, 0f, f.Size() * new Vector2(0.0f, 0.125f), scale, SpriteEffects.None, 0);
             return false;
         }
 
         public override bool PreDrawInWorld(SpriteBatch spriteBatch, Color lightColor, Color alphaColor, ref float rotation, ref float scale, int whoAmI)
         {
             Texture2D texture = ModContent.GetTexture("InfernumMode/Items/LeviathanDetector_Animated");
-            Main.spriteBatch.Draw(texture, item.position - Main.screenPosition, item.GetCurrentFrame(ref frame, ref frameCounter, 8, 5), lightColor, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0);
+            Main.spriteBatch.Draw(texture, item.position - Main.screenPosition, item.GetCurrentFrame(ref frame, ref frameCounter, 5, 8), lightColor, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0);
             return false;
         }
 

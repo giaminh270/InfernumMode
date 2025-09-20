@@ -152,5 +152,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             spriteBatch.Draw(sparkleTexture, drawCenter, null, sparkleColor, projectile.rotation, origin, sparkleScale * 0.6f, 0, 0f);
             return false;
         }
+
+        public override void DrawBehind(int index, List<int> drawCacheProjsBehindNPCsAndTiles, List<int> drawCacheProjsBehindNPCs, List<int> drawCacheProjsBehindProjectiles, List<int> drawCacheProjsOverWiresUI)
+        {
+            DrawBlackEffectHook.DrawCacheAdditiveLighting.Add(index);
+        }
     }
 }

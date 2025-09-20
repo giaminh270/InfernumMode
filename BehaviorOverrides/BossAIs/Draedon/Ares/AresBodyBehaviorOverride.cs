@@ -112,7 +112,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             npc.Infernum().ExtraAI[ExoMechManagement.Ares_LineTelegraphInterpolantIndex] = 0f;
 
             // Make the laser and pulse arms swap sometimes.
-            if (backarmSwapTimer > 960f)
+            if (backarmSwapTimer > 1080f)
             {
                 backarmSwapTimer = 0f;
                 laserPulseArmAreSwapped = laserPulseArmAreSwapped == 0f ? 1f : 0f;
@@ -649,7 +649,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             }
 
             // Idly create explosions around the target.
-            if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % burstReleaseRate == burstReleaseRate - 1f && attackTimer > shootDelay + telegraphTime + 60f)
+            float adjustedTimer = attackTimer - (shootDelay + telegraphTime);
+            bool aboutToTurn = npc.ai[0] == (int)AresBodyAttackType.DirectionChangingSpinBursts && MathHelper.Distance(adjustedTimer, spinTime * 0.5f) < 54f;
+            if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % burstReleaseRate == burstReleaseRate - 1f && attackTimer > shootDelay + telegraphTime + 60f && !aboutToTurn)
             {
                 Vector2 targetDirection = target.velocity.SafeNormalize(Main.rand.NextVector2Unit());
                 Vector2 spawnPosition = target.Center - targetDirection.RotatedByRandom(1.1f) * Main.rand.NextFloat(325f, 650f) * new Vector2(1f, 0.6f);
@@ -657,7 +659,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             }
 
             // Make the laser spin.
-            float adjustedTimer = attackTimer - (shootDelay + telegraphTime);
             float spinSpeed = Utils.InverseLerp(0f, 420f, adjustedTimer, true) * MathHelper.Pi / 190f;
             if (npc.ai[0] == (int)AresBodyAttackType.DirectionChangingSpinBursts)
             {
@@ -670,7 +671,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                     if (Main.netMode != NetmodeID.Server)
                         ExoMechsSky.CreateLightningBolt(lightningBoltCount, true);
                 }
-
+                
                 if (adjustedTimer < spinTime * 0.5f)
                     spinSpeed *= Utils.InverseLerp(spinTime * 0.5f, spinTime * 0.5f - 45f, adjustedTimer, true);
                 else
@@ -759,16 +760,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             if (thanatosIndex >= 0 && aresBody.ai[0] >= 100f && Main.npc[thanatosIndex].Infernum().ExtraAI[13] < 240f)
                 return true;
 
-            // The pulse and laser arm are disabled for 1.5 seconds once they swap.
-            if (aresBody.Infernum().ExtraAI[14] < 90f && (npc.type == ModContent.NPCType<AresLaserCannon>() || npc.type == ModContent.NPCType<AresPulseCannon>()))
+            // The pulse and laser arm are disabled for 1 second before and after they swap.
+            bool rightAboutToSwap = aresBody.Infernum().ExtraAI[14] > 930f;
+            bool justSwapped = aresBody.Infernum().ExtraAI[14] < 90f;
+            if ((rightAboutToSwap || justSwapped) && (npc.type == ModContent.NPCType<AresLaserCannon>() || npc.type == ModContent.NPCType<AresPulseCannon>()))
                 return true;
 
             // If Ares is specifically using a combo attack that specifies certain arms should be active, go based on which ones should be active.
             if (ExoMechComboAttackContent.AffectedAresArms.TryGetValue((ExoMechComboAttackContent.ExoMechComboAttackType)aresBody.ai[0], out int[] activeArms))
                 return !activeArms.Contains(npc.type);
 
-            bool chargingUp = aresBody.Infernum().ExtraAI[ExoMechManagement.FinalPhaseTimerIndex] > 1f &&
-                aresBody.Infernum().ExtraAI[ExoMechManagement.FinalPhaseTimerIndex] < ExoMechManagement.FinalPhaseTransitionTime;
+            bool chargingUp = aresBody.Infernum().ExtraAI[ExoMechManagement.FinalPhaseTimerIndex] > 1f && aresBody.Infernum().ExtraAI[ExoMechManagement.FinalPhaseTimerIndex] < ExoMechManagement.FinalPhaseTransitionTime;
             if (aresBody.ai[0] == (int)AresBodyAttackType.HoverCharge ||
                 aresBody.ai[0] == (int)AresBodyAttackType.LaserSpinBursts ||
                 aresBody.ai[0] == (int)AresBodyAttackType.DirectionChangingSpinBursts ||

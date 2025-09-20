@@ -93,13 +93,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             return false;
         }
 
+        public override void DrawBehind(int index, List<int> drawCacheProjsBehindNPCsAndTiles, List<int> drawCacheProjsBehindNPCs, List<int> drawCacheProjsBehindProjectiles, List<int> drawCacheProjsOverWiresUI)
+        {
+            DrawBlackEffectHook.DrawCacheAdditiveLighting.Add(index);
+        }
+
         public override void Kill(int timeLeft)
         {
             Main.PlaySound(SoundID.Item91, projectile.Center);
             if (Main.netMode == NetmodeID.MultiplayerClient)
                 return;
 
-            Vector2 initialVelocity = Vector2.UnitY * 6f;
+            Vector2 initialVelocity = Vector2.UnitY * 11f;
             if (projectile.identity % 2f == 1f)
                 initialVelocity = initialVelocity.RotatedBy(MathHelper.PiOver2);
 

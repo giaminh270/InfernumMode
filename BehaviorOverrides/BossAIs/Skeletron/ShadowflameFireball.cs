@@ -27,19 +27,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
             projectile.tileCollide = projectile.timeLeft < 90;
             projectile.rotation += (projectile.velocity.X > 0f).ToDirectionInt() * 0.3f;
 
-            if (Main.dedServ)
+            if (Main.dedServ || InfernumConfig.Instance.ReducedGraphicsConfig)
                 return;
-
+			
             Dust cursedFlame = Dust.NewDustPerfect(projectile.Center + Main.rand.NextVector2Circular(projectile.width, projectile.height) * 0.5f, 173);
             cursedFlame.velocity = Vector2.UnitY.RotatedBy(projectile.velocity.ToRotation()) * Main.rand.NextFloat(1.5f, 2.3f);
             cursedFlame.scale = Main.rand.NextFloat(0.7f, 0.8f);
             cursedFlame.fadeIn = 0.6f;
             cursedFlame.noGravity = true;
-        }
-
-        public override void Kill(int timeLeft)
-        {
-
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)

@@ -229,14 +229,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasClone
                 brotherFadeoutTime = MathHelper.Clamp(brotherFadeoutTime + brotherIsPresent.ToDirectionInt(), 0f, 90f);
                 npc.Opacity = 1f - brotherFadeoutTime / 90f;
 
-                if (Main.netMode != NetmodeID.MultiplayerClient && brotherFadeoutTime == 30f && transitionState == 1f)
+                if (brotherFadeoutTime == 30f && transitionState == 1f)
                 {
-                    // Summon Catatrophe and Cataclysm.
-                    int cataclysm = NPC.NewNPC((int)target.Center.X - 1000, (int)target.Center.Y - 1000, ModContent.NPCType<CalamitasRun>());
-                    CalamityUtils.BossAwakenMessage(cataclysm);
 
-                    int catastrophe = NPC.NewNPC((int)target.Center.X + 1000, (int)target.Center.Y - 1000, ModContent.NPCType<CalamitasRun2>());
-                    CalamityUtils.BossAwakenMessage(catastrophe);
+                    if (Main.netMode != NetmodeID.MultiplayerClient)
+                    {
+                        // Summon Catatrophe and Cataclysm.
+                    	int cataclysm = NPC.NewNPC((int)target.Center.X - 1000, (int)target.Center.Y - 1000, ModContent.NPCType<CalamitasRun>());
+                    	CalamityUtils.BossAwakenMessage(cataclysm);
+
+                    	int catastrophe = NPC.NewNPC((int)target.Center.X + 1000, (int)target.Center.Y - 1000, ModContent.NPCType<CalamitasRun2>());
+                        CalamityUtils.BossAwakenMessage(catastrophe);
+                    }
                 }
 
                 Vector2 hoverDestination = target.Center;

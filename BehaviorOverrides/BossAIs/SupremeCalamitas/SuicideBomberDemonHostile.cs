@@ -218,7 +218,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 FlameTrailDrawer = new PrimitiveTrail(FlameTrailWidthFunction, FlameTrailColorFunction, null, GameShaders.Misc["CalamityMod:ImpFlameTrail"]);
 
             // Prepare the flame trail shader with its map texture.
-            GameShaders.Misc["CalamityMod:ImpFlameTrail"].SetShaderTexture(ModContent.GetTexture("CalamityMod/ExtraTextures/ScarletDevilStreak"));
+            GameShaders.Misc["CalamityMod:ImpFlameTrail"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/PrismaticLaserbeamStreak2"));
 
             Texture2D texture = ModContent.GetTexture("CalamityMod/Projectiles/Typeless/SuicideBomberDemon");
             Texture2D glowmask = ModContent.GetTexture("CalamityMod/Projectiles/Typeless/SuicideBomberDemonGlowmask");

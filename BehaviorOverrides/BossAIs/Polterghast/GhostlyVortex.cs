@@ -28,7 +28,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             projectile.penetrate = -1;
             projectile.timeLeft = 300;
             projectile.Calamity().canBreakPlayerDefense = true;
-            projectile.Infernum().FadesAwayWhenManuallyKilled = true;
             cooldownSlot = 1;
         }
 

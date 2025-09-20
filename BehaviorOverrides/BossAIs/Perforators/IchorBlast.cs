@@ -1,5 +1,6 @@
 using CalamityMod;
 using CalamityMod.Buffs.DamageOverTime;
+using CalamityMod.Events;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -31,7 +32,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Perforators
         public override void AI()
         {
             projectile.rotation = projectile.velocity.ToRotation() - MathHelper.PiOver2;
-            if (Math.Abs(projectile.velocity.X) < 18.5f)
+
+            float maxFlySpeed = BossRushEvent.BossRushActive ? 29f : 18.5f;
+            if (Math.Abs(projectile.velocity.X) < maxFlySpeed)
                 projectile.velocity.X *= 1.02f;
 
             // Release blood idly.
@@ -39,8 +42,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Perforators
             blood.velocity = Vector2.Zero;
             blood.noGravity = true;
         }
-
-        
 
         public override void OnHitPlayer(Player target, int damage, bool crit) => target.AddBuff(ModContent.BuffType<BurningBlood>(), 120);
 

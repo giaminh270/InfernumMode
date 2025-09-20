@@ -59,8 +59,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
             projectile.velocity = projectile.velocity.RotatedBy(AngularVelocity).SafeNormalize(Vector2.UnitY);
         }
 
-        
-
         public override void OnHitPlayer(Player target, int damage, bool crit) => target.AddBuff(BuffID.OnFire, 240);
     }
 }

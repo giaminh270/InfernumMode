@@ -23,7 +23,7 @@ namespace InfernumMode.Tiles
         public const int Height = 1;
 
         public override void SetDefaults()
-        {		
+        {
             minPick = int.MaxValue;
             Main.tileFrameImportant[Type] = true;
             Main.tileNoAttach[Type] = true;

@@ -127,8 +127,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
         #region AI
         public static bool Phase2AI(NPC npc, ref float phaseCycleTimer, ref float passiveAttackDelay, ref float portalIndex, ref float segmentFadeType, ref float universalFightTimer)
         {
-            // Set music.
-            // npc.modNPC.music = (InfernumMode.CalamityMod as CalamityMod.CalamityMod).GetMusicFromMusicMod("DevourerOfGodsP2") ?? MusicID.LunarBoss;
             ref float performingSpecialAttack = ref npc.Infernum().ExtraAI[PerformingSpecialAttackFlagIndex];
             ref float specialAttackTimer = ref npc.Infernum().ExtraAI[SpecialAttackTimerIndex];
             ref float hasEnteredFinalPhaseFlag = ref npc.Infernum().ExtraAI[HasEnteredFinalPhaseFlagIndex];

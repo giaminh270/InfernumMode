@@ -16,6 +16,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
         public bool TelegraphShouldAim = true;
 
         public Vector2 Destination;
+
         public float TelegraphDelay
         {
             get => projectile.localAI[0];
@@ -30,6 +31,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
         public const int DefaultLifetime = 225;
 
         public const int FadeoutTime = 45;
+
         public const float TelegraphFadeTime = 18f;
 
         public const float TelegraphWidth = 6400f;

@@ -1,5 +1,6 @@
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Dusts;
+using CalamityMod.Events;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -38,7 +39,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumAureus
 
             // Fly towards the closest player.
             if (Time < 45f && !projectile.WithinRange(closestPlayer.Center, 75f))
+            {
+                float maxSpeed = BossRushEvent.BossRushActive ? 30f : 19f;
                 projectile.velocity = projectile.velocity.RotateTowards(projectile.AngleTo(closestPlayer.Center), 0.02f);
+                if (projectile.velocity.Length() < maxSpeed)
+                    projectile.velocity *= 1.016f;
+            }
 
             if (projectile.WithinRange(closestPlayer.Center, 30f))
                 projectile.Kill();
@@ -64,7 +70,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumAureus
 
         public override void Kill(int timeLeft)
         {
-            Main.PlaySound(SoundID.Zombie, (int)projectile.position.X, (int)projectile.position.Y, 103, 1f, 0f);
+            Main.PlaySound(SoundID.Zombie, projectile.Center, 103);
 
             projectile.position = projectile.Center;
             projectile.width = projectile.height = 96;

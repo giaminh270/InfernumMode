@@ -44,7 +44,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             projectile.localAI[0]++;
             if (projectile.localAI[0] % 30f == 29f)
             {
-                int dustType = !ProvidenceBehaviorOverride.IsEnraged ? (int)CalamityDusts.ProfanedFire : (int)CalamityDusts.Nightwither;
+                int dustType = (Main.dayTime && !CalamityWorld.malice) ? (int)CalamityDusts.ProfanedFire : (int)CalamityDusts.Nightwither;
                 for (int i = 0; i < 12; i++)
                 {
                     Vector2 spawnOffset = Vector2.UnitX * -projectile.width / 2f;
@@ -65,12 +65,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public override Color? GetAlpha(Color lightColor)
         {
-            return !ProvidenceBehaviorOverride.IsEnraged ? new Color(250, 150, 0, projectile.alpha) : new Color(100, 200, 250, projectile.alpha);
+            return (Main.dayTime && !CalamityWorld.malice) ? new Color(250, 150, 0, projectile.alpha) : new Color(100, 200, 250, projectile.alpha);
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            Texture2D texture = !ProvidenceBehaviorOverride.IsEnraged ? ModContent.GetTexture(Texture) : ModContent.GetTexture("CalamityMod/Projectiles/Boss/MoltenBlastNight");
+            Texture2D texture = Main.dayTime ? ModContent.GetTexture(Texture) : ModContent.GetTexture("CalamityMod/Projectiles/Boss/MoltenBlastNight");
             int height = ModContent.GetTexture(Texture).Height / Main.projFrames[projectile.type];
             int top = height * projectile.frame;
             Vector2 drawPosition = projectile.Center - Main.screenPosition + Vector2.UnitY * projectile.gfxOffY;
@@ -101,5 +101,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
         }
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox) => CalamityUtils.CircularHitboxCollision(projectile.Center, 18f, targetHitbox);
+
+        public override void OnHitPlayer(Player target, int damage, bool crit)
+        {
+            int buffType = (Main.dayTime && !CalamityWorld.malice) ? ModContent.BuffType<HolyFlames>() : ModContent.BuffType<Nightwither>();
+            target.AddBuff(buffType, 240);
+        }
+
+        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
+        {
+            
+        }
     }
 }

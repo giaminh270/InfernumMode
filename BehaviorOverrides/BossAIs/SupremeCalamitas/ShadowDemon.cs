@@ -343,17 +343,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             if (particleSize > 500f)
                 particleSize = 500f;
 
-            int particleSpawnCount = Main.rand.NextBool(8) ? 3 : 1;
-            for (int i = 0; i < particleSpawnCount; i++)
+            for (int i = 0; i < 2; i++)
             {
                 // Summon a base particle.
                 Vector2 spawnPosition = npc.Center + Main.rand.NextVector2Circular(1f, 1f) * particleSize / 26f;
-                InfernumFusableParticleManager.GetParticleSetByType<ShadowDemonParticleSet>()?.SpawnParticle(spawnPosition, particleSize);
+				if (!InfernumConfig.Instance.ReducedGraphicsConfig)				
+					InfernumFusableParticleManager.GetParticleSetByType<ShadowDemonParticleSet>()?.SpawnParticle(spawnPosition, particleSize);
 
                 // And an "ahead" particle that spawns based on current movement.
                 // This causes the "head" of the overall thing to have bumps when moving.
                 spawnPosition += npc.velocity.RotatedByRandom(1.38f) * particleSize / 105f;
-                InfernumFusableParticleManager.GetParticleSetByType<ShadowDemonParticleSet>()?.SpawnParticle(spawnPosition, particleSize * 0.4f);
+				if (!InfernumConfig.Instance.ReducedGraphicsConfig)
+					InfernumFusableParticleManager.GetParticleSetByType<ShadowDemonParticleSet>()?.SpawnParticle(spawnPosition, particleSize * 0.4f);
             }
         }
 

@@ -50,7 +50,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
             {
                 projectile.Kill();
                 return;
-            }			
+            }
+
             float sliceInterpolant = (float)Math.Pow(Utils.InverseLerp(0f, 27f, Time, true), 1.6f);
             projectile.Center = Vector2.Lerp(Start, End, sliceInterpolant);
             if (Time <= 27f)

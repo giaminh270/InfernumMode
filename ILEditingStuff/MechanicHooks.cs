@@ -19,6 +19,7 @@ using InfernumMode.Particles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Terraria;
 using Terraria.GameContent;
 using Terraria.GameContent.Events;
@@ -27,6 +28,9 @@ using Terraria.Graphics.Effects;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.UI.Chat;
+using MonoMod.RuntimeDetour;
+using MonoMod.Utils;
+using MonoMod.RuntimeDetour.HookGen;
 using static InfernumMode.ILEditingStuff.HookManager;
 
 namespace InfernumMode.ILEditingStuff
@@ -198,7 +202,25 @@ namespace InfernumMode.ILEditingStuff
         public void Unload() => ExoMechSelectionUIDraw -= DrawSelectionUI;
     }
 
+    public class NerfAdrenalineHook : IHookEdit
+    {
+        internal static void NerfAdrenalineRates(ILContext context)
+        {
+            ILCursor c = new ILCursor(context);
 
+            if (!c.TryGotoNext(MoveType.After, i => i.MatchStfld<CalamityPlayer>("adrenaline")))
+                return;
+            if (!c.TryGotoPrev(MoveType.After, i => i.MatchLdloc(out _)))
+                return;
+
+            // This mechanic is ridiculous.
+            c.EmitDelegate<Func<float>>(() => InfernumMode.CanUseCustomAIs && !Main.LocalPlayer.Calamity().adrenalineModeActive ? BalancingChangesManager.AdrenalineChargeTimeFactor : 1f);
+            c.Emit(OpCodes.Div);
+        }
+
+        public void Load() => UpdateRippers += NerfAdrenalineRates;
+        public void Unload() => UpdateRippers -= NerfAdrenalineRates;
+    }
     public class DrawBlackEffectHook : IHookEdit
     {
         public static List<int> DrawCacheBeforeBlack = new List<int>(Main.maxProjectiles);
@@ -317,7 +339,7 @@ namespace InfernumMode.ILEditingStuff
 
             c.EmitDelegate<Action>(() =>
             {
-                if (NPC.AnyNPCs(NPCID.MoonLordCore) && PoDWorld.InfernumMode)
+                if (NPC.AnyNPCs(NPCID.MoonLordCore) && InfernumMode.CanUseCustomAIs)
                     Main.LocalPlayer.noBuilding = true;
             });
         }
@@ -331,7 +353,7 @@ namespace InfernumMode.ILEditingStuff
     {
         internal static int GiveDD2MinibossesPointPriority(On.Terraria.GameContent.Events.DD2Event.orig_GetMonsterPointsWorth orig, int slainMonsterID)
         {
-            if (OldOnesArmyMinibossChanges.GetMinibossToSummon(out int minibossID) && minibossID != NPCID.DD2Betsy && PoDWorld.InfernumMode)
+            if (OldOnesArmyMinibossChanges.GetMinibossToSummon(out int minibossID) && minibossID != NPCID.DD2Betsy && InfernumMode.CanUseCustomAIs)
                 return slainMonsterID == minibossID ? 99999 : 0;
 
             return orig(slainMonsterID);
@@ -442,5 +464,5 @@ namespace InfernumMode.ILEditingStuff
         public void Unload() => On.Terraria.Main.SortDrawCacheWorms -= DrawFusableParticles;	
 
 	}
-	#endregion General Particle Rendering
+	#endregion General Particle Rendering	
 }

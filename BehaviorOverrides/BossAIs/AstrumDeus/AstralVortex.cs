@@ -96,8 +96,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 else
                     projectile.velocity *= 0.9f;
 
-                // Idly create flames.
-                if (FlameSpawnRate >= 1f && Timer % FlameSpawnRate == FlameSpawnRate - 1)
+                // Idly create debris crystals.
+                if (Timer % FlameSpawnRate == FlameSpawnRate - 1)
                 {
                     Vector2 crystalSpawnPosition = projectile.Center + Main.rand.NextVector2Unit() * Main.rand.NextFloat(50f, 200f) * projectile.scale;
                     if (!Main.player[Player.FindClosest(crystalSpawnPosition, 1, 1)].WithinRange(crystalSpawnPosition, 300f))
@@ -169,14 +169,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             GameShaders.Misc["CalamityMod:DoGPortal"].UseSecondaryColor(fadedColor);
             GameShaders.Misc["CalamityMod:DoGPortal"].Apply();
 
-            Main.spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin, diskScale, 0, 0f);
+            Main.spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin, diskScale, SpriteEffects.None, 0f);
             GameShaders.Misc["CalamityMod:DoGPortal"].UseOpacity(projectile.Opacity);
             GameShaders.Misc["CalamityMod:DoGPortal"].UseColor(primaryColor);
             GameShaders.Misc["CalamityMod:DoGPortal"].UseSecondaryColor(primaryColor);
             GameShaders.Misc["CalamityMod:DoGPortal"].Apply();
 
             for (int i = 0; i < 3; i++)
-                Main.spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin, diskScale, 0, 0f);
+                Main.spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin, diskScale, SpriteEffects.None, 0f);
             Main.spriteBatch.ExitShaderRegion();
             return false;
         }

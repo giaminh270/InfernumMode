@@ -58,9 +58,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             // Shoot slower if pointing downward.
             orbShootSpeed *= MathHelper.Lerp(1f, 0.8f, Utils.InverseLerp(0.61f, 0.24f, aimDirection.AngleBetween(Vector2.UnitY), true));
 
-            if (ExoMechManagement.CurrentAresPhase >= 2)
-                orbShootSpeed *= 0.75f;
-
             // Nerf things while Ares' complement mech is present.
             if (ExoMechManagement.CurrentAresPhase == 4)
                 totalOrbsPerBurst = 7;

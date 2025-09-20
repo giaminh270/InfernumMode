@@ -115,7 +115,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
 
             // Select textures to pass to the shader, along with the electricity color.
             GameShaders.Misc["Infernum:ArtemisLaser"].UseColor(Color.Turquoise);
-            GameShaders.Misc["Infernum:ArtemisLaser"].SetShaderTexture(ModContent.GetTexture("CalamityMod/ExtraTextures/ScarletDevilStreak"));
+            GameShaders.Misc["Infernum:ArtemisLaser"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/PrismaticLaserbeamStreak2"));
             Main.instance.GraphicsDevice.Textures[2] = ModContent.GetTexture("Terraria/Misc/Perlin");
 
             int pointCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 10 : 25;

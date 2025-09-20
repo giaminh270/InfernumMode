@@ -11,6 +11,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
     public class EnergyTelegraph : ModProjectile
     {
         public PrimitiveTrail TelegraphDrawer = null;
+
         public Vector2[] TelegraphPoints;
 
         public override void SetStaticDefaults()

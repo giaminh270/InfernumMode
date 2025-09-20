@@ -23,14 +23,6 @@ namespace InfernumMode
         [Tooltip("Enables reduced graphics mode. Use this if lag is an issue.")]
         public bool ReducedGraphicsConfig { get; set; }
 
-        /*[Label("Saturation Bloom Intensity")]
-        [BackgroundColor(224, 127, 180, 192)]
-        [SliderColor(224, 165, 56, 128)]
-        [Range(0f, 1f)]
-        [DefaultValue(0f)]
-        [Tooltip("How intense color saturation bloom effects should be. Such effects are disabled when this value is zero. Be warned that high values may be overwhelming.")]
-        public float SaturationBloomIntensity { get; set; }*/
-
         public override bool AcceptClientChanges(ModConfig pendingConfig, int whoAmI, ref string message) => false;
     }
 }

@@ -216,7 +216,7 @@ namespace InfernumMode
         }
 		
 		public static void GetCircleVertices(int sideCount, float radius, Vector2 center, out List<short> triangleIndices, out List<VertexPositionColorTexture> vertices)
-		{
+        {
 			vertices = new List<VertexPositionColorTexture>();
 			triangleIndices = new List<short>();
 

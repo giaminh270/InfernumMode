@@ -224,9 +224,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 case DragonfollyAttackType.ThunderCharge:
                     DoAttack_Charge(npc, target, (DragonfollyAttackType)(int)attackType, phase2, phase3, ref fadeToRed, ref attackTimer, ref frameType, ref flapRate);
                     break;
+
+                // Currently unused to attack overlap problems.
                 case DragonfollyAttackType.SummonSwarmers:
                     DoAttack_SummonSwarmers(npc, target, phase2, phase3, ref attackTimer, ref frameType, ref flapRate);
                     break;
+
                 case DragonfollyAttackType.NormalLightningAura:
                     DoAttack_CreateNormalLightningAura(npc, target, ref attackTimer, ref frameType, ref flapRate);
                     break;
@@ -379,6 +382,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
         public static void DoAttack_Charge(NPC npc, Player target, DragonfollyAttackType chargeType, bool phase2, bool phase3, ref float fadeToRed, ref float attackTimer, ref float frameType, ref float flapRate)
         {
             npc.noTileCollide = true;
+
             float horizontalOffset = 550f;
             switch (chargeType)
             {
@@ -952,18 +956,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 }
             }
         }
+
         public static void DoAttack_RuffleFeathers(NPC npc, Player target, bool phase3, ref float attackTimer, ref float frameType, ref float flapRate)
         {
             npc.rotation = npc.rotation.AngleLerp(0f, 0.125f);
             npc.rotation = npc.rotation.AngleTowards(0f, 0.125f);
             npc.noTileCollide = true;
+
             int featherReleaseRate = phase3 ? 4 : 7;
             ref float attackState = ref npc.Infernum().ExtraAI[0];
+
             // Fly near the target.
             if (attackState == 0f)
             {
                 frameType = (int)DragonfollyFrameDrawingType.FlapWings;
                 flapRate = 5f;
+
                 npc.SimpleFlyMovement(npc.SafeDirectionTo(target.Center - Vector2.UnitY * 200f, -Vector2.UnitY) * 29f, 0.45f);
                 npc.spriteDirection = (npc.velocity.X > 0f).ToDirectionInt();
 
@@ -975,6 +983,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                     npc.netUpdate = true;
                 }
             }
+
             // Create a bunch of feathers.
             else if (attackState == 1f)
             {
@@ -1007,6 +1016,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             int chargeCount = 2;
             float chargeSpeed = 39.5f;
             float horizontalOffset = 600f;
+
             if (phase3)
             {
                 chargeDelay -= 5;
@@ -1014,6 +1024,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 chargeTime -= 8;
                 chargeCount++;
             }
+
             Vector2 hoverDestination = target.Center - Vector2.UnitX * Math.Sign(target.Center.X - npc.Center.X) * horizontalOffset;
             ref float attackState = ref npc.Infernum().ExtraAI[0];
             ref float chargeDirection = ref npc.Infernum().ExtraAI[1];
@@ -1038,6 +1049,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                     npc.netUpdate = true;
                 }
             }
+
             // Reel back in anticipation of the charge.
             if (attackState == 1f)
             {

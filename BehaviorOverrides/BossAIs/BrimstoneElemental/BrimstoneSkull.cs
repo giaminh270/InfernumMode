@@ -80,7 +80,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
 
         public override void Kill(int timeLeft)
         {
-            Main.PlaySound(SoundID.Item, (int)projectile.position.X, (int)projectile.position.Y, 20);
+            Main.PlaySound(SoundID.Item, projectile.Center, 20);
             for (int dust = 0; dust < 6; dust++)
                 Dust.NewDust(projectile.position + projectile.velocity, projectile.width, projectile.height, (int)CalamityDusts.Brimstone, 0f, 0f);
         }

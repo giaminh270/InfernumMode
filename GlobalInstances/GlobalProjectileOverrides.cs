@@ -23,8 +23,6 @@ namespace InfernumMode.GlobalInstances
     public class GlobalProjectileOverrides : GlobalProjectile
     {
         public override bool InstancePerEntity => true;
-		
-		public bool FadesAwayWhenManuallyKilled;
 
         public float[] ExtraAI = new float[100];
 		
@@ -70,7 +68,7 @@ namespace InfernumMode.GlobalInstances
 
         public override bool PreDraw(Projectile projectile, SpriteBatch spriteBatch, Color lightColor)
         {
-            if (InfernumMode.CanUseCustomAIs && projectile.type == ModContent.ProjectileType<HolyAura>() && ProvidenceBehaviorOverride.IsEnraged)
+            if (InfernumMode.CanUseCustomAIs && projectile.type == ModContent.ProjectileType<HolyAura>() && !Main.dayTime)
             {
                 Texture2D texture = Main.projectileTexture[projectile.type];
                 float clampedTime = Main.GlobalTime % 5f / 5f;

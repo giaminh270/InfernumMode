@@ -1,9 +1,9 @@
-using CalamityMod.Buffs.DamageOverTime;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using CalamityMod.Buffs.DamageOverTime;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 {
@@ -42,11 +42,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             Lighting.AddLight(projectile.Center, Color.Yellow.ToVector3() * 0.5f);
         }
 
+        public override void OnHitPlayer(Player target, int damage, bool crit)
+        {
+            if (Main.dayTime)
+                target.AddBuff(ModContent.BuffType<HolyFlames>(), 120);
+            else
+                target.AddBuff(ModContent.BuffType<Nightwither>(), 60);
+        }
+
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             lightColor = Color.Lerp(lightColor, Color.White, 0.4f);
             lightColor.A = 128;
-            if (ProvidenceBehaviorOverride.IsEnraged)
+            if (!Main.dayTime)
                 lightColor = Color.Lerp(Color.White, Color.Cyan, 0.7f);
 
             Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type]);

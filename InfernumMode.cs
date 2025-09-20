@@ -101,7 +101,7 @@ namespace InfernumMode
 
             OverridingListManager.Load();
             BalancingChangesManager.Load();
-            HookManager.Load();
+            HookManager.Load();		
 
             // Manually invoke the attribute constructors to get the marked methods cached.
             foreach (var type in typeof(InfernumMode).Assembly.GetTypes())
@@ -263,6 +263,10 @@ namespace InfernumMode
 			}
         }
 		
+        internal static IDictionary<int, int> SoundLoaderMusicToItem => (IDictionary<int, int>)typeof(SoundLoader).GetField("musicToItem", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+        internal static IDictionary<int, int> SoundLoaderItemToMusic => (IDictionary<int, int>)typeof(SoundLoader).GetField("itemToMusic", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+        internal static IDictionary<int, IDictionary<int, int>> SoundLoaderTileToMusic => (IDictionary<int, IDictionary<int, int>>)typeof(SoundLoader).GetField("tileToMusic", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+		
         public override void UpdateMusic(ref int music, ref MusicPriority priority)
         {
             if (Main.musicVolume != 0)
@@ -321,10 +325,10 @@ namespace InfernumMode
 						priority = MusicPriority.BossHigh;
 					}
 
-					if (DoGPhase2HeadBehaviorOverride.InPhase2 && CalamityWorld.DoGSecondStageCountdown <= 530 && CalamityWorld.DoGSecondStageCountdown > 50)
+					if (DoGPhase2HeadBehaviorOverride.InPhase2)
 					{
 						music = (CalamityMod as CalamityMod.CalamityMod).GetMusicFromMusicMod("DevourerOfGodsP2") ?? MusicID.LunarBoss;
-						priority = MusicPriority.BossHigh;
+                        priority = MusicPriority.BossMedium;
 					}
 
 					bool areExoMechsAround = NPC.AnyNPCs(ModContent.NPCType<AresBody>()) ||
@@ -414,8 +418,6 @@ namespace InfernumMode
             TwinsAttackSynchronizer.PostUpdateEffects();
             if (CalamityWorld.death)
                 CalamityWorld.revenge = true;
-			if (CalamityWorld.malice)
-                CalamityWorld.death = true;
 
             bool arenaShouldApply = Utilities.AnyProjectiles(ModContent.ProjectileType<ProvidenceSummonerProjectile>()) || NPC.AnyNPCs(ModContent.NPCType<Providence>());
             InfernumMode.ProvidenceArenaTimer = MathHelper.Clamp(InfernumMode.ProvidenceArenaTimer + arenaShouldApply.ToDirectionInt(), 0f, 120f);

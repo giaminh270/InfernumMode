@@ -1,4 +1,5 @@
 using CalamityMod.Dusts;
+using CalamityMod.World;
 using CalamityMod.NPCs;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -54,29 +55,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             if (SpikesShouldExtendOutward)
                 SpikeReach = MathHelper.Clamp(SpikeReach + 8f, 0f, 125f);
 
-            // Create a visual warning effect on the ground before releasing spikes so that the player knows to avoid it.
-            else
-            {
-                if (Main.rand.NextBool(4))
-                {
-                    Dust holyFire = Dust.NewDustPerfect(projectile.Center + Main.rand.NextVector2Circular(6f, 6f), (int)CalamityDusts.ProfanedFire);
-                    holyFire.velocity = SpikeDirection.ToRotationVector2().RotatedByRandom(0.64f) * Main.rand.NextFloat(2f, 6f);
-                    holyFire.noGravity = true;
-                    holyFire.scale *= 1.1f;
-                    holyFire.fadeIn = 0.6f;
-                }
 
-                SpikeReach = 0f;
-            }
-
-            for (int i = 12; i < 125; i++)
-            {
-                if (Collision.SolidCollision(projectile.Center + SpikeDirection.ToRotationVector2() * i, 1, 1))
-                {
-                    projectile.Kill();
-                    return;
-                }
-            }
+			if (SpikesShouldExtendOutward && SpikeReach >= 125f)
+			{
+				for (int i = 12; i < 125; i++)
+				{
+					if (Collision.SolidCollision(projectile.Center + SpikeDirection.ToRotationVector2() * i, 1, 1))
+					{
+						projectile.Kill();
+						return;
+					}
+				}
+			}
         }
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
@@ -90,7 +80,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public override Color? GetAlpha(Color lightColor)
         {
-            Color c = !ProvidenceBehaviorOverride.IsEnraged ? Color.Lerp(Color.Orange, Color.Yellow, 0.8f) : Color.Lerp(Color.Cyan, Color.Lime, 0.15f);
+            Color c = (Main.dayTime && !CalamityWorld.malice) ? Color.Lerp(Color.Orange, Color.Yellow, 0.8f) : Color.Lerp(Color.Cyan, Color.Lime, 0.15f);
             c = Color.Lerp(c, Color.White, 0.4f);
 
             c.A = 0;
@@ -111,7 +101,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 float spikeRotation = SpikeDirection + MathHelper.PiOver2;
                 Rectangle spikeFrame = new Rectangle(0, (int)frameTop, spikeChain.Width, (int)frameHeight);
 
-                for (int i = 0; i < 2; i++)
+                for (int i = 0; i < 1; i++)
                 {
                     Main.spriteBatch.Draw(spikeChain, spikeTip - Main.screenPosition, spikeFrame, projectile.GetAlpha(Color.White), spikeRotation, new Vector2(spikeChain.Width / 2f, 0f), 1f, 0, 0f);
                     Main.spriteBatch.Draw(spikeTipTexture, spikeTip - Main.screenPosition, null, projectile.GetAlpha(Color.White), spikeRotation + MathHelper.Pi, new Vector2(spikeTipTexture.Width / 2f, 0f), 1f, 0, 0f);

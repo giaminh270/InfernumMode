@@ -495,8 +495,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
                         float shootSpeed = Main.rand.NextFloat(12f, 14f) + npc.Distance(target.Center) * 0.011f;
                         shootSpeed *= Utilities.Remap(attackTimer, hoverTime, hoverTime + 75f, 0.35f, 1f);
-						
-                        Vector2 fireballShootVelocity = aimRotation.ToRotationVector2() * Main.rand.NextFloat(12f, 14f);
+
+                        Vector2 fireballShootVelocity = aimRotation.ToRotationVector2() * shootSpeed;
                         fireballShootVelocity = fireballShootVelocity.RotatedByRandom(MathHelper.Pi * 0.1f);
                         if (BossRushEvent.BossRushActive)
                             fireballShootVelocity *= 1.5f;
@@ -645,6 +645,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                     electricity.noGravity = true;
                 }
             }
+
             if (phase2 && attackTimer == attackLength - nebulaLightningShootTime + 5f)
                 Main.PlaySound(SoundID.Zombie, npc.Center, 91);
 
@@ -1233,6 +1234,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             int spreadPhaseTime = spinPhaseTime + burstShootRate * burstCount + burstTeleportTime;
             ref float burstShootCounter = ref npc.Infernum().ExtraAI[0];
             ref float cycleIndex = ref npc.Infernum().ExtraAI[1];
+
+            if (BossRushEvent.BossRushActive && attackTimer < spreadPhaseTime)
+            {
+                attackTimer = spreadPhaseTime;
+                npc.netUpdate = true;
+            }
 
             // Disable damage, allowing the player to focus solely on dodging.
             npc.dontTakeDamage = true;

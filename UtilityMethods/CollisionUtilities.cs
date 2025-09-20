@@ -15,16 +15,13 @@ namespace InfernumMode
             
             if (search is null)
                 search = new Searches.Down(9001);
-            
             if (!WorldUtils.Find(tileCoordinates, Searches.Chain(search, new Conditions.IsSolid(), new CustomTileConditions.ActiveAndNotActuated()), out Point result))
                 return v;
-            
             if (!WorldGen.InWorld(result.X, result.Y))
                 return v;
             
             return result.ToWorldCoordinates();
         }
-
 
         public static bool RotatingHitboxCollision(this Entity entity, Vector2 targetTopLeft, Vector2 targetHitboxDimensions, Vector2? directionOverride = null)
         {
@@ -64,6 +61,5 @@ namespace InfernumMode
             distance = distance1 + distance2;
             return distance <= distanceConstant;
         }
-		
     }
 }

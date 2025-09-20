@@ -270,17 +270,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             if (DoGPhase2HeadBehaviorOverride.InPhase2)
             {
                 npc.Calamity().CanHaveBossHealthBar = true;
-                npc.ModNPC<DoGHead>().Phase2Started = true;
+                typeof(DoGHead).GetField("phase2Started", Utilities.UniversalBindingFlags)?.SetValue(npc.modNPC, true);
+                typeof(DoGHead).GetField("Phase2Started", Utilities.UniversalBindingFlags)?.SetValue(npc.modNPC, true);
                 npc.Size = Vector2.One * 176f;
                 return DoGPhase2HeadBehaviorOverride.Phase2AI(npc, ref phaseCycleTimer, ref passiveAttackDelay, ref portalIndex, ref segmentFadeType, ref universalFightTimer);
             }
 
             // Set music.
+            npc.modNPC.music = (InfernumMode.CalamityMod as CalamityMod.CalamityMod).GetMusicFromMusicMod("DevourerOfGodsP1") ?? MusicID.LunarBoss;
 
             // Do through the portal once ready to enter the second phase.
             if (CurrentPhase2TransitionState != Phase2TransitionState.NotEnteringPhase2)
             {
-				npc.modNPC.music = (InfernumMode.CalamityMod as CalamityMod.CalamityMod).GetMusicFromMusicMod("DevourerOfGodsP2") ?? MusicID.LunarBoss;
+				npc.modNPC.music = (InfernumMode.CalamityMod as CalamityMod.CalamityMod).GetMusicFromMusicMod("DevourerOfGodsP2") ?? MusicID.LunarBoss;		
                 HandlePhase2TransitionEffect(npc, ref portalIndex);
                 getInTheFuckingPortalTimer++;
                 if (getInTheFuckingPortalTimer >= 540f)

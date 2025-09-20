@@ -10,6 +10,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.World.Generation;
+using System.Collections.Generic;
 using CrabulonNPC = CalamityMod.NPCs.Crabulon.CrabulonIdle;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon

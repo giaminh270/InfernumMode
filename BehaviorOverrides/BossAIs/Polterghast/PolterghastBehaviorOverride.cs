@@ -1443,18 +1443,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
 
         #region Frames and Drawcode
 
-        /*public static float TelegraphWidthFunction(NPC _, float _2) => 80f;
+        public static float TelegraphWidthFunction(NPC _, float _2) => 80f;
 
         public static Color TelegraphColorFunction(NPC npc, float completionRatio)
         {
             float endFadeOpacity = Utils.InverseLerp(0f, 0.15f, completionRatio, true) * Utils.InverseLerp(1f, 0.8f, completionRatio, true);
             return Color.LightCyan * endFadeOpacity * npc.localAI[1] * 0.4f;
-        }*/
+        }
 
         public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor)
         {
             // Initialize the telegraph primitive drawer.
-            // npc.Infernum().OptionalPrimitiveDrawer = new PrimitiveTrailCopy(c => TelegraphWidthFunction(npc, c), c => TelegraphColorFunction(npc, c), null, false, GameShaders.Misc["Infernum:SideStreak"]);
+            if (npc.Infernum().OptionalPrimitiveDrawer is null)
+				npc.Infernum().OptionalPrimitiveDrawer = new PrimitiveTrailCopy(c => TelegraphWidthFunction(npc, c), c => TelegraphColorFunction(npc, c), null, false, GameShaders.Misc["Infernum:SideStreak"]);
 
             bool inPhase3 = npc.life < npc.lifeMax * Phase3LifeRatio;
             bool enraged = npc.ai[3] == 1f;
@@ -1471,7 +1472,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             }
 
             // Draw the telegraph line as needed.
-            /*Vector2 telegraphDirection = npc.localAI[2].ToRotationVector2();
+            Vector2 telegraphDirection = npc.localAI[2].ToRotationVector2();
             Vector2 telegraphStart = npc.Center;
             Vector2 telegraphEnd = npc.Center + telegraphDirection * 5000f;
             Vector2[] telegraphPoints = new Vector2[]
@@ -1479,7 +1480,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
                 telegraphStart,
                 (telegraphStart + telegraphEnd) * 0.5f,
                 telegraphEnd
-            };*/
+            };
 
             if (inPhase3 || enraged)
             {

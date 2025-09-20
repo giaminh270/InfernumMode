@@ -12,9 +12,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
     public class DoomBeam : ModProjectile
     {
         internal PrimitiveTrailCopy BeamDrawer;
+
         public ref float Time => ref projectile.ai[0];
+
         public const float LaserLength = 4000f;
+
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Death Beam");
 
         public override void SetDefaults()

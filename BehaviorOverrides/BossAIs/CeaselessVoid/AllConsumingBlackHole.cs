@@ -58,8 +58,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
             // Create a slice effect on the first frame.
             if (Timer == 2f)
             {
-			Main.PlaySound(mod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/YanmeiKnifeHit"), (int)Target.Center.X, (int)Target.Center.Y);
-			Main.PlaySound(mod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/TeslaCannonFire"), (int)Target.Center.X, (int)Target.Center.Y);
+				Main.PlaySound(mod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/YanmeiKnifeHit"), (int)Target.Center.X, (int)Target.Center.Y);
+				Main.PlaySound(mod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/TeslaCannonFire"), (int)Target.Center.X, (int)Target.Center.Y);
 
                 Target.Calamity().GeneralScreenShakePower = 20f;
                 if (Main.netMode != NetmodeID.MultiplayerClient)
@@ -183,9 +183,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
             return false;
         }
 
-		public override void DrawBehind(int index, List<int> drawCacheProjsBehindNPCsAndTiles, List<int> drawCacheProjsBehindNPCs, List<int> drawCacheProjsBehindProjectiles, List<int> drawCacheProjsOverWiresUI)
+        public override void DrawBehind(int index, List<int> behindNPCsAndTiles, List<int> behindNPCs, List<int> behindProjectiles, List<int> overPlayers)
         {
-            drawCacheProjsBehindProjectiles.Add(index);
+            behindProjectiles.Add(index);
         }
         #endregion
     }

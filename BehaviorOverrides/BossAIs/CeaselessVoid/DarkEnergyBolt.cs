@@ -16,7 +16,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
 {
     public class DarkEnergyBolt : ModProjectile
     {
-        public PrimitiveTrailCopy TrailDrawer = null;
+        internal PrimitiveTrailCopy TrailDrawer;
+        
         public ref float Time => ref projectile.ai[1];
 
         public override void SetStaticDefaults()
@@ -63,11 +64,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
                 projectile.Kill();
             }
 
-
-
             Time++;
         }
-
+        
         internal float WidthFunction(float completionRatio)
         {
             float arrowheadCutoff = 0.33f;
@@ -118,6 +117,5 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
         {
             
         }
-
     }
 }

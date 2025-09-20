@@ -26,17 +26,7 @@ namespace InfernumMode.Skies
         public float Intensity = 0f;
         public int EdgyWormIndex = -1;
         public List<Lightning> LightningBolts = new List<Lightning>();
-        public static bool CanSkyBeActive
-        {
-            get
-            {
-                if (!InfernumMode.CanUseCustomAIs)
-                    return false;
-
-                return CalamityGlobalNPC.DoGHead != -1;
-            }
-        }
-
+        
         public static void CreateLightningBolt(Color color, int count = 1, bool playSound = false)
         {
             if (Main.netMode == NetmodeID.Server)

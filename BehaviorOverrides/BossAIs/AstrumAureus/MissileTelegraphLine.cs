@@ -4,13 +4,13 @@ using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
+namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumAureus
 {
-    public class CrystalTelegraphLine : ModProjectile
+    public class MissileTelegraphLine : ModProjectile
     {
         public ref float Time => ref projectile.ai[0];
-
-        public ref float Lifetime => ref projectile.ai[1];
+        
+        public const int Lifetime = 27;
 
         public override void SetStaticDefaults() => DisplayName.SetDefault("Telegraph");
 
@@ -39,10 +39,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             float telegraphWidth = MathHelper.Lerp(0.3f, 3f, CalamityUtils.Convert01To010(Time / Lifetime));
 
             // Draw a telegraph line outward.
-            Color telegraphColor = Main.dayTime ? Color.Yellow : Color.Lerp(Color.Cyan, Color.Green, 0.15f);
             Vector2 start = projectile.Center;
             Vector2 end = projectile.Center + projectile.velocity.SafeNormalize(Vector2.UnitY) * 3000f;
-            Main.spriteBatch.DrawLineBetter(start, end, telegraphColor, telegraphWidth);
+            Main.spriteBatch.DrawLineBetter(start, end, Color.Cyan, telegraphWidth);
             return false;
         }
     }

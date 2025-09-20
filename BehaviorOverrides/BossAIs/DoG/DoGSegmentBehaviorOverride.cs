@@ -107,7 +107,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                         if (isTail)
                         {
                             InPhase2 = true;
-                            CurrentPhase2TransitionState = Phase2TransitionState.NotEnteringPhase2;
+                            Main.npc[CalamityGlobalNPC.DoGHead].Infernum().ExtraAI[Phase2TransitionStateIndex] = 0f;
+                            Main.npc[CalamityGlobalNPC.DoGHead].netUpdate = true;
+                        }
+
+                        CalamityWorld.DoGSecondStageCountdown = 305;
+
+                        if (Main.netMode == NetmodeID.Server)
+                        {
+                            var netMessage = InfernumMode.CalamityMod.GetPacket();
+                            netMessage.Write((byte)CalamityModMessageType.DoGCountdownSync);
+                            netMessage.Write(CalamityWorld.DoGSecondStageCountdown);
+                            netMessage.Send();
                         }
                     }
                 }

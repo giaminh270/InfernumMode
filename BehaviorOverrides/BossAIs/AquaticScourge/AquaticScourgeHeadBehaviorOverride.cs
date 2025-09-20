@@ -485,6 +485,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AquaticScourge
         {
             if (speedFactor == 0f)
                 return;
+
             AquaticScourgeAttackType attackType = (AquaticScourgeAttackType)(int)npc.ai[2];
             float lifeRatio = npc.life / (float)npc.lifeMax;
             float idealRotation = npc.AngleTo(target.Center);

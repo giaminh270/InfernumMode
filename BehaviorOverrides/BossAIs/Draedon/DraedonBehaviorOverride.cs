@@ -50,7 +50,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             CalamityGlobalNPC.draedon = npc.whoAmI;
 
             // Prevent stupid natural despawns.
-            npc.timeLeft = 3600;
+            npc.timeLeft = 4200;
 
             // Define variables.
             ref float talkTimer = ref npc.ai[0];
@@ -98,18 +98,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
 
             // Stay within the world.
             npc.position.Y = MathHelper.Clamp(npc.position.Y, 150f, Main.maxTilesY * 16f - 150f);
-
             npc.spriteDirection = (playerToFollow.Center.X < npc.Center.X).ToDirectionInt();
-
-            // Handle delays when re-appearing after being killed.
-            if (killReappearDelay > 0f)
-            {
-                npc.Opacity = 0f;
-                killReappearDelay--;
-                if (killReappearDelay <= 0f)
-                    CalamityUtils.DisplayLocalizedText("Mods.CalamityMod.DraedonEndKillAttemptText", TextColor);
-                return false;
-            }
 
             // Synchronize the hologram effect and talk timer at the beginning.
             // Also calculate opacity.

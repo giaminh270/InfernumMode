@@ -184,8 +184,8 @@ namespace InfernumMode.Skies
         public override void Activate(Vector2 position, params object[] args)
         {
             isActive = true;
-            int horizontalArea = 60;
-            int verticalArea = 12;
+            int horizontalArea = 90;
+            int verticalArea = 22;
             Stars = new AstralStar[horizontalArea * verticalArea];
             int starIndex = 0;
             for (int i = 0; i < horizontalArea; i++)

@@ -73,15 +73,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 }
             }
 
-            for (int i = 0; i < 40; i++)
+            for (int i = 0; i < 120; i++)
             {
                 float dustSpeed = 16f;
+                if (i < 150)
+                    dustSpeed = 12f;
+                if (i < 100)
+                    dustSpeed = 8f;
                 if (i < 50)
-                    dustSpeed = 6f;
-                if (i < 33)
                     dustSpeed = 4f;
-                if (i < 13)
-                    dustSpeed = 2f;
 
                 float scale = 1f;
                 Dust astralPlasma = Dust.NewDustDirect(projectile.Center, 6, 6, Main.rand.NextBool(2) ? 107 : 110, 0f, 0f, 100, default, 1f);

@@ -1,4 +1,5 @@
 ﻿using CalamityMod.NPCs.Providence;
+using InfernumMode.BehaviorOverrides.BossAIs.Providence;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;

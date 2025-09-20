@@ -1,4 +1,4 @@
-using InfernumMode.BehaviorOverrides.BossAIs.Twins;
+using CalamityMod.Projectiles.Boss;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -6,11 +6,13 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
+using TwinsRedLightning = InfernumMode.BehaviorOverrides.BossAIs.Twins.RedLightning;
 namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
 {
     public class LightningCloud : ModProjectile
     {
         public float AngularOffset;
+
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
         public override void SetStaticDefaults()
         {
@@ -59,7 +61,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 Vector2 spawnPosition = projectile.Center + Vector2.UnitX * Main.rand.NextFloat(-10f, 10f);
                 spawnPosition -= offsetDirection * 2500f;
 
-                int lightning = Utilities.NewProjectileBetter(spawnPosition, offsetDirection * 12f, ModContent.ProjectileType<RedLightning>(), 260, 0f);
+                int lightning = Utilities.NewProjectileBetter(spawnPosition, offsetDirection * 12f, ModContent.ProjectileType<TwinsRedLightning>(), 260, 0f);
                 if (Main.projectile.IndexInRange(lightning))
                 {
                     Main.projectile[lightning].ai[0] = Main.projectile[lightning].velocity.ToRotation();

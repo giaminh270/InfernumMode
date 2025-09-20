@@ -49,7 +49,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumAureus
             // Emit light.
             Lighting.AddLight(projectile.Center, 0.3f, 0.5f, 0.1f);
 
-            // Emit astral flame dusts.
+            // Emit astral flame dust.
             projectile.ai[0]++;
             if (projectile.ai[0] > 15f)
             {
@@ -71,7 +71,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumAureus
 
         public override void Kill(int timeLeft)
         {
-            Main.PlaySound(SoundID.Zombie, (int)projectile.position.X, (int)projectile.position.Y, 103, 1f, 0f);
+            Main.PlaySound(SoundID.Zombie, projectile.Center, 103);
             projectile.position = projectile.Center;
             projectile.width = projectile.height = 96;
             projectile.position -= projectile.Size * 0.5f;

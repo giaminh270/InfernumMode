@@ -220,7 +220,21 @@ namespace InfernumMode
         }
 
         public override void PostUpdate()
-        {						
+        {
+			// Keep the player out of the providence arena if the door is around.
+			if (PoDWorld.ProvidenceDoorXPosition != 0 && !PoDWorld.HasProvidenceDoorShattered && (player.position.Y + player.height) >= (Main.maxTilesY - 220f) * 16f)
+			{
+				bool passedDoor = false;
+				float doorX = PoDWorld.ProvidenceDoorXPosition;
+				while ((player.position.X + player.width) >= doorX || (passedDoor && Collision.SolidCollision(player.position, player.width, player.height)))
+				{
+					player.velocity.X = 0f;
+					player.position.X -= 0.1f;
+					passedDoor = true;
+				}
+			}
+
+			
             if (Main.myPlayer != player.whoAmI || !ZoneProfaned || !player.ZoneUnderworldHeight)
                 return;
 
@@ -260,6 +274,13 @@ namespace InfernumMode
         {
             if (InfernumMode.CanUseCustomAIs && CalamityGlobalNPC.adultEidolonWyrmHead >= 0 && Main.npc[CalamityGlobalNPC.adultEidolonWyrmHead].Calamity().CurrentlyEnraged)
                 damage = (int)MathHelper.Max(5500f / (1f - player.endurance + 1e-6f), damage);
+            if (InfernumMode.CanUseCustomAIs && BossRushEvent.BossRushActive)
+            {
+                while (damage >= 1 && damage < 200)
+                    damage *= 2;
+                if (damage < 400)
+                    damage = Main.rand.Next(400, 435);
+            }
             return true;
         }
         #endregion Pre Hurt
@@ -345,22 +366,42 @@ namespace InfernumMode
                 player.mount.Dismount(player);
             }
 
-            // Ensure that Death+Revengeance+Malice Mode is always active while Infernum is active.
+            // Ensure that Death+Revengeance Mode is always active while Infernum is active.
             if (PoDWorld.InfernumMode && !CalamityWorld.revenge)
                 CalamityWorld.revenge = true;
             if (PoDWorld.InfernumMode && !CalamityWorld.death)
                 CalamityWorld.death = true;
-		    if (PoDWorld.InfernumMode && !CalamityWorld.malice)
-	        	CalamityWorld.malice = true;	
 
-            /* Ensure that Malice Mode is never active while Infernum is active.
+            //Ensure that Malice Mode is never active while Infernum is active.
             if (PoDWorld.InfernumMode && CalamityWorld.malice)
             {
                 CalamityUtils.DisplayLocalizedText("Mods.CalamityMod.MaliceText2", Color.Crimson);
                 CalamityWorld.malice = false;
-            }*/
+            }
 
-
+            if (PoDWorld.InfernumMode && CalamityWorld.DoGSecondStageCountdown > 600)
+            {
+                for (int i = 0; i < Main.maxNPCs; i++)
+                {
+                    if (Main.npc[i].active &&
+                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("Signus") ||
+                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverHead")) ||
+                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverBody")) ||
+                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverTail")) ||
+                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverNakedHead")) ||
+                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverNakedBody")) ||
+                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("StormWeaverNakedTail")) ||
+                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("CeaselessVoid")) ||
+                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("DarkEnergy")) ||
+                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("DarkEnergy2")) ||
+                        (Main.npc[i].type == InfernumMode.CalamityMod.NPCType("DarkEnergy3"))))
+                    {
+                        Main.npc[i].active = false;
+                    }
+                }
+                CalamityWorld.DoGSecondStageCountdown = 599;
+            }
+			
             if (ShadowflameInferno)
             {
                 for (int i = 0; i < 2; i++)
