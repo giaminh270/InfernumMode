@@ -221,18 +221,18 @@ namespace InfernumMode
 
         public override void PostUpdate()
         {
-			// Keep the player out of the providence arena if the door is around.
+            // Keep the player out of the providence arena if the door is around.
 			if (PoDWorld.ProvidenceDoorXPosition != 0 && !PoDWorld.HasProvidenceDoorShattered && (player.position.Y + player.height) >= (Main.maxTilesY - 220f) * 16f)
-			{
-				bool passedDoor = false;
+            {
+                bool passedDoor = false;
 				float doorX = PoDWorld.ProvidenceDoorXPosition;
 				while ((player.position.X + player.width) >= doorX || (passedDoor && Collision.SolidCollision(player.position, player.width, player.height)))
 				{
 					player.velocity.X = 0f;
 					player.position.X -= 0.1f;
 					passedDoor = true;
-				}
-			}
+                }
+            }
 
 			
             if (Main.myPlayer != player.whoAmI || !ZoneProfaned || !player.ZoneUnderworldHeight)
