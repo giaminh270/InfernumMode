@@ -1,3 +1,4 @@
+using CalamityMod;
 using CalamityMod.NPCs;
 using Microsoft.Xna.Framework;
 using System;

@@ -14,7 +14,7 @@ namespace InfernumMode.Skies
 
         public override void Reset() { }
 
-        public override bool IsActive() => !Main.gameMenu && NPC.AnyNPCs(ModContent.NPCType<Providence>()) && InfernumMode.CanUseCustomAIs && !Main.dayTime;
+        public override bool IsActive() => !Main.gameMenu && NPC.AnyNPCs(ModContent.NPCType<Providence>()) && InfernumMode.CanUseCustomAIs && ProvidenceBehaviorOverride.IsEnraged;
 
         public override void Activate(Vector2 position, params object[] args) { }
 

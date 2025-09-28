@@ -32,9 +32,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
 
     public static class SlimeGodComboAttackManager
     {
+        public static int GroundSlimeDamage => 95;
+
+        public static int SlimeGlobDamage => 95;
+
         public static int FirstSlimeToSummonIndex => WorldGen.crimson ? CalamityGlobalNPC.slimeGodRed : CalamityGlobalNPC.slimeGodPurple;
 
         public static int SecondSlimeToSummonIndex => WorldGen.crimson ? CalamityGlobalNPC.slimeGodPurple : CalamityGlobalNPC.slimeGodRed;
+
+        public static int DelayBeforeSoloEnrageAttacksBegin => 90;
 
         public static NPC LeaderOfFight
         {
@@ -72,6 +78,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
 
         public const float SummonSecondSlimeLifeRatio = 0.6f;
 
+        public const float BigSlimeBaseScale = 1.5f;
+
+        public const float CoreBaseScale = 1.3f;
+
         public static void InheritAttributesFromLeader(NPC npc)
         {
             bool needsToPickNewAttack = false;
@@ -84,7 +94,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             if (npc.ai[0] >= 100f && FightState != SlimeGodFightState.BothLargeSlimes)
             {
                 npc.Opacity = 1f;
-                npc.scale = 1f;
+                npc.scale = BigSlimeBaseScale;
 
                 int splitSlimeID = ModContent.NPCType<SplitBigSlime>();
                 for (int i = 0; i < Main.maxNPCs; i++)
@@ -95,7 +105,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
 
                 needsToPickNewAttack = true;
             }
-            
+
             if (needsToPickNewAttack)
                 BigSlimeGodAttacks.SelectNextAttack(npc);
 
@@ -115,6 +125,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
         {
             bool red = npc.type == ModContent.NPCType<SlimeGodRun>();
             bool alone = FightState == SlimeGodFightState.AloneSingleLargeSlimeEnraged;
+
+            // Wait a bit before attacking in the alone and enraged phase.
+            if (alone && npc.ai[2] >= 1f)
+            {
+                npc.defense = 999999;
+                npc.ai[0] = (int)BigSlimeGodAttackType.LongJumps;
+                npc.ai[2]--;
+                attackTimer = 0f;
+                return;
+            }
+
             switch ((int)npc.ai[0])
             {
                 case (int)BigSlimeGodAttackType.LongJumps:
@@ -216,13 +237,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                 npc.velocity.X *= 0.8f;
                 npc.noTileCollide = npc.Bottom.Y < target.Bottom.Y;
                 npc.velocity.Y = MathHelper.Clamp(npc.velocity.Y + gravity, -12f, 21f);
-                if (Collision.SolidCollision(npc.TopLeft, npc.width, npc.height + 4) && !npc.noTileCollide)
+				
+				bool hasHitGround = Utilities.HasHitGroundOrPlatform(npc);
+				if (hasHitGround && !npc.noTileCollide)
                 {
                     bool bothSlimesHasSlammed = crimulanSlime.Infernum().ExtraAI[0] == 1f && ebonianSlime.Infernum().ExtraAI[0] == 1f;
 
                     if (hasSlammed == 0f)
                     {
                         hasSlammed = 1f;
+						npc.velocity.Y = 0f;
+						npc.position.Y = Utilities.GetGroundPosition(npc);					
                         if (Main.netMode != NetmodeID.MultiplayerClient)
                         {
                             int globID = red ? ModContent.ProjectileType<DeceleratingCrimulanGlob>() : ModContent.ProjectileType<DeceleratingEbonianGlob>();
@@ -230,10 +255,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                             for (int i = 0; i < globCount; i++)
                             {
                                 Vector2 globVelocity = (MathHelper.TwoPi * i / globCount + shootOffsetAngle).ToRotationVector2() * globSpeed;
-                                Utilities.NewProjectileBetter(npc.Bottom, globVelocity, globID, 90, 0f);
+                                Utilities.NewProjectileBetter(npc.Bottom, globVelocity, globID, SlimeGlobDamage, 0f);
                             }
+
+                            // Shoot one glob directly at the target to prevent sitting in place.
+                            Utilities.NewProjectileBetter(npc.Bottom, npc.SafeDirectionTo(target.Center) * globSpeed * 0.8f, globID, SlimeGlobDamage, 0f);
                         }
 
+                        Main.PlaySound(SoundID.Item, npc.Bottom, 167);
                         npc.netUpdate = true;
                     }
 
@@ -267,12 +296,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
 
         public static void DoBehavior_TeleportAndFireBlobs(NPC npc, Player target, bool red, ref float attackTimer)
         {
-            int teleportTime = 48;
+            int teleportTime = 78;
             int blobShootRate = 60;
-            int groundBlobCountPerShot = 4;
-            int acceleratingGlobPerShot = 5;
+            int groundBlobCountPerShot = 2;
+            int acceleratingGlobPerShot = 3;
             int blobShootTime = blobShootRate * 3 - 8;
             float globSpeed = 6f;
+
+            // Disable contact damage to prevent telefrags.
+            npc.damage = 0;
 
             // Do teleport animation effects.
             if (attackTimer < teleportTime)
@@ -280,10 +312,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                 npc.scale = Utils.InverseLerp(teleportTime / 2 - 5f, 0f, attackTimer, true);
                 if (attackTimer >= teleportTime / 2)
                     npc.scale += Utils.InverseLerp(teleportTime / 2, teleportTime - 10f, attackTimer, true);
+                npc.scale *= BigSlimeBaseScale;
 
                 if (npc.scale <= 0f)
                     npc.scale = 0.0001f;
-                npc.damage = 0;
                 npc.dontTakeDamage = true;
 
                 // Fuck.
@@ -297,14 +329,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                 // Find a place to teleport to.
                 if (attackTimer == teleportTime / 2)
                 {
-                    for (int i = 0; i < 2500; i++)
+                    for (int i = 0; i < 8000; i++)
                     {
-                        int dx = Main.rand.Next(15, i / 25 + 40) * red.ToDirectionInt();
+                        int dx = Main.rand.Next(25, i / 25 + 40) * red.ToDirectionInt();
                         int dy = Main.rand.Next(-50, 50);
                         Vector2 teleportBottom = target.Center + new Vector2(dx, dy).ToWorldCoordinates(8f, 0f);
 
                         // Ignore positions that are midair.
-                        if (!Collision.SolidCollision(teleportBottom - Vector2.UnitY * 92f, 150, 92 + 24))
+                        if (!Collision.SolidCollision(teleportBottom, 150, 32))
                             continue;
 
                         // Ignore positions that are in the ground.
@@ -336,6 +368,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             // Shoot blobs at the target and in the air.
             if (attackTimer % blobShootRate == blobShootRate - 1f)
             {
+                Main.PlaySound(SoundID.Item, npc.Bottom, 171);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     Vector2 shootPosition = npc.Center - Vector2.UnitY * 24f;
@@ -356,21 +389,27 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                         float idealShootSpeed = (float)Math.Sqrt(horizontalDistance * GroundSlimeGlob.Gravity);
                         float bloodShootSpeed = MathHelper.Clamp(idealShootSpeed, 7.6f, 20f);
                         Vector2 bloodShootVelocity = Utilities.GetProjectilePhysicsFiringVelocity(shootPosition, shootDestination, GroundSlimeGlob.Gravity, bloodShootSpeed, out _);
-                        int blood = Utilities.NewProjectileBetter(shootPosition, bloodShootVelocity, ModContent.ProjectileType<GroundSlimeGlob>(), 90, 0f);
+                        int blood = Utilities.NewProjectileBetter(shootPosition, bloodShootVelocity, ModContent.ProjectileType<GroundSlimeGlob>(), GroundSlimeDamage, 0f);
                         if (Main.projectile.IndexInRange(blood))
                             Main.projectile[blood].ai[1] = target.Center.Y;
                     }
 
-                    // Shoot accelerating blobs if close enough to the target.
-                    if (npc.WithinRange(target.Center, 600f))
+                    // Shoot accelerating blobs if far away enough to the target.
+                    if (!npc.WithinRange(target.Center, 336f))
                     {
                         int globID = red ? ModContent.ProjectileType<DeceleratingCrimulanGlob>() : ModContent.ProjectileType<DeceleratingEbonianGlob>();
                         for (int i = 0; i < acceleratingGlobPerShot; i++)
                         {
                             float shootOffsetAngle = MathHelper.Lerp(-0.62f, 0.62f, i / (float)(acceleratingGlobPerShot - 1f));
-                            Vector2 globVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(shootOffsetAngle) * globSpeed;
-                            Utilities.NewProjectileBetter(npc.Bottom, globVelocity, globID, 90, 0f);
+                            Vector2 globVelocity = Vector2.UnitX.RotatedBy(shootOffsetAngle) * globSpeed;
+                            if (target.Center.X < npc.Center.X)
+                                globVelocity *= -1f;
+
+                            Utilities.NewProjectileBetter(npc.Bottom, globVelocity, globID, SlimeGlobDamage, 0f);
                         }
+
+                        // Shoot one glob directly at the target to prevent sitting in place.
+                        Utilities.NewProjectileBetter(npc.Bottom, npc.SafeDirectionTo(target.Center) * globSpeed * 0.8f, globID, SlimeGlobDamage, 0f);
                     }
                 }
             }
@@ -383,7 +422,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
         {
             int swarmTime = 420;
             int reformTime = 120;
-            int acceleratingGlobPerShot = 3;
+            int acceleratingGlobPerShot = 4;
             float chargeSpeed = 16.5f;
             float globSpeed = 7f;
             ref float splitState = ref npc.Infernum().ExtraAI[1];
@@ -444,14 +483,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                         npc.velocity = npc.SafeDirectionTo(target.Center) * chargeSpeed;
                         npc.netUpdate = true;
 
-                        if (Main.netMode != NetmodeID.MultiplayerClient)
+                        if (Main.netMode != NetmodeID.MultiplayerClient && !npc.WithinRange(target.Center, 200f))
                         {
                             int globID = red ? ModContent.ProjectileType<DeceleratingCrimulanGlob>() : ModContent.ProjectileType<DeceleratingEbonianGlob>();
                             for (int i = 0; i < acceleratingGlobPerShot; i++)
                             {
                                 float shootOffsetAngle = MathHelper.Lerp(-0.32f, 0.32f, i / (float)(acceleratingGlobPerShot - 1f));
                                 Vector2 globVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(shootOffsetAngle) * globSpeed;
-                                Utilities.NewProjectileBetter(npc.Bottom, globVelocity, globID, 90, 0f);
+                                Utilities.NewProjectileBetter(npc.Bottom, globVelocity, globID, SlimeGlobDamage, 0f);
                             }
                         }
                     }
@@ -459,7 +498,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
 
                 // Spin around.
                 else if (!npc.WithinRange(flyDestination, 110f))
-                    npc.velocity = (npc.velocity * 19f + npc.SafeDirectionTo(flyDestination) * 14.5f) / 20f;
+                    npc.velocity = (npc.velocity * 15f + npc.SafeDirectionTo(flyDestination) * 15f) / 16f;
             }
             else
             {
@@ -474,7 +513,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             {
                 splitState = 2f;
                 npc.Opacity = 1f;
-                npc.scale = MathHelper.Clamp(npc.scale + 0.075f, 0f, 1f);
+                npc.scale = MathHelper.Clamp(npc.scale + 0.075f, 0f, BigSlimeBaseScale);
             }
             else
                 npc.Opacity = 0f;

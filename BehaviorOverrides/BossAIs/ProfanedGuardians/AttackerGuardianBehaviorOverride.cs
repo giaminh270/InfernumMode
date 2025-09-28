@@ -1,4 +1,5 @@
 using CalamityMod.Events;
+using CalamityMod.Items.Armor;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ProfanedGuardians;
 using CalamityMod.Projectiles.Boss;
@@ -6,6 +7,7 @@ using InfernumMode.OverridingSystem;
 using InfernumMode.BehaviorOverrides.BossAIs.Providence;
 using Microsoft.Xna.Framework;
 using System;
+using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;

@@ -2,6 +2,7 @@ using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs;
 using CalamityMod.Tiles.FurnitureProfaned;
 using InfernumMode.Tiles;
+using InfernumMode.BossRush;
 using Microsoft.Xna.Framework;
 using CalamityMod.Walls;
 using System.Collections.Generic;
@@ -163,6 +164,8 @@ namespace InfernumMode
             // Disable natural GSS spawns.
             if (ModInstance.CanUseCustomAIs)
                 CalamityMod.CalamityMod.sharkKillCount = 0;
+			
+			BossRushChanges.HandleTeleports();
 
             if (!NPC.AnyNPCs(ModContent.NPCType<Draedon>()))
                 CalamityGlobalNPC.draedon = -1;

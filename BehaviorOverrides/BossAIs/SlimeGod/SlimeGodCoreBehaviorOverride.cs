@@ -1,3 +1,4 @@
+using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.SlimeGod;
@@ -12,7 +13,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.Utilities;
-
+using static InfernumMode.BehaviorOverrides.BossAIs.SlimeGod.SlimeGodComboAttackManager;
 using CrimulanSGBig = CalamityMod.NPCs.SlimeGod.SlimeGodRun;
 using EbonianSGBig = CalamityMod.NPCs.SlimeGod.SlimeGod;
 
@@ -62,6 +63,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                 int slimeGodID = WorldGen.crimson ? ModContent.NPCType<CrimulanSGBig>() : ModContent.NPCType<EbonianSGBig>();
                 int fuck = NPC.NewNPC((int)target.Center.X - 500, (int)target.Center.Y - 750, slimeGodID);
                 Main.npc[fuck].velocity = Vector2.UnitY * 8f;
+                npc.scale = CoreBaseScale;
                 npc.localAI[3] = 1f;
             }
 
@@ -86,7 +88,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
 
             if (npc.ai[0] <= 1f)
             {
-                bool transitionToNextAttack = SlimeGodComboAttackManager.FightState == SlimeGodFightState.CorePhase;
+                bool transitionToNextAttack = FightState == SlimeGodFightState.CorePhase;
                 if (npc.ai[0] != (int)SlimeGodCoreAttackType.HoverAndDoNothing)
                     transitionToNextAttack |= attackTimer >= 480f;
 
@@ -117,7 +119,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             attackTimer++;
             return false;
         }
-        
+
         public static void DoBehavior_HoverAndDoNothing(NPC npc, Player target)
         {
             // Disable contact damage.
@@ -156,6 +158,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             float spinSpeed = Utilities.Remap(attackTimer, 15f, dustAnimationTime - 15f, 0f, MathHelper.Pi / 24f);
             npc.rotation += spinSpeed;
             npc.velocity *= 0.95f;
+
+            // Destroy any and all stray projectiles.
+            if (attackTimer == 2f)
+                Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<DeceleratingEbonianGlob>(), ModContent.ProjectileType<DeceleratingCrimulanGlob>(), ModContent.ProjectileType<GroundSlimeGlob>());
 
             // Move the camera to the core and draw in slime from outside sources.
             if (Main.LocalPlayer.WithinRange(Main.LocalPlayer.Center, 2000f) && attackTimer < 150f)
@@ -225,13 +231,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                 // Disable contact damage.
                 npc.damage = 0;
 
-                Vector2 destination = target.Center + spinAngleOffset.ToRotationVector2() * 360f;
+                Vector2 destination = target.Center + spinAngleOffset.ToRotationVector2() * 420f;
                 npc.Center = npc.Center.MoveTowards(destination, 32f);
 
                 spinAngleOffset += MathHelper.TwoPi * Utils.InverseLerp(170f, 150f, attackTimer, true) / 90f;
                 npc.rotation += spinAngleOffset * 0.3f;
 
-                if (attackTimer % burstShootRate == burstShootRate - 1f)
+                if (attackTimer % burstShootRate == burstShootRate - 1f && !npc.WithinRange(target.Center, 275f))
                 {
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
@@ -240,7 +246,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                         {
                             int globID = Main.rand.NextBool() ? ModContent.ProjectileType<DeceleratingCrimulanGlob>() : ModContent.ProjectileType<DeceleratingEbonianGlob>();
                             Vector2 blobShootVelocity = (MathHelper.TwoPi * i / blobsInBurst + offsetAngle).ToRotationVector2() * blobShootSpeed;
-                            Utilities.NewProjectileBetter(npc.Center, blobShootVelocity, globID, 100, 0f);
+                            Utilities.NewProjectileBetter(npc.Center, blobShootVelocity, globID, SlimeGlobDamage, 0f);
                         }
                     }
                 }
@@ -250,7 +256,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             if (attackTimer == spinTime)
             {
                 npc.velocity = npc.SafeDirectionTo(target.Center) * 19.75f;
-                
+
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     for (int i = 0; i < 3; i++)
@@ -258,7 +264,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                         int globID = Main.rand.NextBool() ? ModContent.ProjectileType<DeceleratingCrimulanGlob>() : ModContent.ProjectileType<DeceleratingEbonianGlob>();
                         float shootOffsetAngle = MathHelper.Lerp(-0.4f, 0.4f, i / 2f);
                         Vector2 blobShootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(shootOffsetAngle) * blobShootSpeed;
-                        Utilities.NewProjectileBetter(npc.Center, blobShootVelocity, globID, 100, 0f);
+                        Utilities.NewProjectileBetter(npc.Center, blobShootVelocity, globID, SlimeGlobDamage, 0f);
                     }
                 }
                 npc.netUpdate = true;
@@ -306,7 +312,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             if (attackSubstate == 1f)
             {
                 int chargeDelay = 30;
-                float flySpeed = 20f;
+                float flySpeed = 14.5f;
                 float flyInertia = 8f;
                 if (BossRushEvent.BossRushActive)
                     flySpeed *= 2.15f;
@@ -329,13 +335,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             // Do the actual charge.
             if (attackSubstate == 2f)
             {
+                if (npc.velocity.Length() < 20f)
+                    npc.velocity *= 1.04f;
+
                 // Release abyss balls upward.
                 if (attackTimer % 8f == 7f)
                 {
+
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        Utilities.NewProjectileBetter(npc.Center, -Vector2.UnitY * 6f, ModContent.ProjectileType<DeceleratingEbonianGlob>(), 100, 0f);
-                        Utilities.NewProjectileBetter(npc.Center, Vector2.UnitY * 6f, ModContent.ProjectileType<DeceleratingCrimulanGlob>(), 100, 0f);
+                        Utilities.NewProjectileBetter(npc.Center, -Vector2.UnitY * 6f, ModContent.ProjectileType<DeceleratingEbonianGlob>(), SlimeGlobDamage, 0f);
+                        Utilities.NewProjectileBetter(npc.Center, Vector2.UnitY * 6f, ModContent.ProjectileType<DeceleratingCrimulanGlob>(), SlimeGlobDamage, 0f);
                     }
                 }
 
@@ -368,6 +378,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             {
                 if (npc.velocity.Length() > 4.5f)
                     npc.velocity *= 0.97f;
+                npc.velocity.Y *= 0.9f;
                 npc.rotation += npc.velocity.X * 0.04f;
             }
 
@@ -381,7 +392,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                         int globID = Main.rand.NextBool() ? ModContent.ProjectileType<DeceleratingCrimulanGlob>() : ModContent.ProjectileType<DeceleratingEbonianGlob>();
                         float shootOffsetAngle = MathHelper.Lerp(-0.75f, 0.75f, i / (blobsPerBurst - 1f));
                         Vector2 blobShootVelocity = npc.SafeDirectionTo(target.Center + target.velocity * 20f).RotatedBy(shootOffsetAngle) * blobShootSpeed;
-                        Utilities.NewProjectileBetter(npc.Center, blobShootVelocity, globID, 100, 0f);
+                        Utilities.NewProjectileBetter(npc.Center, blobShootVelocity, globID, SlimeGlobDamage, 0f);
                     }
                 }
             }
@@ -406,7 +417,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             int tries = 0;
             WeightedRandom<SlimeGodCoreAttackType> newStatePicker = new WeightedRandom<SlimeGodCoreAttackType>(Main.rand);
 
-            if (SlimeGodComboAttackManager.FightState != SlimeGodFightState.CorePhase)
+            if (FightState != SlimeGodFightState.CorePhase)
                 newStatePicker.Add(SlimeGodCoreAttackType.HoverAndDoNothing);
             else
             {
@@ -423,7 +434,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             while (localState == oldLocalState && tries < 1000);
 
             // Do the final phase animation if the previous attack was just an idle hover.
-            if (npc.Infernum().ExtraAI[7] == 0f && SlimeGodComboAttackManager.FightState == SlimeGodFightState.CorePhase)
+            if (npc.Infernum().ExtraAI[7] == 0f && FightState == SlimeGodFightState.CorePhase)
             {
                 localState = (int)SlimeGodCoreAttackType.PhaseTransitionAnimation;
                 npc.Infernum().ExtraAI[7] = 1f;
@@ -482,10 +493,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                     npc.oldPos = new Vector2[(int)afterimageCount + 1];
                     npc.oldRot = new float[(int)afterimageCount + 1];
                 }
-                
+
                 for (int i = (int)afterimageCount; i >= 1; i--)
                 {
-                    Color afterimageColor = lightColor.MultiplyRGB(Color.White) * (float)Math.Pow(1f - i / (float)afterimageCount, 3D);
+                    Color afterimageColor = lightColor.MultiplyRGB(Color.White) * (float)Math.Pow(1f - i / (float)afterimageCount, 3f);
                     DrawCoreInstance(afterimageColor, npc.oldPos[i] + npc.Size * 0.5f, npc.spriteDirection, false);
                 }
             }

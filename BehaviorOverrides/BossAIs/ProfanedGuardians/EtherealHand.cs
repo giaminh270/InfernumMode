@@ -1,3 +1,4 @@
+using CalamityMod;
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.DataStructures;
 using CalamityMod.NPCs;
@@ -98,7 +99,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
                         Main.PlaySound(SoundID.DD2_KoboldIgnite, npc.Center);
                         if (Main.netMode != NetmodeID.MultiplayerClient)
                         {
-                            Vector2 magicShootVelocity = (Target.Center - PointerFingerPosition + Target.velocity * 20f).SafeNormalize(Vector2.UnitX * HandSide) * 20f;
+                            Vector2 magicShootVelocity = (Target.Center - PointerFingerPosition + Target.velocity * 20f).SafeNormalize(Vector2.UnitX * HandSide) * 10f;
                             magicShootVelocity = magicShootVelocity.RotatedBy(MathHelper.Lerp(-0.7f, 0.7f, AttackTime / 90f % 1f));
                             Utilities.NewProjectileBetter(npc.Center + magicShootVelocity, magicShootVelocity, ModContent.ProjectileType<MagicCrystalShot>(), 230, 0f);
                         }

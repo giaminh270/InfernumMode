@@ -274,6 +274,7 @@ namespace InfernumMode
         {
             if (InfernumMode.CanUseCustomAIs && CalamityGlobalNPC.adultEidolonWyrmHead >= 0 && Main.npc[CalamityGlobalNPC.adultEidolonWyrmHead].Calamity().CurrentlyEnraged)
                 damage = (int)MathHelper.Max(5500f / (1f - player.endurance + 1e-6f), damage);
+
             if (InfernumMode.CanUseCustomAIs && BossRushEvent.BossRushActive)
             {
                 while (damage >= 1 && damage < 200)

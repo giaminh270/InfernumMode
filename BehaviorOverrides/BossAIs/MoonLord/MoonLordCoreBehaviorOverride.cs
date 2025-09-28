@@ -1,12 +1,16 @@
 using CalamityMod;
+using CalamityMod.Events;
 using InfernumMode.BossIntroScreens;
 using InfernumMode.OverridingSystem;
+using InfernumMode.Projectiles;
 using InfernumMode.Tiles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.GameContent.Events;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -28,7 +32,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             PhantasmalDance,
             PhantasmalBarrage,
             ExplodingConstellations,
-            UnstableNebulae,
             PhantasmalWrath,
             VoidAccretionDisk
         }
@@ -271,7 +274,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 
         public static void HandleBodyPartDeathTriggers(NPC npc, double realDamage)
         {
-            if (npc.life - realDamage > 1000)
+            int minLife = BossRushEvent.BossRushActive ? 10000 : 1000;
+            if (npc.life - realDamage > minLife)
                 return;
 
             npc.life = 0;
@@ -583,13 +587,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                     if (!leftArm)
                         forearmOrigin.X = forearmTexture.Width - forearmOrigin.X;
 
-                    spriteBatch.Draw(forearmTexture, shoulderPosition - Main.screenPosition, null, color, forearmRotation, forearmOrigin, 1f, direction, 0f);
+                    Main.spriteBatch.Draw(forearmTexture, shoulderPosition - Main.screenPosition, null, color, forearmRotation, forearmOrigin, 1f, direction, 0f);
                 }
             }
-            spriteBatch.Draw(bodyTexture, center - Main.screenPosition, null, color, 0f, leftHalfOrigin, 1f, SpriteEffects.None, 0f);
-            spriteBatch.Draw(bodyTexture, center - Main.screenPosition, null, color, 0f, rightHalfOrigin, 1f, SpriteEffects.FlipHorizontally, 0f);
-            spriteBatch.Draw(coreOutlineTexture, center - Main.screenPosition, null, color, 0f, new Vector2(112f, 101f), 1f, SpriteEffects.None, 0f);
-            spriteBatch.Draw(coreTexture, center - Main.screenPosition, npc.frame, color, 0f, npc.frame.Size() / 2f, 1f, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(bodyTexture, center - Main.screenPosition, null, color, 0f, leftHalfOrigin, 1f, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(bodyTexture, center - Main.screenPosition, null, color, 0f, rightHalfOrigin, 1f, SpriteEffects.FlipHorizontally, 0f);
+            Main.spriteBatch.Draw(coreOutlineTexture, center - Main.screenPosition, null, color, 0f, new Vector2(112f, 101f), 1f, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(coreTexture, center - Main.screenPosition, npc.frame, color, 0f, npc.frame.Size() / 2f, 1f, SpriteEffects.None, 0f);
             return false;
         }
     }

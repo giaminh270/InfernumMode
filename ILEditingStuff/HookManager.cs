@@ -192,5 +192,16 @@ namespace InfernumMode.ILEditingStuff
             add => HookEndpointManager.Modify(typeof(Providence).GetMethod("SpawnLootBox", Utilities.UniversalBindingFlags), value);
             remove => HookEndpointManager.Unmodify(typeof(Providence).GetMethod("SpawnLootBox", Utilities.UniversalBindingFlags), value);
         }
+        public static event ILContext.Manipulator BossRushTier
+        {
+            add => HookEndpointManager.Modify(typeof(BossRushEvent).GetMethod("get_CurrentTier", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(BossRushEvent).GetMethod("get_CurrentTier", Utilities.UniversalBindingFlags), value);
+        }
+		
+        public static event ILContext.Manipulator ExoMechsSkyIsActive
+        {
+            add => HookEndpointManager.Modify(typeof(ExoMechsSky).GetMethod("get_CanSkyBeActive", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(ExoMechsSky).GetMethod("get_CanSkyBeActive", Utilities.UniversalBindingFlags), value);
+        }
     }
 }

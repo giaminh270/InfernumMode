@@ -82,10 +82,5 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
             target.AddBuff(ModContent.BuffType<VulnerabilityHex>(), 120, true);
         }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
-        }
     }
 }

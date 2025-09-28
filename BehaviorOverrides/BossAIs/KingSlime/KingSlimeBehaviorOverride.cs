@@ -1,11 +1,15 @@
+using CalamityMod.Buffs.StatDebuffs;
 using CalamityMod.Events;
 using CalamityMod.NPCs.NormalNPCs;
 using InfernumMode.Miscellaneous;
 using InfernumMode.OverridingSystem;
+using InfernumMode.Projectiles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.World.Generation;
@@ -66,6 +70,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
             bool shouldNotChangeScale = false;
             float lifeRatio = npc.life / (float)npc.lifeMax;
 
+            // Constantly give the target Weak Pertrification in boss rush.
+            if (Main.netMode != NetmodeID.Server && BossRushEvent.BossRushActive)
+            {
+                if (!target.dead && target.active)
+                    target.AddBuff(ModContent.BuffType<WeakPetrification>(), 15);
+            }
+
             if (!Main.player[npc.target].active || Main.player[npc.target].dead || !npc.WithinRange(Main.player[npc.target].Center, 4700f))
             {
                 npc.TargetClosest();
@@ -78,7 +89,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
                     npc.dontTakeDamage = true;
                     npc.damage = 0;
 
-                    // Release slime dust to accompany the teleport
+                    // Release slime dust to accompany the teleport.
                     for (int i = 0; i < 30; i++)
                     {
                         Dust slime = Dust.NewDustDirect(npc.position + Vector2.UnitX * -20f, npc.width + 40, npc.height, 4, npc.velocity.X, npc.velocity.Y, 150, new Color(78, 136, 255, 80), 2f);
@@ -134,10 +145,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
                     NPC.NewNPC((int)jewelSpawnPosition.X, (int)jewelSpawnPosition.Y, ModContent.NPCType<KingSlimeJewel>());
                 jewelSummonTimer = 1f;
             }
+
             if (!NPC.AnyNPCs(ModContent.NPCType<KingSlimeJewel>()) && jewelSummonTimer >= 1f)
             {
                 jewelSummonTimer++;
-                if (jewelSummonTimer >= 720f)
+                if (jewelSummonTimer >= 2100f)
                 {
                     jewelSummonTimer = 0f;
                     npc.netUpdate = true;
@@ -277,6 +289,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
 
                 if (Main.netMode != NetmodeID.Server)
                 	Gore.NewGore(npc.Center + new Vector2(-40f, npc.height * -0.5f), npc.velocity, 734, 1f);
+
                 WorldUtils.Find(new Vector2(digXPosition, digYPosition).ToTileCoordinates(), Searches.Chain(new Searches.Down(200), new GenCondition[]
                 {
                     new CustomTileConditions.IsSolidOrSolidTop(),

@@ -44,7 +44,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public override void OnHitPlayer(Player target, int damage, bool crit)
         {
-            if (Main.dayTime)
+            if (!ProvidenceBehaviorOverride.IsEnraged)
                 target.AddBuff(ModContent.BuffType<HolyFlames>(), 240);
             else
                 target.AddBuff(ModContent.BuffType<Nightwither>(), 120);
@@ -56,7 +56,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public Color SunColorFunction(float completionRatio)
         {
-            if (!Main.dayTime)
+            if (ProvidenceBehaviorOverride.IsEnraged)
                 return Color.Lerp(Color.Cyan, Color.Lime, 0.33f) * projectile.Opacity;
 
             return Color.Lerp(Color.Yellow, Color.White, (float)Math.Sin(MathHelper.Pi * completionRatio) * 0.5f + 0.3f) * projectile.Opacity;

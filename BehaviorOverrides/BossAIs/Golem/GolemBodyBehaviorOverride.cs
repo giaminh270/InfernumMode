@@ -1656,14 +1656,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
             npc.Infernum().Arena = Utils.CenteredRectangle(arenaCenter * 16f, arenaArea * 16f);
             npc.Center = npc.Infernum().Arena.Center.ToVector2();
 
+            int padding = 4;
             int left = (int)(npc.Infernum().Arena.Center().X / 16 - arenaArea.X * 0.5f);
             int right = (int)(npc.Infernum().Arena.Center().X / 16 + arenaArea.X * 0.5f);
             int top = (int)(npc.Infernum().Arena.Center().Y / 16 - arenaArea.Y * 0.5f);
             int bottom = (int)(npc.Infernum().Arena.Center().Y / 16 + arenaArea.Y * 0.5f);
             int arenaTileType = ModContent.TileType<GolemArena>();
-            for (int i = left; i <= right; i++)
+            for (int i = left - padding; i <= right + padding; i++)
             {
-                for (int j = top; j <= bottom; j++)
+                for (int j = top - padding; j <= bottom + padding; j++)
                 {
                     if (!WorldGen.InWorld(i, j))
                         continue;
@@ -1684,7 +1685,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
                     }
 
                     // Create arena tiles.
-                    if ((i == left || i == right || j == top || j == bottom) && !Main.tile[i, j].active())
+                    if ((i <= left || i >= right || j <= top || j >= bottom) && !Main.tile[i, j].active())
                     {
                         Main.tile[i, j].type = (ushort)arenaTileType;
                         Main.tile[i, j].active(true);

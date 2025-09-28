@@ -61,7 +61,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.HiveMind
             }
             if (projectile.timeLeft == DashTime - 1f)
             {
-                Main.PlaySound(SoundID.Roar, (int)projectile.Center.X, (int)projectile.Center.Y, 0);
                 projectile.velocity = projectile.SafeDirectionTo(Main.player[Player.FindClosest(projectile.Center, 1, 1)].Center) * 12f;
                 if (BossRushEvent.BossRushActive)
                     projectile.velocity *= 1.56f;

@@ -57,8 +57,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             npc.timeLeft = 3600;
             npc.Opacity = 1f;
             npc.damage = npc.defDamage;
+            npc.defense = npc.defDefense;
             npc.noGravity = false;
             npc.noTileCollide = false;
+
+            // Initialize on the first frame.
+            if (npc.ai[3] == 0f)
+            {
+                npc.scale = SlimeGodComboAttackManager.BigSlimeBaseScale;
+                npc.ai[3] = 1f;
+            }
 
             // Set the universal whoAmI variable.
             CalamityGlobalNPC.slimeGodRed = npc.whoAmI;
@@ -66,7 +74,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             // Summon the second slime.
             if (Main.netMode != NetmodeID.MultiplayerClient && npc.Infernum().ExtraAI[5] == 0f && npc.life < npc.lifeMax * SlimeGodComboAttackManager.SummonSecondSlimeLifeRatio)
             {
-                int secondSlime = NPC.NewNPC((int)target.Center.X, (int)target.Center.Y - 750, ModContent.NPCType<EbonianSlimeGod>(), npc.whoAmI);
+                int secondSlime = NPC.NewNPC((int)target.Center.X, (int)target.Center.Y - 750, ModContent.NPCType<EbonianSlimeGod>(), npc.whoAmI, 0f, 0f, SlimeGodComboAttackManager.DelayBeforeSoloEnrageAttacksBegin);
                 if (Main.npc.IndexInRange(secondSlime))
                 {
                     Main.npc[secondSlime].Infernum().ExtraAI[5] = 1f;
@@ -74,6 +82,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                 }
 
                 npc.Infernum().ExtraAI[5] = 1f;
+                npc.ai[2] = SlimeGodComboAttackManager.DelayBeforeSoloEnrageAttacksBegin;
                 npc.netUpdate = true;
             }
 

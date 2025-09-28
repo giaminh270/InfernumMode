@@ -67,7 +67,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
         {
             float _ = 0f;
-            float width = projectile.width * 0.8f;
+            float width = projectile.width * 0.6f;
             Vector2 start = projectile.Center;
             Vector2 end = start + projectile.velocity * (LaserLength - 80f);
             return Collision.CheckAABBvLineCollision(targetHitbox.TopLeft(), targetHitbox.Size(), start, end, width, ref _);

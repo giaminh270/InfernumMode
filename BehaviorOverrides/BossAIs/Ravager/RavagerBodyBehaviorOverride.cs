@@ -559,7 +559,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
 
             // Make stomp sounds and particles when hitting the ground.
             // Also release an even spread of projectiles into the air. A small amount of variance is used to spice things up, but not much.
-            if (npc.velocity.Y == 0f && hasDoneGroundHitEffects == 0f)
+            bool hitGround = npc.velocity.Y == 0f || (npc.Center.Y >= target.Top.Y && Utilities.ActualSolidCollisionTop(npc.TopLeft, npc.width, npc.height));
+            if (hitGround && hasDoneGroundHitEffects == 0f)
             {
                 CreateGroundImpactEffects(npc);
 
@@ -591,6 +592,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
 
                 hasDoneGroundHitEffects = 1f;
                 attackTimer = 0f;
+                npc.velocity.Y = 0f;
+                while (Utilities.ActualSolidCollisionTop(npc.TopLeft, npc.width, npc.height + 16))
+                    npc.position.Y -= 2f;
                 npc.netUpdate = true;
             }
 
@@ -677,7 +681,20 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
                 CreateGroundImpactEffects(npc);
                 hasDoneGroundHitEffects = 1f;
                 attackTimer = 0f;
+                npc.velocity.X = 0f;
                 npc.netUpdate = true;
+                // Create flame pillar telegraphs.
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    for (int i = -15; i <= 15; i++)
+                    {
+                        Vector2 telegraphSpawnPosition = npc.Bottom + Vector2.UnitX * horizontalStepPerPillar * i;
+                        telegraphSpawnPosition.X += 42f;
+                        int telegraph = Utilities.NewProjectileBetter(telegraphSpawnPosition, Vector2.Zero, ModContent.ProjectileType<DarkFlamePillarTelegraph>(), 0, 0f);
+                        if (Main.projectile.IndexInRange(telegraph))
+                            Main.projectile[telegraph].ai[0] = Math.Abs(i) * fireReleaseRate + groundShootDelay;
+                    }
+                }
             }
 
             // Create flame projectiles and spikes once on the ground.
@@ -837,8 +854,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
         public static void CreateGroundImpactEffects(NPC npc)
         {
             // Play a crash sound.
-            // TODO -- Perhaps try to find something stronger for this?
-            Main.PlaySound(SoundID.Item, (int)npc.position.X, (int)npc.position.Y, 14, 1.25f, -0.25f);
+			Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/RavagerJump"), npc.Bottom);
 
             // Create dust effects.
             for (int x = (int)npc.Left.X - 30; x < (int)npc.Right.X + 30; x += 10)
@@ -849,11 +865,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
                     stompDust.velocity *= 0.2f;
                 }
 
-
+                if (Main.netMode != NetmodeID.Server)
+                {
+                    Gore stompGore = Gore.NewGoreDirect(new Vector2(x, npc.Bottom.Y - 12f), default, Main.rand.Next(61, 64), 1f);
+                    stompGore.velocity *= 0.4f;
+                }
             }
 
             // Create the particles.
-            GeneralParticleHandler.SpawnParticle(new GroundImpactParticle(npc.Bottom, Vector2.UnitY, Color.Lerp(Color.Yellow, Color.Orange, 0.45f), 32, 1.1f));
+            //GeneralParticleHandler.SpawnParticle(new GroundImpactParticle(npc.Bottom, Vector2.UnitY, Color.Lerp(Color.Yellow, Color.Orange, 0.45f), 32, 1.1f));
             for (int i = 0; i < 15; i++)
             {
                 float horizontalOffsetInterpolant = Main.rand.NextFloat();

@@ -499,7 +499,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
 
             if (attackTimer > 50f && attackTimer < 270f)
             {
-                float moveSpeed = BossRushEvent.BossRushActive ? 21.25f : 7.25f;
+                float moveSpeed = BossRushEvent.BossRushActive ? 17f : 7.25f;
                 if (phase3)
                     moveSpeed *= 1.18f;
                 npc.velocity = npc.SafeDirectionTo(target.Center) * moveSpeed;

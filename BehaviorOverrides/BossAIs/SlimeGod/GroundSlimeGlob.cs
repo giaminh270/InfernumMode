@@ -1,12 +1,12 @@
+using CalamityMod;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using Terraria;
 using Terraria.Audio;
 using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
-using CalamityMod;
-using Microsoft.Xna.Framework.Graphics;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
 {
@@ -51,7 +51,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
 
             // Deal no damage and increment the variable used to kill the projectile.
             projectile.localAI[1]++;
-            if (projectile.localAI[1] > 360f)
+            if (projectile.localAI[1] > 180f)
             {
                 projectile.localAI[0] += 10f;
                 projectile.damage = 0;

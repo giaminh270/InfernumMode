@@ -36,6 +36,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EyeOfCthulhu
 
             projectile.rotation = projectile.velocity.ToRotation() + MathHelper.PiOver4;
         }
+
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             Texture2D texture = Main.projectileTexture[projectile.type];
@@ -50,6 +51,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EyeOfCthulhu
             Main.spriteBatch.Draw(texture, drawPosition, null, projectile.GetAlpha(lightColor), projectile.rotation, origin, projectile.scale, 0, 0f);
             return false;
         }
+
         public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
         {
             

@@ -139,7 +139,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
         };
 
         public const float Phase2LifeRatio = 0.7f;
+
         public const float Phase3LifeRatio = 0.4f;
+
         public const float Phase4LifeRatio = 0.2f;
 
         public override float[] PhaseLifeRatioThresholds => new float[]

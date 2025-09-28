@@ -363,8 +363,6 @@ namespace InfernumMode
             // Disable natural GSS spawns.
             if (CanUseCustomAIs)
                 sharkKillCount = 0;
-            //if (!NPC.AnyNPCs(ModContent.NPCType<Draedon>()))
-            //    CalamityGlobalNPC.draedon = -1;			
         }
         
         public override void HandlePacket(BinaryReader reader, int whoAmI) => NetcodeHandler.ReceivePacket(this, reader, whoAmI);

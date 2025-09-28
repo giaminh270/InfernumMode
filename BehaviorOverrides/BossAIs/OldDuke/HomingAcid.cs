@@ -32,7 +32,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.OldDuke
 
         public override void AI()
         {
-            projectile.Opacity = Utils.InverseLerp(0f, 35f, Time, true) * Utils.InverseLerp(0f, 35f, projectile.timeLeft, true);
+            projectile.Opacity = Utils.InverseLerp(0f, 35f, Time, true) * Utils.InverseLerp(0f, 56f, projectile.timeLeft, true);
             projectile.rotation = projectile.velocity.ToRotation() - MathHelper.PiOver2;
             Time++;
 
@@ -44,7 +44,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.OldDuke
                 idealFlySpeed *= 0.5f;
 
             if (!projectile.WithinRange(ClosestPlayer.Center, 150f))
-                projectile.velocity = (projectile.velocity * 69f + projectile.SafeDirectionTo(ClosestPlayer.Center) * idealFlySpeed) / 50f;
+                projectile.velocity = (projectile.velocity * 69f + projectile.SafeDirectionTo(ClosestPlayer.Center) * idealFlySpeed) / 70f;
 
             if (projectile.WithinRange(ClosestPlayer.Center, 20f))
                 projectile.Kill();

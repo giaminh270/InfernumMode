@@ -43,7 +43,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             float oldScale = projectile.scale;
             projectile.scale *= 1.2f;
             Color rainbowColor = Main.hslToRgb(projectile.identity / 7f % 1f, 1f, 0.5f);
-            if (!Main.dayTime)
+            if (ProvidenceBehaviorOverride.IsEnraged)
                 rainbowColor = Color.Lerp(Color.Cyan, Color.Green, projectile.identity / 7f % 0.6f);
             lightColor = Color.Lerp(lightColor, rainbowColor, 0.9f);
             lightColor.A = 0;
@@ -59,7 +59,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public override void OnHitPlayer(Player target, int damage, bool crit)
         {
-            if (Main.dayTime)
+            if (!ProvidenceBehaviorOverride.IsEnraged)
                 target.AddBuff(ModContent.BuffType<HolyFlames>(), 120);
             else
                 target.AddBuff(ModContent.BuffType<Nightwither>(), 60);

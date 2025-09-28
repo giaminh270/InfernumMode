@@ -58,10 +58,5 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Signus
         {
             Main.PlaySound(SoundID.Item74, projectile.position);
         }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            target.Calamity().lastProjectileHit = projectile;
-        }
     }
 }

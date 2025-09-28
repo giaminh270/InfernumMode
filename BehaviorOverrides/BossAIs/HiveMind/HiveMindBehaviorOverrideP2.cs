@@ -3,13 +3,14 @@ using CalamityMod.Events;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.HiveMind;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.Projectiles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-using Terraria.World.Generation;
+using HiveMindBoss = CalamityMod.NPCs.HiveMind.HiveMind;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.HiveMind
 {
@@ -807,7 +808,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.HiveMind
                 drawColor *= npc.Opacity;
 
                 Vector2 drawPosition = npc.Center + npc.velocity.SafeNormalize(Vector2.Zero) * -MathHelper.Lerp(8f, trailLength, i / (float)npc.oldPos.Length);
-                spriteBatch.Draw(texture, drawPosition - Main.screenPosition + new Vector2(0, npc.gfxOffY),
+                Main.spriteBatch.Draw(texture, drawPosition - Main.screenPosition + new Vector2(0, npc.gfxOffY),
                     frameRectangle, drawColor, npc.rotation, frameRectangle.Size() / 2f, scale, SpriteEffects.None, 0f);
             }
 
@@ -816,7 +817,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.HiveMind
             // If performing the blob snipe attack
             if (npc.Infernum().ExtraAI[0] == 8f)
             {
-                spriteBatch.Draw(texture, npc.Center - Main.screenPosition + new Vector2(0, npc.gfxOffY),
+                Main.spriteBatch.Draw(texture, npc.Center - Main.screenPosition + new Vector2(0, npc.gfxOffY),
                     frameRectangle, Color.White, npc.rotation, frameRectangle.Size() / 2f, npc.scale, SpriteEffects.None, 0f);
             }
 
@@ -824,7 +825,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.HiveMind
             // going below 20% life.
             if (npc.Infernum().ExtraAI[0] >= 4f || npc.Infernum().ExtraAI[11] > 0f)
             {
-                spriteBatch.Draw(texture, baseDrawPosition, frameRectangle, new Color(91f / 255f, 71f / 255f, 127f / 255f, 0.3f * npc.Opacity) * npc.Opacity, npc.rotation, frameRectangle.Size() / 2f, Utilities.AngularSmoothstep(npc.Infernum().ExtraAI[7], 1f, 1.5f), SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(texture, baseDrawPosition, frameRectangle, new Color(91f / 255f, 71f / 255f, 127f / 255f, 0.3f * npc.Opacity) * npc.Opacity, npc.rotation, frameRectangle.Size() / 2f, Utilities.AngularSmoothstep(npc.Infernum().ExtraAI[7], 1f, 1.5f), SpriteEffects.None, 0f);
                 npc.Infernum().ExtraAI[6] = HiveMindFadeoutTime;
             }
 
@@ -832,11 +833,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.HiveMind
             else if (npc.Infernum().ExtraAI[6] > 0f)
             {
                 float scale = npc.Infernum().ExtraAI[6] / HiveMindFadeoutTime / Utilities.AngularSmoothstep(npc.Infernum().ExtraAI[7], 1f, 1.5f);
-                spriteBatch.Draw(texture, baseDrawPosition, frameRectangle, new Color(91f / 255f, 71f / 255f, 127f / 255f, 0.3f * npc.Opacity) * npc.Opacity, npc.rotation, frameRectangle.Size() / 2f, MathHelper.Clamp(scale, 1f, 1000f), SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(texture, baseDrawPosition, frameRectangle, new Color(91f / 255f, 71f / 255f, 127f / 255f, 0.3f * npc.Opacity) * npc.Opacity, npc.rotation, frameRectangle.Size() / 2f, MathHelper.Clamp(scale, 1f, 1000f), SpriteEffects.None, 0f);
                 npc.Infernum().ExtraAI[6] -= 1f;
             }
 
-            spriteBatch.Draw(texture, baseDrawPosition, frameRectangle, npc.GetAlpha(lightColor), npc.rotation, frameRectangle.Size() / 2f, npc.scale, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(texture, baseDrawPosition, frameRectangle, npc.GetAlpha(lightColor), npc.rotation, frameRectangle.Size() / 2f, npc.scale, SpriteEffects.None, 0f);
 
             return false;
         }

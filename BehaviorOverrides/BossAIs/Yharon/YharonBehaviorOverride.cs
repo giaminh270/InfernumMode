@@ -1,5 +1,7 @@
 using CalamityMod;
 using CalamityMod.Dusts;
+using CalamityMod.NPCs;
+using CalamityMod.Particles;
 using CalamityMod.Projectiles.Boss;
 using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
@@ -397,6 +399,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 
         public const int DesperationPhaseAttackDelayIndex = 19;
 
+        public const int TeleportOffsetAngleIndex = 20;
+
         public const float Phase2LifeRatio = 0.5f;
 
         public const float BaseDR = 0.3f;
@@ -414,6 +418,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             CalamityMod.CalamityMod.StopRain();
 
             // Aquire a new target if the current one is dead or inactive.
+            // If no target exists, fly away.
             npc.TargetClosestIfTargetIsInvalid();
             if (npc.target < 0 || npc.target == 255 || Main.player[npc.target].dead || !Main.player[npc.target].active)
             {
@@ -445,6 +450,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             ref float teleportChargeCounter = ref npc.Infernum().ExtraAI[TeleportChargeCounterIndex];
             ref float transitionDRCountdown = ref npc.Infernum().ExtraAI[TransitionDRBoostCountdownIndex];
             ref float shouldPerformBerserkCharges = ref npc.Infernum().ExtraAI[ShouldPerformBerserkChargesIndex];
+            ref float teleportOffsetAngle = ref npc.Infernum().ExtraAI[TeleportOffsetAngleIndex];
 
             // Go to phase 2 if at 50%.
             if (!InSecondPhase && lifeRatio < Phase2LifeRatio)
@@ -690,7 +696,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
                 case YharonAttackType.Charge:
                 case YharonAttackType.TeleportingCharge:
                 case YharonAttackType.FireTrailCharge:
-                    DoBehavior_ChargesAndTeleportCharges(npc, target, chargeDelay, chargeTime, chargeSpeed, teleportChargeCounter, ref fireIntensity, ref attackTimer, ref attackType, ref specialFrameType);
+                    DoBehavior_ChargesAndTeleportCharges(npc, target, chargeDelay, chargeTime, chargeSpeed, teleportChargeCounter, ref fireIntensity, ref attackTimer, ref attackType, ref specialFrameType, ref teleportOffsetAngle);
                     break;
                 case YharonAttackType.FastCharge:
                 case YharonAttackType.PhoenixSupercharge:
@@ -765,17 +771,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             npc.damage = 0;
         }
 
-        public static void DoBehavior_ChargesAndTeleportCharges(NPC npc, Player target, float chargeDelay, float chargeTime, float chargeSpeed, float teleportChargeCounter, ref float fireIntensity, ref float attackTimer, ref float attackType, ref float specialFrameType)
+        public static void DoBehavior_ChargesAndTeleportCharges(NPC npc, Player target, float chargeDelay, float chargeTime, float chargeSpeed, float teleportChargeCounter, ref float fireIntensity, ref float attackTimer, ref float attackType, ref float specialFrameType, ref float offsetDirection)
         {
+            float teleportOffset = 560f;
+            bool teleporting = (YharonAttackType)(int)attackType == YharonAttackType.TeleportingCharge;
             bool releaseFire = (YharonAttackType)(int)attackType == YharonAttackType.FireTrailCharge;
             float predictivenessFactor = 0f;
-            if ((YharonAttackType)(int)attackType != YharonAttackType.TeleportingCharge)
+            if (!teleporting)
             {
                 chargeDelay = (int)(chargeDelay * 0.8f);
                 predictivenessFactor = 4.25f;
             }
             else
-                chargeDelay += 18f;
+                chargeDelay += 26f;
 
             if (releaseFire)
                 chargeDelay += 25f;
@@ -794,24 +802,39 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
                 if (releaseFire)
                     fireIntensity = MathHelper.Max(fireIntensity, attackTimer / chargeDelay);
 
-                // Teleport prior to the charge happening if the attack calls for it.
-                if (attackTimer == chargeDelay - 35f && (YharonAttackType)(int)attackType == YharonAttackType.TeleportingCharge)
+                // Prepare the teleport position.
+                if (attackTimer == (int)(chargeDelay * 0.3f) && teleporting)
                 {
-                    Vector2 offsetDirection = target.velocity.SafeNormalize(Main.rand.NextVector2Unit());
+                    offsetDirection = target.velocity.SafeNormalize(Main.rand.NextVector2Unit()).ToRotation();
 
                     // If a teleport charge was done beforehand randomize the offset direction if the
                     // player is descending. This still has an uncommon chance to end up in a similar direction as the one
                     // initially chosen.
-                    if (teleportChargeCounter > 0f && offsetDirection.AngleBetween(Vector2.UnitY) < MathHelper.Pi / 15f)
+                    if (teleportChargeCounter > 0f && Math.Abs(offsetDirection) < MathHelper.Pi / 15f)
                     {
                         do
                         {
-                            offsetDirection = Main.rand.NextVector2Unit();
+                            offsetDirection = Main.rand.NextFloat(MathHelper.TwoPi);
                         }
-                        while (Math.Abs(Vector2.Dot(offsetDirection, Vector2.UnitY)) > 0.6f);
+                        while (Math.Abs(Vector2.Dot(offsetDirection.ToRotationVector2(), Vector2.UnitY)) > 0.6f);
                     }
+                }
 
-                    npc.Center = target.Center + offsetDirection * 560f;
+                // Create the teleport telegraph.
+                if (attackTimer < chargeDelay - 30f && attackTimer >= chargeDelay * 0.3f)
+                {
+                    Vector2 teleportPosition = target.Center + offsetDirection.ToRotationVector2() * teleportOffset;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        var fire = new MediumMistParticle(teleportPosition + Main.rand.NextVector2Circular(150f, 150f), -Vector2.UnitY * Main.rand.NextFloat(1f, 5f), Color.Yellow, Color.Red, 1.9f, 255f);
+                        GeneralParticleHandler.SpawnParticle(fire);
+                    }
+                }
+
+                // Teleport prior to the charge happening if the attack calls for it.
+                if (attackTimer == (int)(chargeDelay - 30f) && teleporting)
+                {
+                    npc.Center = target.Center + offsetDirection.ToRotationVector2() * teleportOffset;
                     npc.velocity = Vector2.Zero;
                     npc.netUpdate = true;
 
@@ -1845,9 +1868,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
         public static void DrawInstance(NPC npc, Vector2? position = null, float rotationOffset = 0f, bool changeDirection = false)
         {
             YharonAttackType attackType = (YharonAttackType)npc.ai[0];
-			Texture2D tex = npc.modNPC.Texture != null ? 
-					ModContent.GetTexture(npc.modNPC.Texture) : 
-					Main.npcTexture[npc.type];
+			Texture2D tex = ModContent.GetTexture(npc.modNPC.Texture);
 
             // Use defaults for the draw position.
 			if (position == null)

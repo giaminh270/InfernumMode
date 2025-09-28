@@ -1,9 +1,11 @@
+using CalamityMod;
 using CalamityMod.Items.Weapons.DraedonsArsenal;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -63,7 +65,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
                     }
                     npc.active = false;
                 }
-                npc.rotation = npc.velocity.ToRotation() - MathHelper.PiOver2;
+                npc.rotation = npc.velocity.ToRotation() + MathHelper.PiOver2;
                 return;
             }
 
@@ -149,6 +151,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
                 texture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/PlaguebringerGoliath/PlagueNukeComplete");
                 glowmask = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/PlaguebringerGoliath/PlagueNukeCompleteGlowmask");
             }
+
             Vector2 origin = npc.frame.Size() * 0.5f;
             Vector2 drawPosition = npc.Center - Main.screenPosition;
             Color color = npc.GetAlpha(drawColor);

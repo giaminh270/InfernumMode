@@ -121,7 +121,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EoW
             return false;
         }
 
-        /*public static bool PerformDeathEffect(NPC npc)
+        public static bool PerformDeathEffect(NPC npc)
         {
             if (npc.realLife != -1 && Main.npc[npc.realLife].Infernum().ExtraAI[9] == 0f)
             {
@@ -137,9 +137,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EoW
                 if (npc.Infernum().ExtraAI[10] == 0f)
                 {
                     npc.Infernum().ExtraAI[10] = 1f;
-                    if (BossRushEvent.BossRushActive)
-                        BossRushEvent.OnBossKill(npc, InfernumMode.Instance);
-                    else
+                    if (!BossRushEvent.BossRushActive)
                         npc.NPCLoot();
                 }
             }
@@ -151,7 +149,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EoW
             }
 
             return npc.ai[2] >= 2f;
-        }*/
+        }
 
         #region Attacks
         public static void DoAttack_CursedBombBurst(NPC npc, Player target, float splitCounter, bool enraged, ref float attackTimer)

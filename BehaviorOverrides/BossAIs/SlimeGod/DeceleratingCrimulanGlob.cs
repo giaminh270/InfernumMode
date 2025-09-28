@@ -42,8 +42,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             }
             projectile.rotation += projectile.velocity.X * 0.02f;
 
-            if (projectile.velocity.Length() < 21.5f)
-                projectile.velocity *= 1.02f;
+            if (projectile.velocity.Length() < 17f)
+                projectile.velocity *= 1.0138f;
 
             Lighting.AddLight(projectile.Center, 0f, 0f, 0.5f * projectile.Opacity);
             Time++;

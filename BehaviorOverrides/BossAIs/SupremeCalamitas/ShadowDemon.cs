@@ -270,7 +270,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 npc.damage = npc.defDamage;
 
                 int headToShoot = Main.rand.Next(Heads.Length);
-                if (!Heads[headToShoot].Center.WithinRange(Target.Center, 300f) && attackTimer % boltReleaseRate == boltReleaseRate - 1f)
+                if (Vector2.Distance(Heads[headToShoot].Center, Target.Center) > 300f && attackTimer % boltReleaseRate == boltReleaseRate - 1f)
                 {
 					Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SCalSounds/BrimstoneShoot"), Heads[headToShoot].Center);
                     if (Main.netMode != NetmodeID.MultiplayerClient)
