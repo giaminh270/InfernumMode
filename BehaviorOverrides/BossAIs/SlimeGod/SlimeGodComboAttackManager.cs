@@ -262,7 +262,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                             Utilities.NewProjectileBetter(npc.Bottom, npc.SafeDirectionTo(target.Center) * globSpeed * 0.8f, globID, SlimeGlobDamage, 0f);
                         }
 
-                        Main.PlaySound(SoundID.Item, npc.Bottom, 167);
                         npc.netUpdate = true;
                     }
 
@@ -368,7 +367,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             // Shoot blobs at the target and in the air.
             if (attackTimer % blobShootRate == blobShootRate - 1f)
             {
-                Main.PlaySound(SoundID.Item, npc.Bottom, 171);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     Vector2 shootPosition = npc.Center - Vector2.UnitY * 24f;
