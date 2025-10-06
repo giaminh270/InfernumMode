@@ -222,11 +222,11 @@ namespace InfernumMode
         public override void PostUpdate()
         {
             // Keep the player out of the providence arena if the door is around.
-			if (PoDWorld.ProvidenceDoorXPosition != 0 && !PoDWorld.HasProvidenceDoorShattered && (player.position.Y + player.height) >= (Main.maxTilesY - 220f) * 16f)
+			if (PoDWorld.ProvidenceDoorXPosition != 0 && !PoDWorld.HasProvidenceDoorShattered && player.Bottom.Y >= (Main.maxTilesY - 220f) * 16f)
             {
                 bool passedDoor = false;
-				float doorX = PoDWorld.ProvidenceDoorXPosition;
-				while ((player.position.X + player.width) >= doorX || (passedDoor && Collision.SolidCollision(player.position, player.width, player.height)))
+                float doorX = PoDWorld.ProvidenceDoorXPosition;
+                while (player.Right.X >= doorX || (passedDoor && Collision.SolidCollision(player.TopLeft, player.width, player.height)))
 				{
 					player.velocity.X = 0f;
 					player.position.X -= 0.1f;

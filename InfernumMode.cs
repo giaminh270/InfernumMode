@@ -55,7 +55,9 @@ namespace InfernumMode
         internal static InfernumMode Instance = null;
 
         internal static Mod CalamityMod = null;
-	
+
+        internal static Mod FargosMutantMod;
+		
         internal static bool CanUseCustomAIs => (!BossRushEvent.BossRushActive || BossRushApplies) && PoDWorld.InfernumMode;
 
         internal static bool BossRushApplies => true;
@@ -88,11 +90,12 @@ namespace InfernumMode
             set;
         }
 			
-			
+		
         public override void Load()
         {
             Instance = this;
             CalamityMod = ModLoader.GetMod("CalamityMod");
+            FargosMutantMod = ModLoader.GetMod("Fargowiltas");
 			
 			InfernumFusableParticleManager.LoadParticleRenderSets();
 			Main.OnPreDraw += PrepareRenderTargets;		
