@@ -41,21 +41,31 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             Time++;
         }
 
-        public override void Kill(int timeLeft)
-        {
-            for (int i = 0; i < 5; i++)
-            {
-                Dust fire = Dust.NewDustDirect(projectile.Center - Vector2.One * 12f, 6, 6, 267);
-                fire.color = Color.Lerp(Color.Fuchsia, Color.Orange, Main.rand.NextFloat());
-                fire.scale = Main.rand.NextFloat(1f, 1.3f);
-                fire.noGravity = true;
-            }
-        }
+		public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+		{
+			if (InfernumConfig.Instance.ReducedGraphicsConfig)
+			{
+				OptimizedDraw();
+				return false;
+			}
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
-        {
-            Utilities.DrawAfterimagesCentered(projectile, Color.White, ProjectileID.Sets.TrailingMode[projectile.type], 1, Main.projectileTexture[projectile.type], false);
-            return false;
-        }
+			DefaultDraw();
+			return false;
+		}
+
+		public void DefaultDraw()
+		{
+			Utilities.DrawAfterimagesCentered(projectile, Color.White, ProjectileID.Sets.TrailingMode[projectile.type], 1, Main.projectileTexture[projectile.type], false);
+		}
+
+		public void OptimizedDraw()
+		{
+			Texture2D texture = Main.projectileTexture[projectile.type];
+			Rectangle frame = texture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
+			Vector2 drawPosition = projectile.Center - Main.screenPosition;
+			Color color = projectile.GetAlpha(Color.White);
+			
+			Main.spriteBatch.Draw(texture, drawPosition, frame, color, projectile.rotation, frame.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
+		}
     }
 }

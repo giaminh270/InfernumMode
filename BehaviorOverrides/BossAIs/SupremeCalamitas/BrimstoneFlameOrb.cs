@@ -86,10 +86,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             return c;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+		public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+		{
+			if (InfernumConfig.Instance.ReducedGraphicsConfig)
+			{
+				OptimizedDraw();
+				return false;
+			}
+
+			DefaultDraw();
+			return false;
+		}
+
+		public void DefaultDraw()
         {
             if (Owner is null || !Owner.active)
-                return false;
+				return;
 
             if (FireDrawer is null)
                 FireDrawer = new PrimitiveTrailCopy(OrbWidthFunction, OrbColorFunction, null, true, GameShaders.Misc["Infernum:PrismaticRay"]);
@@ -134,8 +146,33 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 FireDrawer.Draw(drawPoints, -Main.screenPosition, 30);
             }
             Main.spriteBatch.ExitShaderRegion();
-            return false;
         }
+		
+		public void OptimizedDraw()
+		{
+			if (Owner is null || !Owner.active)
+				return;
+
+			Texture2D circleTexture = ModContent.GetTexture("InfernumMode/ExtraTextures/PrismaticLaserbeamStreak");
+			Vector2 drawPosition = projectile.Center - Main.screenPosition;
+			float scale = Radius * 2f / circleTexture.Width;
+			Color color = Color.Lerp(Color.Red, Color.Orange, 0.5f) * 0.6f;
+			
+			Main.spriteBatch.Draw(circleTexture, drawPosition, null, color, 0f, circleTexture.Size() * 0.5f, scale, SpriteEffects.None, 0f);
+
+			if (TelegraphInterpolant >= 0 && TelegraphInterpolant < 1)
+			{
+				float telegraphWidth = MathHelper.Lerp(1f, 3f, TelegraphInterpolant);
+				for (int i = 0; i < LaserCount; i++)
+				{
+					Vector2 laserDirection = (MathHelper.TwoPi * i / LaserCount + 0.8f).ToRotationVector2();
+					Vector2 start = projectile.Center;
+					Vector2 end = projectile.Center + laserDirection * 1200f;
+					Color telegraphColor = Color.Orange * TelegraphInterpolant * 0.5f;
+					Main.spriteBatch.DrawLineBetter(start, end, telegraphColor, telegraphWidth);
+				}
+			}
+		}
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox) => Utilities.CircularCollision(projectile.Center, targetHitbox, Radius * 0.85f);
     }

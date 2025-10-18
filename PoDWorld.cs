@@ -94,7 +94,7 @@ namespace InfernumMode
 			if (HasSepulcherAnimationBeenPlayed)
 				downed.Add("HasSepulcherAnimationBeenPlayed");
 
-			TagCompound tag = new TagCompound
+            return new TagCompound
 			{
 				["downed"] = downed,
 				["ProvidenceArenaX"] = ProvidenceArena.X,
@@ -104,7 +104,6 @@ namespace InfernumMode
 				["ProvidenceDoorXPosition"] = ProvidenceDoorXPosition
 			};
 			
-			return tag;
 		}
         #endregion
 

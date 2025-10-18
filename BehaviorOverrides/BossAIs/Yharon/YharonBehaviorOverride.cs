@@ -465,9 +465,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
                 SelectNextAttack(npc, ref attackType);
 
                 // And spawn a lot of cool sparkles.
+				if (!InfernumConfig.Instance.ReducedGraphicsConfig)
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    for (int i = 0; i < 180; i++)
+					int sparkleToSpawn = InfernumConfig.Instance.ReducedGraphicsConfig ? 10 : 90;
+                    for (int i = 0; i < sparkleToSpawn; i++)
                     {
                         Vector2 sparkleSpawnPosition = npc.Center + Main.rand.NextVector2Circular(240f, 240f);
                         Utilities.NewProjectileBetter(sparkleSpawnPosition, Main.rand.NextVector2Circular(28f, 28f), ModContent.ProjectileType<MajesticSparkleBig>(), 0, 0f);
@@ -581,7 +583,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 
             // Adjust various values before doing anything else. If these need to be changed later in certain attacks, they will be.
             npc.dontTakeDamage = false;
-            Filters.Scene["HeatDistortion"].GetShader().UseIntensity(0.5f);
+			if (!InfernumConfig.Instance.ReducedGraphicsConfig)			
+				Filters.Scene["HeatDistortion"].GetShader().UseIntensity(0.5f);
             npc.Infernum().ExtraAI[IllusionCountIndex] = 0f;
 
             // Define various attack-specific variables.
@@ -840,7 +843,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        for (int i = 0; i < 30; i++)
+						int sparkleToSpawn = InfernumConfig.Instance.ReducedGraphicsConfig ? 5 : 30;						
+                        for (int i = 0; i < sparkleToSpawn; i++)
                         {
                             Vector2 sparkleSpawnPosition = npc.Center + Main.rand.NextVector2Circular(180f, 180f);
                             Utilities.NewProjectileBetter(sparkleSpawnPosition, Main.rand.NextVector2Circular(12f, 12f), ModContent.ProjectileType<YharonMajesticSparkle>(), 0, 0f);
@@ -928,10 +932,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             {
                 fireIntensity = 1f;
                 float competionRatio = Utils.InverseLerp(chargeDelay, chargeDelay + chargeTime, attackTimer, true);
-                Filters.Scene["HeatDistortion"].GetShader().UseIntensity(0.5f + CalamityUtils.Convert01To010(competionRatio) * 3f);
+				if (!InfernumConfig.Instance.ReducedGraphicsConfig)
+					Filters.Scene["HeatDistortion"].GetShader().UseIntensity(0.5f + CalamityUtils.Convert01To010(competionRatio) * 3f);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    for (int i = 0; i < 2; i++)
+                    for (int i = 0; i < 1; i++)
                     {
                         Vector2 sparkleSpawnPosition = npc.Center + Main.rand.NextVector2Circular(240f, 240f);
                         Utilities.NewProjectileBetter(sparkleSpawnPosition, Main.rand.NextVector2Circular(28f, 28f), ModContent.ProjectileType<MajesticSparkleBig>(), 0, 0f);
@@ -1141,21 +1146,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             {
                 npc.velocity *= 0.955f;
                 npc.rotation = npc.rotation.AngleTowards(0f, 0.1f);
-                if (attackTimer % 4f == 3f)
-                {
-                    for (int i = 0; i < 100; i++)
-                    {
-                        float angle = MathHelper.TwoPi * i / 100f;
-                        float intensity = Main.rand.NextFloat();
-                        Vector2 fireSpawnPosition = npc.Center + angle.ToRotationVector2() * Main.rand.NextFloat(720f, 900f);
-                        Vector2 fireVelocity = (angle - MathHelper.Pi).ToRotationVector2() * (29f + 11f * intensity);
-
-                        Dust fire = Dust.NewDustPerfect(fireSpawnPosition, DustID.Fire, fireVelocity);
-                        fire.scale = 0.9f;
-                        fire.fadeIn = 1.15f + intensity * 0.3f;
-                        fire.noGravity = true;
-                    }
-                }
                 specialFrameType = (int)YharonFrameDrawingType.FlapWings;
             }
 
@@ -1415,7 +1405,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
         public static void DoBehavior_FinalDyingRoar(NPC npc)
         {
             npc.dontTakeDamage = true;
-            Filters.Scene["HeatDistortion"].GetShader().UseIntensity(3f);
+			if (!InfernumConfig.Instance.ReducedGraphicsConfig)			
+				Filters.Scene["HeatDistortion"].GetShader().UseIntensity(3f);
 
             float lifeRatio = npc.life / (float)npc.lifeMax;
 
@@ -1587,7 +1578,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
                 npc.life = (int)MathHelper.Lerp(npc.life, npc.lifeMax * 0.005f, 0.025f);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    for (int i = 0; i < 2; i++)
+                    for (int i = 0; i < 1; i++)
                     {
                         Vector2 sparkleSpawnPosition = npc.Center + Main.rand.NextVector2Circular(180f, 180f);
                         Utilities.NewProjectileBetter(sparkleSpawnPosition, Main.rand.NextVector2Circular(12f, 12f), ModContent.ProjectileType<YharonMajesticSparkle>(), 0, 0f);
@@ -1627,7 +1618,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
                 if (Main.netMode != NetmodeID.MultiplayerClient && hasTeleportedFlag == 0f)
                 {
                     Vector2 oldPosition = npc.Center;
-                    for (int i = 0; i < 15; i++)
+					int sparkleToSpawn = InfernumConfig.Instance.ReducedGraphicsConfig ? 3 : 15;
+                    for (int i = 0; i < sparkleToSpawn; i++)
                     {
                         Vector2 sparkleSpawnPosition = npc.Center + Main.rand.NextVector2Circular(280f, 280f);
                         Utilities.NewProjectileBetter(sparkleSpawnPosition, Main.rand.NextVector2Circular(42f, 42f), ModContent.ProjectileType<MajesticSparkleBig>(), 0, 0f);
@@ -1668,7 +1660,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        for (int i = 0; i < 15; i++)
+						int sparkleToSpawn = InfernumConfig.Instance.ReducedGraphicsConfig ? 3 : 15;
+                        for (int i = 0; i < sparkleToSpawn; i++)
                         {
                             Vector2 sparkleSpawnPosition = npc.Center + Main.rand.NextVector2Circular(280f, 280f);
                             Utilities.NewProjectileBetter(sparkleSpawnPosition, Main.rand.NextVector2Circular(42f, 42f), ModContent.ProjectileType<MajesticSparkleBig>(), 0, 0f);
@@ -1865,97 +1858,35 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             npc.frameCounter++;
         }
 
-        public static void DrawInstance(NPC npc, Vector2? position = null, float rotationOffset = 0f, bool changeDirection = false)
-        {
-            YharonAttackType attackType = (YharonAttackType)npc.ai[0];
+		public static void DrawInstance(NPC npc, Vector2? position = null, float rotationOffset = 0f, bool changeDirection = false)
+		{
 			Texture2D tex = ModContent.GetTexture(npc.modNPC.Texture);
-
-            // Use defaults for the draw position.
+			
 			if (position == null)
-			    position = npc.Center;
+				position = npc.Center;
 
-            // Define draw variables.
-            Vector2 origin = npc.frame.Size() * 0.5f;
-            SpriteEffects spriteEffects = npc.spriteDirection == -1 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
-            if (changeDirection)
-                spriteEffects = npc.spriteDirection == -1 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+			Vector2 origin = npc.frame.Size() * 0.5f;
+			SpriteEffects spriteEffects = npc.spriteDirection == -1 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
+			if (changeDirection)
+				spriteEffects = npc.spriteDirection == -1 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
-            // Determine variables for the fire effect.
-            int afterimageCount = 1;
-            float afterimageOffsetMax = 32f;
-            float fireIntensity = npc.Infernum().ExtraAI[FireFormInterpolantIndex];
-            bool inLastSubphases = npc.life / (float)npc.lifeMax <= 0.2f;
-            if (inLastSubphases)
-                fireIntensity = MathHelper.Max(fireIntensity, 0.8f);
+			float fireIntensity = npc.Infernum().ExtraAI[FireFormInterpolantIndex];
+			
+			Main.spriteBatch.EnterShaderRegion();
 
-            if (fireIntensity > 0f)
-                afterimageCount += (int)(fireIntensity * 8f);
+			if (fireIntensity > 0.5f)
+			{
+				Color afterimageColor = npc.GetAlpha(Color.Orange) * 0.3f;
+				Vector2 drawPosition = position.Value - Main.screenPosition - npc.velocity * 0.5f;
+				Main.spriteBatch.Draw(tex, drawPosition, npc.frame, afterimageColor, npc.rotation + rotationOffset, origin, npc.scale, spriteEffects, 0f);
+			}
 
-            Main.spriteBatch.EnterShaderRegion();
+			Color mainColor = npc.GetAlpha(Color.White);
+			Vector2 mainDrawPosition = position.Value - Main.screenPosition;
+			Main.spriteBatch.Draw(tex, mainDrawPosition, npc.frame, mainColor, npc.rotation + rotationOffset, origin, npc.scale, spriteEffects, 0f);
 
-            Color burnColor = Color.Orange;
-            float phase2InvincibilityCountdown = npc.Infernum().ExtraAI[InvincibilityTimerIndex];
-            if (phase2InvincibilityCountdown > 0f)
-            {
-                float backBackToRegularColor = Utils.InverseLerp(75f, 0f, phase2InvincibilityCountdown, true);
-                Color phase2Color = Color.Lerp(Color.Pink, Color.Yellow, (float)Math.Cos(Main.GlobalTime * 2.3f) * 0.5f + 0.5f);
-                burnColor = Color.Lerp(phase2Color, burnColor, backBackToRegularColor);
-            }
-            if (npc.life < npc.lifeMax * 0.2f)
-                burnColor = Color.LightYellow;
-            if (attackType == YharonAttackType.FireTrailCharge)
-                burnColor = Color.OrangeRed;
-            if (npc.life < npc.lifeMax * 0.075f)
-            {
-                burnColor = Color.White;
-                fireIntensity += 0.325f;
-            }
-
-            float opacity = npc.Opacity;
-
-            // Draw backglow textures.
-            if (fireIntensity > 0f)
-            {
-                for (int i = afterimageCount - 1; i >= 0; i--)
-                {
-                    float afterimageOpacity = 1f;
-                    if (afterimageCount >= 2)
-                        afterimageOpacity = i / (float)(afterimageCount - 1f);
-
-                    Color color = npc.GetAlpha(Color.White) * (1f - afterimageOpacity);
-                    Color afterimageColor = color;
-                    Vector2 drawPosition = position.Value - Main.screenPosition;
-                    drawPosition -= npc.velocity * 0.6f * i;
-                    for (int j = 0; j < 6; j++)
-                    {
-                        Vector2 circularDrawOffset = (MathHelper.TwoPi * j / 6f).ToRotationVector2() * fireIntensity * afterimageOpacity * afterimageOffsetMax;
-                        Color offsetColor = afterimageColor * opacity * 0.4f;
-                        offsetColor.A = 0;
-                        Main.spriteBatch.Draw(tex, drawPosition + circularDrawOffset, npc.frame, offsetColor, npc.rotation + rotationOffset, origin, npc.scale, spriteEffects, 0f);
-                    }
-                }
-            }
-
-            // Draw afterimages.
-            for (int i = afterimageCount - 1; i >= 0; i--)
-            {
-                float afterimageOpacity = 0f;
-                if (afterimageCount >= 2)
-                    afterimageOpacity = i / (float)(afterimageCount - 1f);
-
-                Color color = npc.GetAlpha(Color.White) * (1f - afterimageOpacity);
-                Color afterimageColor = color;
-                if (i == 0 && afterimageCount >= 2)
-                    afterimageColor.A = 184;
-
-                Vector2 drawPosition = position.Value - Main.screenPosition;
-                drawPosition -= npc.velocity * i * 1.16f;
-
-                Main.spriteBatch.Draw(tex, drawPosition, npc.frame, afterimageColor * opacity, npc.rotation + rotationOffset, origin, npc.scale, spriteEffects, 0f);
-            }
-
-            Main.spriteBatch.ExitShaderRegion();
-        }
+			Main.spriteBatch.ExitShaderRegion();
+		}
 
         public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor)
         {

@@ -77,12 +77,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             Main.instance.GraphicsDevice.Textures[2] = ModContent.GetTexture("InfernumMode/ExtraTextures/PrismaticLaserbeamStreak");
             projectile.scale /= 0.8f;
 
-            RayDrawer.Draw(basePoints, overallOffset, 42);
+			int rayCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 8 : 24;
+            RayDrawer.Draw(basePoints, overallOffset, rayCount);
 
             projectile.scale *= 1.5f;
             GameShaders.Misc["Infernum:PrismaticRay"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/CultistRayMap"));
             Main.instance.GraphicsDevice.Textures[2] = ModContent.GetTexture("InfernumMode/ExtraTextures/PrismaticLaserbeamStreak2");
-            RayDrawer.Draw(basePoints, overallOffset, 42);
+            RayDrawer.Draw(basePoints, overallOffset, rayCount);
             projectile.scale /= 1.5f;
             return true;
         }

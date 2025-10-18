@@ -56,11 +56,32 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 
         public void AdditiveDraw(SpriteBatch spriteBatch)
         {
+            if (InfernumConfig.Instance.ReducedGraphicsConfig)
+            {
+                OptimizedDraw(spriteBatch);
+                return;
+            }
+
+            DefaultDraw(spriteBatch);
+        }
+
+        public void DefaultDraw(SpriteBatch spriteBatch)
+        {
             Texture2D texture = ModContent.GetTexture(Texture);
             Color color = projectile.GetAlpha(Color.White);
             Vector2 drawPosition = projectile.Center - Main.screenPosition;
             spriteBatch.Draw(texture, drawPosition, null, color, projectile.rotation, texture.Size() * 0.5f, projectile.scale, 0, 0f);
             spriteBatch.Draw(texture, drawPosition, null, Color.White * projectile.Opacity * 0.7f, projectile.rotation, texture.Size() * 0.5f, projectile.scale, 0, 0f);
+        }
+
+        public void OptimizedDraw(SpriteBatch spriteBatch)
+        {
+            Texture2D texture = ModContent.GetTexture(Texture);
+            Color color = projectile.GetAlpha(Color.White);
+            Vector2 drawPosition = projectile.Center - Main.screenPosition;         
+            float optimizedScale = projectile.scale * 0.6f;
+            float optimizedOpacity = projectile.Opacity * 0.8f;            
+            spriteBatch.Draw(texture, drawPosition, null, color * optimizedOpacity, projectile.rotation, texture.Size() * 0.5f, optimizedScale, 0, 0f);
         }
 
         public override Color? GetAlpha(Color lightColor)

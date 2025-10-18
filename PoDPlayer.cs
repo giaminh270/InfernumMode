@@ -458,5 +458,15 @@ namespace InfernumMode
             BitsByte flags = reader.ReadByte();
             ZoneProfaned = flags[0];
         }		
+		
+		public override void PreUpdateMovement()
+		{
+			if (player.dashDelay > 0)
+			{
+				player.dashDelay -= 1;
+				if (player.dashDelay < 0)
+					player.dashDelay = 0;
+			}
+		}		
     }
 }

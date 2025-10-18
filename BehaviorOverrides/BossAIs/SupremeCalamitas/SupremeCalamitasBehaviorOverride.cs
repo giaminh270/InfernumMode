@@ -996,18 +996,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 {
                     Vector2 shootOffset = (MathHelper.TwoPi * i / cindersPerBurst + cinderSpawnOffsetAngle).ToRotationVector2() * 1000f;
                     Vector2 cinderShootVelocity = shootOffset.SafeNormalize(Vector2.UnitY) * -shootSpeed;
-
-                    for (int j = 0; j < 150; j++)
-                    {
-                        Vector2 dustSpawnPosition = Vector2.Lerp(handPosition, target.Center + shootOffset, j / 149f);
-                        Dust fire = Dust.NewDustPerfect(dustSpawnPosition, 267);
-                        fire.velocity = Vector2.Zero;
-                        fire.scale = 1.1f;
-                        fire.alpha = 128;
-                        fire.color = Color.Red;
-                        fire.noGravity = true;
-                    }
-
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                         Utilities.NewProjectileBetter(target.Center + shootOffset, cinderShootVelocity, ModContent.ProjectileType<AcceleratingDarkMagicFlame>(), 500, 0f);
                 }
@@ -1349,15 +1337,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             {
                 // Create some chargeup dust and play a charge sound.
                 Main.PlaySound(SoundID.DD2_DarkMageHealImpact, target.Center);
-                for (int i = 0; i < 15; i++)
-                {
-                    Dust magic = Dust.NewDustPerfect(handPosition, 267);
-                    magic.color = Color.Lerp(Color.Red, Color.Purple, Main.rand.NextFloat());
-                    magic.velocity = Main.rand.NextVector2Circular(5f, 5f);
-                    magic.scale = Main.rand.NextFloat(1f, 1.25f);
-                    magic.noGravity = true;
-                }
-
                 Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<DemonicBomb>(), ModContent.ProjectileType<DemonicExplosion>());
 
                 // Teleport to the center of the arena.

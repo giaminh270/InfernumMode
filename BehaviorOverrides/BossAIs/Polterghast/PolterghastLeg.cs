@@ -257,10 +257,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
                     end += directionToNext * Utils.InverseLerp(15f, 175f, offsetToNext.Length(), true) * 20f;
 
                     List<Vector2> drawPositions = new List<Vector2>();
-                    for (int k = 0; k < 10; k++)
+                    for (int k = 0; k < 7; k++)
                         drawPositions.Add(Vector2.Lerp(Limbs.Limbs[i].ConnectPoint, end, k / 9f));
 
-                    LimbDrawer.Draw(drawPositions, -Main.screenPosition, 40);
+                    LimbDrawer.Draw(drawPositions, -Main.screenPosition, 23);
                 }
             }
             Main.spriteBatch.ResetBlendState();
