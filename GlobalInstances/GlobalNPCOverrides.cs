@@ -50,6 +50,7 @@ using CryogenNPC = CalamityMod.NPCs.Cryogen.Cryogen;
 using OldDukeNPC = CalamityMod.NPCs.OldDuke.OldDuke;
 using PolterghastNPC = CalamityMod.NPCs.Polterghast.Polterghast;
 using SlimeGodCore = CalamityMod.NPCs.SlimeGod.SlimeGodCore;
+using CalamityMod.Items.Accessories;
 
 namespace InfernumMode.GlobalInstances
 {
@@ -275,6 +276,7 @@ namespace InfernumMode.GlobalInstances
 
             if (npc.type == ModContent.NPCType<Providence>())
             {
+				Item.NewItem((int)npc.position.X, (int)npc.position.Y, npc.width, npc.height, ModContent.ItemType<ElysianAegis>());				
                 if (!Main.dayTime && !PoDWorld.HasBeatedInfernumProvRegularly)
                     PoDWorld.HasBeatedInfernumNightProvBeforeDay = true;
                 PoDWorld.HasBeatedInfernumProvRegularly = true;
