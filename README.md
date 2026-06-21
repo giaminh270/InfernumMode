@@ -1,4 +1,4 @@
-# Infernum Mode
+# Unofficial Calamity Mod Infernum Mode for Tmodloader 1.3
 
 An extension mod for Calamity that adds an extra difficulty - Infernum
 
