@@ -38,7 +38,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
         public enum ThanatosHeadAttackType
         {
             AggressiveCharge,
-            LaserBarrage,
             ExoBomb,
             ExoLightBarrage,
             RefractionRotorRays,
@@ -126,7 +125,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                     previous = lol;
                 }
 
-                npc.ai[0] = (int)ThanatosHeadAttackType.LaserBarrage;
+                npc.ai[0] = (int)ThanatosHeadAttackType.AggressiveCharge;
                 finalMechIndex = -1f;
                 complementMechIndex = -1f;
                 segmentsSpawned++;
@@ -262,9 +261,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 {
                     case ThanatosHeadAttackType.AggressiveCharge:
                         DoBehavior_AggressiveCharge(npc, target, ref attackTimer, ref frameType);
-                        break;
-                    case ThanatosHeadAttackType.LaserBarrage:
-                        DoBehavior_LaserBarrage(npc, target, ref attackTimer, ref frameType);
                         break;
                     case ThanatosHeadAttackType.ExoBomb:
                         DoBehavior_ExoBomb(npc, target, ref attackTimer, ref frameType);
@@ -417,61 +413,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 SelectNextAttack(npc);
         }
         
-        public static void DoBehavior_LaserBarrage(NPC npc, Player target, ref float attackTimer, ref float frameType)
-        {
-            // Decide frames.
-            frameType = (int)ThanatosFrameType.Closed;
-
-            int segmentShootDelay = 100;
-            ref float totalSegmentsToFire = ref npc.Infernum().ExtraAI[0];
-            ref float segmentFireTime = ref npc.Infernum().ExtraAI[1];
-            ref float segmentFireCountdown = ref npc.Infernum().ExtraAI[2];
-
-            if (ExoMechManagement.CurrentThanatosPhase == 4)
-                segmentShootDelay += 60;
-
-            // Temporarily disable damage.
-            if (attackTimer < 150f)
-                npc.damage = 0;
-
-            // Do movement.
-            DoProjectileShootInterceptionMovement(npc, target);
-
-            // Select segment shoot attributes.
-            if (attackTimer % segmentShootDelay == segmentShootDelay - 1f)
-            {
-                totalSegmentsToFire = 20f;
-                segmentFireTime = 75f;
-
-                if (ExoMechManagement.CurrentThanatosPhase >= 2)
-                    totalSegmentsToFire += 3f;
-                if (ExoMechManagement.CurrentThanatosPhase >= 3)
-                    totalSegmentsToFire += 3f;
-                if (ExoMechManagement.CurrentThanatosPhase >= 5)
-                {
-                    totalSegmentsToFire += 3f;
-                    segmentFireTime += 10f;
-                }
-                if (ExoMechManagement.CurrentThanatosPhase >= 6)
-                {
-                    totalSegmentsToFire += 5f;
-                    segmentFireTime += 8f;
-                }
-
-                segmentFireCountdown = segmentFireTime;
-                npc.netUpdate = true;
-            }
-
-            if (segmentFireCountdown > 0f)
-                segmentFireCountdown--;
-
-            // Play a sound prior to switching attacks.
-            if (attackTimer == 600f - TransitionSoundDelay)
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ThanatosTransition"), target.Center);
-
-            if (attackTimer > 600f)
-                SelectNextAttack(npc);
-        }
 
         public static void DoBehavior_ExoBomb(NPC npc, Player target, ref float attackTimer, ref float frameType)
         {
@@ -1034,9 +975,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             {
                 do
                 {
-                    //npc.ai[0] = (int)ThanatosHeadAttackType.TopwardSlam;
-                    if (Main.rand.NextBool())
-                        npc.ai[0] = (int)ThanatosHeadAttackType.LaserBarrage;
                     if (Main.rand.NextBool())
                         npc.ai[0] = (int)ThanatosHeadAttackType.RefractionRotorRays;
                     if (Main.rand.NextBool(3) && ExoMechManagement.CurrentThanatosPhase >= 3)

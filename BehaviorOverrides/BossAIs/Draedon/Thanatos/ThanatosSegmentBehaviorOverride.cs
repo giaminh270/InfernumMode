@@ -131,50 +131,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                                 generalShootSpeedFactor *= 1.15f;
                         }
 
-                        if ((int)headAttackType == (int)ExoMechComboAttackContent.ExoMechComboAttackType.ThanatosAres_LaserCircle)
-                            generalShootSpeedFactor *= ExoMechManagement.CurrentThanatosPhase != 4f ? 0.36f : 0.5f;
 
                         switch ((int)headAttackType)
                         {
-                            // Fire regular lasers.
-                            case (int)ThanatosHeadAttackType.LaserBarrage:
-                                int type = ModContent.ProjectileType<ThanatosLaser>();
-                                float predictionFactor = 21f;
-                                float shootSpeed = generalShootSpeedFactor * 6.8f;
-
-                                // Predictive laser.
-                                Vector2 projectileDestination = target.Center + target.velocity * predictionFactor;
-                                int laser = Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, NormalShotDamage, 0f, Main.myPlayer, 0f, npc.whoAmI);
-                                if (Main.projectile.IndexInRange(laser))
-                                {
-                                    Main.projectile[laser].owner = npc.target;
-                                    Main.projectile[laser].ModProjectile<ThanatosLaser>().InitialDestination = projectileDestination;
-                                    Main.projectile[laser].ai[1] = npc.whoAmI;
-                                }
-
-                                // Opposite laser.
-                                projectileDestination = target.Center - target.velocity * predictionFactor;
-                                laser = Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, NormalShotDamage, 0f, Main.myPlayer, 0f, npc.whoAmI);
-                                if (Main.projectile.IndexInRange(laser))
-                                {
-                                    Main.projectile[laser].owner = npc.target;
-                                    Main.projectile[laser].ModProjectile<ThanatosLaser>().InitialDestination = projectileDestination;
-                                    Main.projectile[laser].ai[1] = npc.whoAmI;
-                                    Main.projectile[laser].netUpdate = true;
-                                }
-                                break;
-                            case (int)ExoMechComboAttackContent.ExoMechComboAttackType.ThanatosAres_LaserCircle:
-                                type = ModContent.ProjectileType<ThanatosAresComboLaser>();
-                                shootSpeed = generalShootSpeedFactor * 10f;
-                                projectileDestination = Main.npc[CalamityGlobalNPC.draedonExoMechPrime].Center + Vector2.UnitY * 34f;
-                                laser = Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, StrongerNormalShotDamage, 0f, Main.myPlayer, 0f, npc.whoAmI);
-                                if (Main.projectile.IndexInRange(laser))
-                                {
-                                    Main.projectile[laser].owner = npc.target;
-                                    Main.projectile[laser].ModProjectile<ThanatosAresComboLaser>().InitialDestination = projectileDestination;
-                                    Main.projectile[laser].ai[1] = npc.whoAmI;
-                                    Main.projectile[laser].netUpdate = true;
-                                }
+                            default:
                                 break;
                         }
                     }
