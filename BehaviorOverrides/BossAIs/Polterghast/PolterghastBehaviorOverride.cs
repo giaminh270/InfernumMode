@@ -335,7 +335,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             if (dyingTimer > slowdownTime && dyingTimer % 2f == 0f && totalReleasedSouls < 60f)
             {
                 if (dyingTimer % 8f == 0f)
-                	Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/PolterSoulVortexShoot"), target.Center);
+                	Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/PolterSoulVortexShoot"), target.Center);
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
@@ -527,7 +527,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             if (attackTimer >= swingDelay && attackTimer % vortexReleaseRate == 0f && swingCompletion > 0.2f && swingCompletion < 0.6f)
             {
                 if (attackTimer % (vortexReleaseRate * 3f) == 0f)
-                	Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/PolterSoulVortexShoot"), legToControl.Center);
+                	Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/PolterSoulVortexShoot"), legToControl.Center);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     Vector2 vortexVelocity = npc.SafeDirectionTo(legToControl.Center) * 3.2f;
@@ -1026,7 +1026,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             }
 
             if (attackTimer % 24f == 23f && attacking)
-				Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/PolterSoulVortexShoot"), target.Center);
+				Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/PolterSoulVortexShoot"), target.Center);
 
             if (attackTimer >= attackDuration + 135f && totalReleasedSouls <= 15f)
                 SelectNextAttack(npc);

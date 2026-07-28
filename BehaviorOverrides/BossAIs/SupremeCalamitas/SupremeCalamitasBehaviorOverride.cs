@@ -1462,7 +1462,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             // Summon the demon.
             if (attackTimer == fadeInTime + blackScreenTime)
             {
-            	Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/BrimstoneMonsterSpawn"), target.Center);
+            	Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/BrimstoneMonsterSpawn"), target.Center);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                     NPC.NewNPC((int)npc.Center.X, (int)npc.Center.Y - 850, ModContent.NPCType<ShadowDemon>(), npc.whoAmI);
             }

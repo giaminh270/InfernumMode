@@ -61,7 +61,7 @@ namespace InfernumMode.Tiles
             // Calculate the door position in the world if it has yet to be initialized.
             Tile tile = CalamityUtils.ParanoidTileRetrieval(i, j);
             Vector2 bottom = new Vector2(i, j).ToWorldCoordinates(8f, 0f);
-            if (PoDWorld.ProvidenceDoorXPosition == 0 && tile.frameX == 18 && tile.frameX == 0)
+			if (PoDWorld.ProvidenceDoorXPosition == 0 && tile.frameX == 18 && tile.frameY == 0)	
             {
                 PoDWorld.ProvidenceDoorXPosition = (int)bottom.X;
                 CalamityNetcode.SyncWorld();
@@ -91,7 +91,7 @@ namespace InfernumMode.Tiles
                 shatterTimer = 0;
 
             if (shatterTimer == 2)
-				Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceDoorShatter"));
+				Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceDoorShatter"));
 
             // Have the door shatter into a bunch of crystals.
             if (CalamityWorld.downedGuardians && shatterTimer >= 360f)

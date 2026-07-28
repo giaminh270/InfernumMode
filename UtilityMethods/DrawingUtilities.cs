@@ -1,4 +1,7 @@
 using CalamityMod;
+
+using InfernumMode.Projectiles;
+using InfernumMode.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -10,6 +13,9 @@ using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
+using Terraria.Graphics.Effects;
+using Terraria.Graphics.Shaders;
+using static InfernumMode.Particles.InfernumBaseFusableParticleSet;
 
 namespace InfernumMode
 {
@@ -249,5 +255,89 @@ namespace InfernumMode
                 triangleIndices.Add((short)(i * 4 + 3));
             }
         }
+		
+        public static void CreateShockwave(Vector2 shockwavePosition, int rippleCount = 2, int rippleSize = 8, float rippleSpeed = 75f, bool playSound = true, bool useSecondaryVariant = false)
+        {
+            DeleteAllProjectiles(false, ModContent.ProjectileType<ScreenShakeProj>());
+
+            if (playSound)
+                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SonicBoom"), Vector2.Lerp(shockwavePosition, Main.LocalPlayer.Center, 0.84f));
+
+            if (Main.netMode != NetmodeID.MultiplayerClient)
+            {
+                int shockwaveID = NewProjectileBetter(shockwavePosition, Vector2.Zero, ModContent.ProjectileType<ScreenShakeProj>(), 0, 0f, -1, useSecondaryVariant.ToInt());
+                if (Main.projectile.IndexInRange(shockwaveID))
+                {
+                    var shockwave = Main.projectile[shockwaveID].ModProjectile<ScreenShakeProj>();
+                    shockwave.RippleCount = rippleCount;
+                    shockwave.RippleSize = rippleSize;
+                    shockwave.RippleSpeed = rippleSpeed;
+                }
+            }
+        }
+
+        public static void CreateMetaballsFromTexture(this Texture2D texture, ref List<FusableParticle> particleList, Vector2 texturePosition, float textureRotation, float textureScale, float metaballSize, int spawnChance = 35)
+        {
+            // Leave if this is null, or this is called on the server.
+            if (particleList is null || Main.netMode == NetmodeID.Server)
+                return;
+
+            // Get the dimensions of the texture.
+            int textureWidth = texture.Width;
+            int textureHeight = texture.Height;
+
+            // Get the data of every color in the texture.
+            Color[] colorData = new Color[textureWidth * textureHeight];
+            texture.GetData(colorData);
+
+            // Loop across the texture lengthways, one row at a time.
+            for (int h = 0; h < textureHeight; h++)
+            {
+                for (int w = 0; w < textureWidth; w++)
+                {
+                    Color color = colorData[w + h * textureWidth];
+
+                    // If the current pixel has any alpha, and the chance is selected (this exists to add variation and prevent having way too many metaballs spawn)
+                    if (color.A > 0 && (color.R > 0 && color.G > 0 && color.B > 0) && Main.rand.NextBool(spawnChance))
+                    {
+                        Vector2 positionOffset = textureScale * new Vector2(textureWidth * 0.5f, textureHeight * 0.5f).RotatedBy(textureRotation);
+                        Vector2 metaballSpawnPosition = texturePosition - positionOffset + new Vector2(w, h).RotatedBy(textureRotation);
+                        FusableParticle particle = new FusableParticle(metaballSpawnPosition, Main.rand.NextFloat(metaballSize * 0.8f, metaballSize * 1.2f) * color.A / 255);
+                        particleList.Add(particle);
+                    }
+                }
+            }
+        }
+
+        public static void DrawBloomLineTelegraph(Vector2 drawPosition, BloomLineDrawInfo drawInfo, bool resetSpritebatch = true, Vector2? resolution = null)
+        {
+            // Claim texture and shader data in easy to use local variables.
+            Texture2D invisible = ModContent.GetTexture("InfernumMode/ExtraTextures/Invisible");
+            Effect laserScopeEffect = Filters.Scene["Infernum:PixelatedSightLine"].GetShader().Shader;
+
+            // Prepare all parameters for the shader in anticipation that they will go the GPU for shader effects.
+            laserScopeEffect.Parameters["sampleTexture2"].SetValue(ModContent.GetTexture("InfernumMode/ExtraTextures/CertifiedCrustyNoise"));
+            laserScopeEffect.Parameters["noiseOffset"].SetValue(Main.GameUpdateCount * -0.004f);
+            laserScopeEffect.Parameters["mainOpacity"].SetValue(drawInfo.Opacity);
+            laserScopeEffect.Parameters["Resolution"].SetValue(resolution ?? Vector2.One * 425f);
+            laserScopeEffect.Parameters["laserAngle"].SetValue(drawInfo.LineRotation);
+            laserScopeEffect.Parameters["laserWidth"].SetValue(drawInfo.WidthFactor);
+            laserScopeEffect.Parameters["laserLightStrenght"].SetValue(drawInfo.LightStrength);
+            laserScopeEffect.Parameters["color"].SetValue(drawInfo.MainColor.ToVector3());
+            laserScopeEffect.Parameters["darkerColor"].SetValue(drawInfo.DarkerColor.ToVector3());
+            laserScopeEffect.Parameters["bloomSize"].SetValue(drawInfo.BloomIntensity);
+            laserScopeEffect.Parameters["bloomMaxOpacity"].SetValue(drawInfo.BloomOpacity);
+            laserScopeEffect.Parameters["bloomFadeStrenght"].SetValue(3f);
+
+            // Prepare the sprite batch for shader drawing.
+            if (resetSpritebatch)
+                Main.spriteBatch.EnterShaderRegion(BlendState.Additive);
+            laserScopeEffect.CurrentTechnique.Passes[0].Apply();
+
+            // Draw the texture with the shader and flush the results to the GPU, clearing the shader effect for any successive draw calls.
+            Main.spriteBatch.Draw(invisible, drawPosition, null, Color.White, 0f, invisible.Size() * 0.5f, drawInfo.Scale, SpriteEffects.None, 0f);
+            if (resetSpritebatch)
+                Main.spriteBatch.ExitShaderRegion();
+        }			
     }
 }

@@ -30,7 +30,7 @@ namespace InfernumMode.BossIntroScreens
 
         public override bool ShouldBeActive() => NPC.AnyNPCs(ModContent.NPCType<Apollo>());
 
-        public override LegacySoundStyle SoundToPlayWithTextCreation => InfernumMode.CalamityMod.GetLegacySoundSlot(TMLSoundType.Custom, "Sounds/Custom/ThanatosTransition");
+        public override LegacySoundStyle SoundToPlayWithTextCreation => InfernumMode.Instance.GetLegacySoundSlot(TMLSoundType.Custom, "Sounds/Custom/ThanatosTransition");
 
         public override LegacySoundStyle SoundToPlayWithLetterAddition => SoundID.NPCHit4;
 

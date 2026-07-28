@@ -38,6 +38,7 @@ using InfernumMode.BehaviorOverrides.BossAIs.EoW;
 using InfernumMode.BehaviorOverrides.BossAIs.MoonLord;
 using InfernumMode.BehaviorOverrides.BossAIs.SlimeGod;
 using InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh;
+using InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow;
 using InfernumMode.Buffs;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
@@ -51,6 +52,8 @@ using OldDukeNPC = CalamityMod.NPCs.OldDuke.OldDuke;
 using PolterghastNPC = CalamityMod.NPCs.Polterghast.Polterghast;
 using SlimeGodCore = CalamityMod.NPCs.SlimeGod.SlimeGodCore;
 using CalamityMod.Items.Accessories;
+using CalamitasShadowBoss = CalamityMod.NPCs.Calamitas.CalamitasRun3;
+using Terraria.Localization;
 
 namespace InfernumMode.GlobalInstances
 {
@@ -70,6 +73,7 @@ namespace InfernumMode.GlobalInstances
         internal static int AstrumAureus = -1;
         internal static int Yharon = -1;
 
+        public Primitive3DStrip Optional3DStripDrawer;
         #endregion
 
         #region Reset Effects
@@ -282,6 +286,20 @@ namespace InfernumMode.GlobalInstances
                 PoDWorld.HasBeatedInfernumProvRegularly = true;
                 CalamityNetcode.SyncWorld();
             }
+			
+			if (npc.type == ModContent.NPCType<CalamitasRun3>() && InfernumMode.CanUseCustomAIs)
+			{
+				string customName = $"The {CalamitasShadowBehaviorOverride.CustomName}";
+				
+				if (Main.netMode == NetmodeID.SinglePlayer)
+				{
+					Main.NewText($"{customName} has been defeated!", 50, 255, 130);
+				}
+				else if (Main.netMode == NetmodeID.Server)
+				{
+					NetMessage.BroadcastChatMessage(NetworkText.FromKey($"The {CalamitasShadowBehaviorOverride.CustomName} has been defeated!"), new Color(50, 255, 130));
+				}
+			}
         }
 
         public override void EditSpawnRate(Player player, ref int spawnRate, ref int maxSpawns)
@@ -350,6 +368,38 @@ namespace InfernumMode.GlobalInstances
         {
             if (!InfernumMode.CanUseCustomAIs)
                 return base.CheckDead(npc);
+
+            // Calamitas Shadow death handling
+            int calShadowType = ModContent.NPCType<CalamitasShadowBoss>();
+            if (npc.type == calShadowType && OverridingListManager.Registered(npc.type))
+            {
+                // Check if the death animation has already started
+                bool hasStartedDeathAnimation = npc.ai[0] == (int)CalamitasShadowBehaviorOverride.CalShadowAttackType.DeathAnimation;
+                
+                if (!hasStartedDeathAnimation)
+                {
+                    // Delete all old projectiles
+                    Utilities.DeleteAllProjectiles(false, 
+                        ModContent.ProjectileType<ArcingBrimstoneDart>(), 
+                        ModContent.ProjectileType<DarkMagicFlame>());
+
+                    // Get the current attack type from CalamitasShadowBehaviorOverride
+                    // Use reflection or access the enum values through the behavior class
+                    var behavior = new CalamitasShadowBehaviorOverride();
+                    // Since SelectNextAttack is static, we can call it directly
+                    CalamitasShadowBehaviorOverride.SelectNextAttack(npc);
+                    
+                    // Set to death animation state
+                    npc.ai[0] = (int)CalamitasShadowBehaviorOverride.CalShadowAttackType.DeathAnimation;
+                    npc.life = 1;
+                    npc.dontTakeDamage = true;
+                    npc.active = true;
+                    npc.netUpdate = true;
+                    return false;
+                }
+                // If death animation already started, allow death
+                return true;
+            }
 
             if (npc.type == NPCID.WallofFleshEye && OverridingListManager.Registered(NPCID.WallofFlesh))
                 return WallOfFleshEyeBehaviorOverride.HandleDeathEffects(npc);

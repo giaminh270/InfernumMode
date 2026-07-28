@@ -200,7 +200,7 @@ namespace InfernumMode.BossIntroScreens
                     for (int k = 0; k < 4; k++)
                     {
                         float afterimageOpacityInterpolant = Utils.InverseLerp(1f, TextDelayInterpolant + 0.05f, AnimationCompletion, true);
-                        float afterimageOpacity = (float)Math.Pow(afterimageOpacityInterpolant, 2D) * 0.3f;
+                        float afterimageOpacity = (float)Math.Pow(afterimageOpacityInterpolant, 2f) * 0.3f;
                         Color afterimageColor = textColor * afterimageOpacity;
                         Vector2 drawOffset = (MathHelper.TwoPi * k / 4f).ToRotationVector2() * (1f - afterimageOpacityInterpolant) * 30f;
                         ChatManager.DrawColorCodedStringShadow(sb, FontToUse, character, DrawPosition + drawOffset + offset, Color.Black * afterimageOpacity * opacity, 0f, origin, textScale, -1, 1.5f);

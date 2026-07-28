@@ -867,7 +867,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
                 npc.rotation = npc.AngleTo(chargeDestination) + (npc.spriteDirection == 1).ToInt() * MathHelper.Pi;
                 specialFrameType = (int)YharonFrameDrawingType.IdleWings;
                 if (releaseFire)
-            		Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/YharonFireOrb"), target.Center);
+            		Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/YharonFireOrb"), target.Center);
 
                 npc.netUpdate = true;
 
@@ -1371,7 +1371,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             // Spawn vortices of doom. They periodically shoot homing fire projectiles and are telegraphed prior to spawning.
             if (attackTimer == flameVortexSpawnDelay && Main.netMode != NetmodeID.MultiplayerClient)
             {
-            	Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/YharonFireOrb"));
+            	Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/YharonFireOrb"));
 
                 for (int i = 0; i < totalFlameVortices; i++)
                 {

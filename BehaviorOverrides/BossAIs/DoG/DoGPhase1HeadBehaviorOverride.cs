@@ -156,11 +156,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                     return;
                 }
 
-                int p1HeadIcon = ModContent.GetModBossHeadSlot("InfernumMode/Content/BehaviorOverrides/BossAIs/DoG/DoGP1HeadMapIcon");
-                int p1TailIcon = ModContent.GetModBossHeadSlot("InfernumMode/Content/BehaviorOverrides/BossAIs/DoG/DoGP1TailMapIcon");
-                int p2HeadIcon = ModContent.GetModBossHeadSlot("InfernumMode/Content/BehaviorOverrides/BossAIs/DoG/DoGP2HeadMapIcon");
-                int p2BodyIcon = ModContent.GetModBossHeadSlot("InfernumMode/Content/BehaviorOverrides/BossAIs/DoG/DoGP2BodyMapIcon");
-                int p2TailIcon = ModContent.GetModBossHeadSlot("InfernumMode/Content/BehaviorOverrides/BossAIs/DoG/DoGP2TailMapIcon");
+                int p1HeadIcon = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/DoG/DoGP1HeadMapIcon");
+                int p1TailIcon = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/DoG/DoGP1TailMapIcon");
+                int p2HeadIcon = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/DoG/DoGP2HeadMapIcon");
+                int p2BodyIcon = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/DoG/DoGP2BodyMapIcon");
+                int p2TailIcon = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/DoG/DoGP2TailMapIcon");
                 bool inPhase2 = DoGPhase2HeadBehaviorOverride.InPhase2;
 
                 if (npc.type == ModContent.NPCType<DoGHead>())

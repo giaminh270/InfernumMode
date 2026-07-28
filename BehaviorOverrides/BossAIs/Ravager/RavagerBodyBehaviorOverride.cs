@@ -854,7 +854,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
         public static void CreateGroundImpactEffects(NPC npc)
         {
             // Play a crash sound.
-			Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/RavagerJump"), npc.Bottom);
+			Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/RavagerJump"), npc.Bottom);
 
             // Create dust effects.
             for (int x = (int)npc.Left.X - 30; x < (int)npc.Right.X + 30; x += 10)

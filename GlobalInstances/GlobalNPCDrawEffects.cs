@@ -7,6 +7,7 @@ using CalamityMod.NPCs.Polterghast;
 using CalamityMod.NPCs.Signus;
 using CalamityMod.NPCs.SupremeCalamitas;
 using CalamityMod.NPCs.Yharon;
+using CalamityMod.NPCs.Calamitas;
 using InfernumMode.BehaviorOverrides.BossAIs.DoG;
 using InfernumMode.BehaviorOverrides.BossAIs.MoonLord;
 using InfernumMode.OverridingSystem;
@@ -93,6 +94,15 @@ namespace InfernumMode.GlobalInstances
             // Have Sepulcher use a custom map icon.
             if (npc.type == ModContent.NPCType<SCalWormHead>())
                 index = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/SupremeCalamitas/SepulcherMapIcon");
+			
+			if (npc.type == ModContent.NPCType<CalamitasRun3>())
+				index = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CalShadowMapIcon");
+			
+			if (npc.type == ModContent.NPCType<CalamitasRun>())
+				index = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CataclysmMapIcon");
+			
+			if (npc.type == ModContent.NPCType<CalamitasRun2>())
+				index = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CatastropheMapIcon");			
         }
 
         public override void BossHeadRotation(NPC npc, ref float rotation)
@@ -107,6 +117,15 @@ namespace InfernumMode.GlobalInstances
             if (npc.type == ModContent.NPCType<Polterghast>())
                 rotation = npc.rotation;
         }
+		
+        public override void BossHeadSpriteEffects(NPC npc, ref SpriteEffects spriteEffects)
+        {
+            if (!InfernumMode.CanUseCustomAIs)
+                return;
+
+            if (npc.type == ModContent.NPCType<CalamitasRun3>() || npc.type == ModContent.NPCType<CalamitasRun2>() || npc.type == ModContent.NPCType<CalamitasRun>())
+                spriteEffects = npc.spriteDirection == -1 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
+        }		
 
         #endregion
 
@@ -190,5 +209,7 @@ namespace InfernumMode.GlobalInstances
                 OverridingListManager.InfernumFrameOverrideList[npc.type].DynamicInvoke(npc, frameHeight);
         }
         #endregion
+		
+		
     }
 }

@@ -44,7 +44,7 @@ namespace InfernumMode
         // uses a recursive Lerp that gets more computationally expensive the more original indices.
         // n(n - 1)/2 linear interpolations to be precise, where n is the amount of original indices.
         public bool UsesSmoothening;
-        public BasicEffect BaseEffect;
+        public static BasicEffect BaseEffect;
         public MiscShaderData SpecialShader;
 
         public PrimitiveTrailCopy(VertexWidthFunction widthFunction, VertexColorFunction colorFunction, VertexOffsetFunction offsetFunction = null, bool useSmoothening = true, MiscShaderData specialShader = null)
@@ -229,6 +229,11 @@ namespace InfernumMode
 
             Main.instance.GraphicsDevice.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, vertices, 0, vertices.Length, triangleIndices, 0, triangleIndices.Length / 3);
             Main.pixelShader.CurrentTechnique.Passes[0].Apply();
+        }
+		
+        public static void Dispose()
+        {
+            BaseEffect?.Dispose();
         }
     }
 }

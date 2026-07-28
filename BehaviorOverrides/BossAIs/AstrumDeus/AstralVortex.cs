@@ -115,7 +115,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 if (projectile.WithinRange(otherVortex.Center, 125f) && flyTogetherInterpolant >= 0.75f)
                 {
 					Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Custom/FlareSound"), (int)projectile.position.X, (int)projectile.position.Y);
-                	Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/WyrmElectricCharge"), projectile.Center);
+                	Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/WyrmElectricCharge"), projectile.Center);
 
                     // Create a bunch of sparkles, along with a circular spread of astral flames.
                     Vector2 impactPoint = (projectile.Center + otherVortex.Center) * 0.5f;

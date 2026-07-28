@@ -26,7 +26,7 @@ using CalamityMod.NPCs.SunkenSea;
 using CalamityMod.NPCs.SupremeCalamitas;
 using CalamityMod.NPCs.Yharon;
 using CalamityMod.World;
-using InfernumMode.BehaviorOverrides.BossAIs.CalamitasClone;
+using InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow;
 using InfernumMode.BehaviorOverrides.BossAIs.EoW;
 using System.Collections.Generic;
 using Terraria;
@@ -79,9 +79,9 @@ namespace InfernumMode.Balancing
             [NPCID.TheDestroyer] = BossRushEvent.BossRushActive ? 1110580 : CalculateMechHP(111000),
             [NPCID.Probe] = BossRushEvent.BossRushActive ? 15000 : CalculateMechHP(170),
             [ModContent.NPCType<BrimstoneElemental>()] = BossRushEvent.BossRushActive ? 1105000 : 85515,
-            [ModContent.NPCType<CalamitasRun3>()] = BossRushEvent.BossRushActive ? 485000 : CalamityWorld.downedProvidence && CalamitasCloneBehaviorOverride.ReadyToUseBuffedAI ? 244444 : 76250,
-            [ModContent.NPCType<CalamitasRun>()] = BossRushEvent.BossRushActive ? 193380 : CalamityWorld.downedProvidence && CalamitasCloneBehaviorOverride.ReadyToUseBuffedAI ? 55000 : 20600,
-            [ModContent.NPCType<CalamitasRun2>()] = BossRushEvent.BossRushActive ? 176085 : CalamityWorld.downedProvidence && CalamitasCloneBehaviorOverride.ReadyToUseBuffedAI ? 41000 : 13000,
+            [ModContent.NPCType<CalamitasRun3>()] = BossRushEvent.BossRushActive ? 985000 : 76250,
+            [ModContent.NPCType<CalamitasRun>()] = BossRushEvent.BossRushActive ? 193380 : 20600,
+            [ModContent.NPCType<CalamitasRun2>()] = BossRushEvent.BossRushActive ? 176085 : 13000,
             [ModContent.NPCType<SoulSeeker>()] = BossRushEvent.BossRushActive ? 24000 : 2100,
             [NPCID.Plantera] = BossRushEvent.BossRushActive ? 575576 : 110500,
             [ModContent.NPCType<Leviathan>()] = BossRushEvent.BossRushActive ? 1200000 : 102097,

@@ -223,5 +223,12 @@ namespace InfernumMode.ILEditingStuff
             add => HookEndpointManager.Modify(InfernumMode.FargosMutantMod.Code.GetType("Fargowiltas.Projectiles.Explosives.InstabridgeProj").GetMethod("Kill", Utilities.UniversalBindingFlags), value);
             remove => HookEndpointManager.Unmodify(InfernumMode.FargosMutantMod.Code.GetType("Fargowiltas.Projectiles.Explosives.InstabridgeProj").GetMethod("Kill", Utilities.UniversalBindingFlags), value);
         }
+		
+        public static event ILContext.Manipulator UpdateBadLifeRegen
+        {
+            add => HookEndpointManager.Modify(typeof(CalamityPlayer).GetMethod("UpdateBadLifeRegen", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(CalamityPlayer).GetMethod("UpdateBadLifeRegen", Utilities.UniversalBindingFlags), value);
+        }
+		
     }
 }

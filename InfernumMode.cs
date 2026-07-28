@@ -22,6 +22,7 @@ using InfernumMode.ILEditingStuff;
 using InfernumMode.Items;
 using InfernumMode.OverridingSystem;
 using InfernumMode.Skies;
+using InfernumMode.GlobalInstances;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
@@ -47,6 +48,7 @@ namespace InfernumMode
 {
     public class InfernumMode : Mod
     {
+		
 		private const float Epsilon = 5E-6f;
 		private const float OutOfSelectionDimFactor = 0.06f;
 		private static readonly Color BaseGridColor = new Color(0.24f, 0.8f, 0.9f, 0.5f);
@@ -104,7 +106,9 @@ namespace InfernumMode
 
             OverridingListManager.Load();
             BalancingChangesManager.Load();
-            HookManager.Load();		
+            HookManager.Load();	
+
+			ProjectileSpawnManagementSystem.Load();
 
             // Manually invoke the attribute constructors to get the marked methods cached.
             foreach (var type in typeof(InfernumMode).Assembly.GetTypes())
@@ -121,9 +125,24 @@ namespace InfernumMode
             {
                 AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/Cryogen/CryogenMapIcon", -1);
                 AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/SupremeCalamitas/SepulcherMapIcon", -1);
+				
+                // Calamitas' Shadow.
+                AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CalShadowMapIcon", -1);
+                AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CataclysmMapIcon", -1);
+                AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CatastropheMapIcon", -1);				
 
+				Ref<Effect> screenShakeShader = new Ref<Effect>(GetEffect("Effects/ScreenShakeShader"));
+				Filters.Scene["InfernumMode:ScreenShake"] = new Filter(new ScreenShaderData(screenShakeShader, "DyePass"), EffectPriority.VeryHigh);
+
+				screenShakeShader = new Ref<Effect>(GetEffect("Effects/ScreenShockwaveShader2"));
+				Filters.Scene["InfernumMode:ScreenShake2"] = new Filter(new ScreenShaderData(screenShakeShader, "DyePass"));	
+				
+				Ref<Effect> fireballShader = new Ref<Effect>(GetEffect("Effects/FireballShader"));
+				Filters.Scene["Infernum:FireballShader"] = new Filter(new ScreenShaderData(fireballShader, "FirePass"), EffectPriority.VeryHigh);	
+				
                 Ref<Effect> madnessShader = new Ref<Effect>(GetEffect("Effects/Madness"));
                 Filters.Scene["InfernumMode:Madness"] = new Filter(new MadnessScreenShaderData(madnessShader, "DyePass"), EffectPriority.VeryHigh);
+                SkyManager.Instance["InfernumMode:Madness"] = new MadnessSky();				
 
                 Ref<Effect> aewPsychicEnergyShader = new Ref<Effect>(GetEffect("Effects/AEWPsychicDistortionShader"));
                 GameShaders.Misc["Infernum:AEWPsychicEnergy"] = new MiscShaderData(aewPsychicEnergyShader, "DistortionPass");
@@ -214,6 +233,9 @@ namespace InfernumMode
 
 				Ref<Effect> yharonBurnShader = new Ref<Effect>(GetEffect("Effects/YharonBurnShader"));
                 GameShaders.Misc["Infernum:YharonBurn"] = new MiscShaderData(yharonBurnShader, "BurnPass");
+				
+				Ref<Effect> lightningArcShader = new Ref<Effect>(GetEffect("Effects/HeavenlyGaleLightningShader"));
+				GameShaders.Misc["Infernum:LightningArc"] = new MiscShaderData(lightningArcShader, "TrailPass");				
 
                 // Screen shaders.
 
@@ -237,12 +259,18 @@ namespace InfernumMode
 
                 Filters.Scene["InfernumMode:DoG"] = new Filter(new PerforatorScreenShaderData("FilterMiniTower").UseColor(0.4f, 0.1f, 1.0f).UseOpacity(0.5f), EffectPriority.VeryHigh);
                 SkyManager.Instance["InfernumMode:DoG"] = new DoGSkyInfernum();
+							
 
                 Ref<Effect> scalScreenShader = new Ref<Effect>(GetEffect("Effects/SCalFireBGShader"));
                 Filters.Scene["InfernumMode:SCal"] = new Filter(new SCalScreenShaderData(scalScreenShader, "DyePass").UseColor(0.3f, 0f, 0f).UseOpacity(0.5f), EffectPriority.VeryHigh);
                 SkyManager.Instance["InfernumMode:SCal"] = new SCalSkyInfernum();
+				
+				Ref<Effect> pixelatedSightShader = new Ref<Effect>(GetEffect("Effects/PixelatedSightLine"));
+				Filters.Scene["Infernum:PixelatedSightLine"] = new Filter(new ScreenShaderData(pixelatedSightShader, "SightLinePass"), EffectPriority.High);
 
-                SkyManager.Instance["InfernumMode:Madness"] = new MadnessSky();
+				Filters.Scene["InfernumMode:CalShadow"] = new Filter(new CalShadowScreenShaderData("FilterMiniTower").UseOpacity(0f), EffectPriority.VeryHigh);
+				SkyManager.Instance["InfernumMode:CalShadow"] = new CalShadowSky();				
+
             }
 
             if (BossRushApplies)
@@ -357,6 +385,7 @@ namespace InfernumMode
 							music = Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/Draedon");
 						priority = MusicPriority.BossHigh;
 					}
+					
 				}
 			}
         }		
@@ -473,7 +502,11 @@ namespace InfernumMode
             CalamityMod = null;
 			InfernumFusableParticleManager.UnloadParticleRenderSets();
 			Main.OnPreDraw -= PrepareRenderTargets;	
-            InfernumSchematicManager.Unload();			
+            InfernumSchematicManager.Unload();		
+			PrimitiveTrailCopy.Dispose();
+            Primitive3DStrip.Dispose();
+			ProjectileSpawnManagementSystem.Unload();			
+		
         }
 		
         #region Fusable Particle Updating

@@ -131,10 +131,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                                 generalShootSpeedFactor *= 1.15f;
                         }
 
+                        // Đã xóa phần xử lý cho combo attack LaserCircle
+                        // if ((int)headAttackType == (int)ExoMechComboAttackContent.ExoMechComboAttackType.ThanatosAres_LaserCircle)
+                        //     generalShootSpeedFactor *= ExoMechManagement.CurrentThanatosPhase != 4f ? 0.36f : 0.5f;
 
                         switch ((int)headAttackType)
                         {
+                            // Đã xóa case LaserBarrage và combo attack LaserCircle
+                            // Xử lý các loại tấn công khác nếu có thể thêm vào đây
                             default:
+                                // Không làm gì cả cho các loại tấn công không xác định
                                 break;
                         }
                     }

@@ -16,29 +16,38 @@ float4 uShaderSpecificData;
 
 float4 PixelShaderFunction(float4 position : SV_POSITION, float2 coords : TEXCOORD0) : COLOR0
 {
+    // Distortion nhẹ theo trục X
     coords.x = saturate(coords.x + sin(coords.y * 27.5 + uTime * 6.7) * lerp(0.1, 0.01, uOpacity));
-    float distanceFromTargetPosition = distance(coords, 0.5);
     
-    // Calculate the swirl coordinates.
-    float2 centeredCoords = coords - 0.5;
-    float swirlRotation = length(centeredCoords) * 16.2 - uTime * 6;
-    float swirlSine = sin(swirlRotation);
-    float swirlCosine = sin(swirlRotation + 1.57);
-    float2x2 swirlRotationMatrix = float2x2(swirlCosine, -swirlSine, swirlSine, swirlCosine);
-    float2 swirlCoordinates = mul(centeredCoords, swirlRotationMatrix) + 0.5;
+    float2 centered = coords - 0.5;
+    float dist = length(centered);
     
-    // Calculate fade, swirl arm colors, and draw the portal to the screen.
-    float swirlColorFade = saturate(distanceFromTargetPosition * 3) / (uOpacity + 0.0001);
-    float3 swirlBaseColor = lerp(uColor, uSecondaryColor, pow(swirlColorFade, 0.3));
-    float4 swirlNoiseColor = tex2D(uImage0, swirlCoordinates) * (1 - swirlColorFade);
-    float4 endColor = lerp(float4(swirlBaseColor, 0.1), 0, swirlColorFade);
-    return lerp(0, endColor * (1 + (1 - swirlColorFade) * 3), saturate(swirlNoiseColor.r));
+    // Tối ưu hóa: Dùng sincos thay vì gọi sin và cos rời rạc để tiết kiệm lệnh toán học
+    float angle = dist * 16.2 - uTime * 6.0;
+    float s, c;
+    sincos(angle, s, c);
+    
+    float2 swirlCoords = float2(
+        centered.x * c - centered.y * s,
+        centered.x * s + centered.y * c
+    ) + 0.5;
+    
+    float fade = saturate(dist * 3.0) / (uOpacity + 0.0001);
+    
+    // Tối ưu hóa: Thêm abs() để sửa cảnh báo X3571
+    float3 baseColor = lerp(uColor, uSecondaryColor, pow(abs(fade), 0.3));
+    
+    float4 noise = tex2D(uImage0, swirlCoords);
+    float intensity = saturate(noise.r) * (1.0 - fade);
+    
+    float4 endColor = float4(baseColor, 0.1) * (1.0 + (1.0 - fade) * 3.0);
+    return endColor * intensity;
 }
 
 technique Technique1
 {
     pass DistortionPass
     {
-        PixelShader = compile ps_3_0 PixelShaderFunction();
+        PixelShader = compile ps_2_0 PixelShaderFunction();
     }
 }

@@ -38,6 +38,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
         public enum ThanatosHeadAttackType
         {
             AggressiveCharge,
+            // LaserBarrage đã bị xóa
             ExoBomb,
             ExoLightBarrage,
             RefractionRotorRays,
@@ -125,6 +126,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                     previous = lol;
                 }
 
+                // Đã thay đổi attack mặc định từ LaserBarrage sang AggressiveCharge
                 npc.ai[0] = (int)ThanatosHeadAttackType.AggressiveCharge;
                 finalMechIndex = -1f;
                 complementMechIndex = -1f;
@@ -262,6 +264,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                     case ThanatosHeadAttackType.AggressiveCharge:
                         DoBehavior_AggressiveCharge(npc, target, ref attackTimer, ref frameType);
                         break;
+                    // Đã xóa case LaserBarrage
                     case ThanatosHeadAttackType.ExoBomb:
                         DoBehavior_ExoBomb(npc, target, ref attackTimer, ref frameType);
                         break;
@@ -413,6 +416,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 SelectNextAttack(npc);
         }
         
+        // ĐÃ XÓA HOÀN TOÀN HÀM DoBehavior_LaserBarrage
 
         public static void DoBehavior_ExoBomb(NPC npc, Player target, ref float attackTimer, ref float frameType)
         {
@@ -975,6 +979,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             {
                 do
                 {
+                    // Đã xóa LaserBarrage khỏi các lựa chọn
                     if (Main.rand.NextBool())
                         npc.ai[0] = (int)ThanatosHeadAttackType.RefractionRotorRays;
                     if (Main.rand.NextBool(3) && ExoMechManagement.CurrentThanatosPhase >= 3)

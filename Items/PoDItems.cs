@@ -69,6 +69,13 @@ namespace InfernumMode
                 if (tooltip1 != null)
                     tooltip1.text = "Summons Providence when used at the alter in the profaned temple at the far right of the underworld";
             }
+			
+            if (InfernumMode.CanUseCustomAIs && item.type == ModContent.ItemType<BlightedEyeball>())
+            {
+                var tooltip1 = tooltips.FirstOrDefault(x => x.Name == "Tooltip1" && x.mod == "Terraria");				
+                if (tooltip1 != null)
+                    tooltip1.text = "Summons the Forgotten Shadow of Calamitas when used during nighttime";				
+            }			
 
             if (InfernumMode.CanUseCustomAIs && item.type == ItemID.LihzahrdPowerCell)
             {

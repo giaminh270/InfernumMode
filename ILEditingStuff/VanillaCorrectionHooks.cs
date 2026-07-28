@@ -308,4 +308,37 @@ namespace InfernumMode.ILEditingStuff
 
         public void Unload() => AresBodyCanHitPlayer -= LetAresHitPlayer;
     }
+	
+    /*public class DeleteStupidScreenShadersHook : IHookEdit
+    {
+        public void Load()
+        {
+            On.Terraria.Graphics.Effects.FilterManager.CanCapture += NoScreenShader;
+            CalCloneSkyDraw += ChangeCalCloneSkyRequirements;
+        }
+
+        public void Unload()
+        {
+            On.Terraria.Graphics.Effects.FilterManager.CanCapture -= NoScreenShader;
+            CalCloneSkyDraw -= ChangeCalCloneSkyRequirements;
+        }
+
+        private void ChangeCalCloneSkyRequirements(Action<CalamitasCloneBackgroundScene, Player, bool> orig, CalamitasCloneBackgroundScene instance, Player player, bool isActive)
+        {
+            if (InfernumMode.CanUseCustomAIs)
+                return;
+
+            orig(instance, player, isActive);
+        }
+
+        private bool NoScreenShader(On.Terraria.Graphics.Effects.FilterManager.orig_CanCapture orig, Terraria.Graphics.Effects.FilterManager self)
+        {
+            if (CosmicBackgroundSystem.EffectIsActive)
+                return false;
+
+            return orig(self);
+        }
+
+    }*/
+	
 }

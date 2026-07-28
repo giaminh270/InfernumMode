@@ -37,7 +37,7 @@ using CalamityMod.World;
 using InfernumMode.BehaviorOverrides.BossAIs.AquaticScourge;
 using InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus;
 using InfernumMode.BehaviorOverrides.BossAIs.BoC;
-using InfernumMode.BehaviorOverrides.BossAIs.CalamitasClone;
+using InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
 using InfernumMode.BehaviorOverrides.BossAIs.DukeFishron;
@@ -225,7 +225,7 @@ namespace InfernumMode.BossRush
                 }, permittedNPCs: new int[] { NPCID.MoonLordLeechBlob, NPCID.MoonLordHand, NPCID.MoonLordHead, NPCID.MoonLordFreeEye }),
 
                 new Boss(ModContent.NPCType<CalamitasRun>(), TimeChangeContext.Night, specialSpawnCountdown: 420, dimnessFactor: 0.6f, permittedNPCs: new int[] { ModContent.NPCType<CalamitasRun2>(), ModContent.NPCType<CalamitasRun3>(),
-                         ModContent.NPCType<SoulSeeker>(), ModContent.NPCType<SoulSeeker2>() }),
+                         ModContent.NPCType<SoulSeeker>() }),
                 
                 // Tier 5.
                 new Boss(ModContent.NPCType<DevourerofGodsHead>(), TimeChangeContext.Day, type =>

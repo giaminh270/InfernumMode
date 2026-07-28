@@ -8,7 +8,9 @@ using CalamityMod.NPCs.OldDuke;
 using CalamityMod.NPCs.Perforator;
 using CalamityMod.NPCs.Polterghast;
 using CalamityMod.World;
+using CalamityMod.NPCs.Calamitas;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon;
+using InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow;
 using InfernumMode.Buffs;
 using InfernumMode.Dusts;
 using InfernumMode.MachineLearning;
@@ -111,6 +113,61 @@ namespace InfernumMode
             }
         }
         public bool ZoneProfaned = false;
+		
+        public class HexStatus
+        {
+            public int BuffID
+            {
+                get;
+                set;
+            }
+
+            public bool IsActive
+            {
+                get;
+                set;
+            }
+
+            public float Intensity
+            {
+                get;
+                set;
+            }
+
+            public Color HexColor
+            {
+                get;
+                set;
+            }
+
+            public HexStatus(int buffID, Color hexColor, bool isActive = false, float intensity = 0f)
+            {
+                BuffID = buffID;
+                HexColor = hexColor;
+                IsActive = isActive;
+                Intensity = intensity;
+            }
+        }
+		
+        internal Dictionary<string, HexStatus> HexStatuses = new Dictionary<string, HexStatus>()
+        {
+            ["Zeal"] = new HexStatus(ModContent.BuffType<ZealHex>(), Color.Lerp(Color.Cyan, Color.Lime, 0.36f)),
+            ["Accentuation"] = new HexStatus(ModContent.BuffType<AccentuationHex>(), Color.Lerp(Color.Red, Color.Yellow, 0.64f)),
+            ["Catharsis"] = new HexStatus(ModContent.BuffType<CatharsisHex>(), Color.Lerp(Color.Red, Color.HotPink, 0.68f)),
+            ["Weakness"] = new HexStatus(ModContent.BuffType<WeaknessHex>(), Color.Lerp(Color.Orange, Color.DarkSlateGray, 0.55f)),
+            ["Indignation"] = new HexStatus(ModContent.BuffType<IndignationHex>(), Color.Red),
+        };
+		
+        public int TotalActiveHexes => HexStatuses.Count(h => h.Value.IsActive);
+
+        public bool HexIsActive(string key) => HexStatuses.TryGetValue(key, out HexStatus status) && (status.IsActive || status.Intensity > 0f);
+
+        public void ActivateHex(string key)
+        {
+            if (HexStatuses.TryGetValue(key, out HexStatus status))
+                status.IsActive = true;
+        }		
+		
         #region Nurse Cheese Death
         public override bool ModifyNurseHeal(NPC nurse, ref int health, ref bool removeDebuffs, ref string chatText)
         {
@@ -157,6 +214,13 @@ namespace InfernumMode
 
 				bool useDoGInfernumSky = NPC.AnyNPCs(InfernumMode.CalamityMod.NPCType("DevourerofGodsHead"));
 				player.ManageSpecialBiomeVisuals("InfernumMode:DoG", useDoGInfernumSky);
+				
+				
+	            int calShadowID = ModContent.NPCType<CalamitasRun3>();
+				int calShadowIndex = NPC.FindFirstNPC(calShadowID);
+				NPC calShadowNPC = calShadowIndex >= 0 ? Main.npc[calShadowIndex] : null;
+				bool enabled = calShadowNPC != null && calShadowNPC.localAI[1] > 0f;							
+				player.ManageSpecialBiomeVisuals("InfernumMode:CalShadow", enabled);
             }
         }
         #endregion
@@ -177,8 +241,25 @@ namespace InfernumMode
                 player.AddBuff(BuffID.NoBuilding, 10);
                 player.noBuilding = true;
             }
+            foreach (HexStatus status in HexStatuses.Values)
+            {
+                status.Intensity = MathHelper.Clamp(status.Intensity - 0.02f, 0f, 1f);
+                status.IsActive = false;
+            }			
         }
         #endregion
+		
+        #region Life Regen
+        public override void UpdateBadLifeRegen()
+        {
+            if (HexIsActive("Catharsis") && player.lifeRegen >= 1)
+            {
+                player.lifeRegen = 0;
+                player.lifeRegenTime = 0;
+            }
+        }
+        #endregion Life Regen
+		
         #region Update Dead
         public override void UpdateDead()
         {
@@ -266,6 +347,19 @@ namespace InfernumMode
                     cinderVelocity.X *= -1f;
 
                 Utilities.NewProjectileBetter(player.Center + cinderSpawnOffset, cinderVelocity, ModContent.ProjectileType<ProfanedTempleCinder>(), 0, 0f);
+            }
+			
+			if (HexIsActive("Weakness"))
+            {
+                player.statDefense -= 35;
+                player.endurance = MathHelper.Clamp(player.endurance * 0.5f, 0f, 0.25f);
+            }
+
+            // Apply indicator buffs if the player has a hex.
+            foreach (HexStatus status in HexStatuses.Values)
+            {
+                if (status.IsActive || status.Intensity > 0.75f)
+                    player.AddBuff(status.BuffID, 2);
             }
         }
         #endregion Update
@@ -467,6 +561,32 @@ namespace InfernumMode
 				if (player.dashDelay < 0)
 					player.dashDelay = 0;
 			}
-		}		
+		}	
+
+        #region Draw Effects
+        public void DrawAllHexes()
+        {
+            float hoverOffsetFactor = 1f / TotalActiveHexes;
+            if (TotalActiveHexes <= 1f)
+                hoverOffsetFactor = 0f;
+
+            // Update hex visual intensities.
+            float offset = -20f;
+
+            Main.spriteBatch.SetBlendState(BlendState.Additive);
+            Texture2D backglowTexture = ModContent.GetTexture("CalamityMod/ExtraTextures/XerocLight");
+            foreach (HexStatus status in HexStatuses.Values)
+            {
+                if (status.IsActive)
+                {
+                    status.Intensity = MathHelper.Clamp(status.Intensity + 0.1f, 0f, 1f);
+                    Main.spriteBatch.Draw(backglowTexture, player.Center + Vector2.UnitY * (offset + 4f) - Main.screenPosition, null, status.HexColor * status.Intensity * 0.8f, 0f, backglowTexture.Size() * 0.5f, new Vector2(0.27f, 0.15f) * status.Intensity, 0, 0f);
+                    CalamitasShadowBehaviorOverride.DrawHexOnTarget(player, status.HexColor, offset * hoverOffsetFactor, status.Intensity);
+                    offset += 40f;
+                }
+            }
+            Main.spriteBatch.ExitShaderRegion();
+        }
+        #endregion Draw Effects		
     }
 }
