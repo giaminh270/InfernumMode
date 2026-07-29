@@ -403,6 +403,12 @@ namespace InfernumMode.GlobalInstances
         
         public override bool PreAI(Projectile projectile)
         {
+			if (InfernumMode.CanUseCustomAIs && projectile.aiStyle == 7)
+			{
+				GrapplingHookAIOverride(projectile);
+				return false;
+			}	
+			
             if (InfernumMode.CanUseCustomAIs)
             {
                 if (projectile.type == ModContent.ProjectileType<TrilobiteSpike>())
@@ -411,7 +417,7 @@ namespace InfernumMode.GlobalInstances
                 if (OverridingListManager.InfernumProjectilePreAIOverrideList.ContainsKey(projectile.type))
                     return (bool)OverridingListManager.InfernumProjectilePreAIOverrideList[projectile.type].DynamicInvoke(projectile);
             }
-
+			
             // No tombs.
             // h.
 			bool isTomb = projectile.type == ProjectileID.Tombstone || 
