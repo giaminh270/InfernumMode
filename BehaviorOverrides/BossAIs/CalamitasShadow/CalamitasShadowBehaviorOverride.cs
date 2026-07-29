@@ -1122,7 +1122,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                 Main.LocalPlayer.Infernum().CurrentScreenShakePower = 12f;
                 //sus ScreenEffectSystem.SetFlashEffect(npc.Center, 2f, 45);
 
-                // Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SCalSounds/BrimstoneBigShoot"), npc.Center);
+                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SCalSounds/BrimstoneBigShoot"), npc.Center);
                 Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceLavaEruptionSmall"), npc.Center);
 
                 // Create explosion particles.

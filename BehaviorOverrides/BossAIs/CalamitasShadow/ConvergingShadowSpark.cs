@@ -65,8 +65,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 
         public override void Kill(int timeLeft)
         {
-            Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastImpact"), projectile.Center);
-
             // Explode into dark magic clouds and particles.
             for (int i = 0; i < 10; i++)
             {
