@@ -34,6 +34,9 @@ namespace InfernumMode.OverridingSystem
                     case NPCOverrideContext.NPCFindFrame:
                         methodName = "FindFrame";
                         break;
+                    case NPCOverrideContext.NPCCheckDead:
+                        methodName = "CheckDead";
+                        break;
                     default:
                         throw new ArgumentException("The given override context is invalid.");
                 }
@@ -59,6 +62,9 @@ namespace InfernumMode.OverridingSystem
                     case NPCOverrideContext.NPCFindFrame:
                         OverridingListManager.InfernumFrameOverrideList[instance.NPCOverrideType] = methodAsDelegate;
                         break;
+                    case NPCOverrideContext.NPCCheckDead:
+                        OverridingListManager.InfernumCheckDeadOverrideList[instance.NPCOverrideType] = new OverridingListManager.NPCCheckDeadDelegate(n => (bool)method.Invoke(instance, new object[] { n }));
+                        break;
                 }
             }
 
@@ -73,6 +79,8 @@ namespace InfernumMode.OverridingSystem
                     getMethodBasedOnContext(type, instance, NPCOverrideContext.NPCPreDraw);
                 if (instance.ContentToOverride.HasFlag(NPCOverrideContext.NPCFindFrame))
                     getMethodBasedOnContext(type, instance, NPCOverrideContext.NPCFindFrame);
+                if (instance.ContentToOverride.HasFlag(NPCOverrideContext.NPCCheckDead))
+                    getMethodBasedOnContext(type, instance, NPCOverrideContext.NPCCheckDead);
                 BehaviorOverrides[instance.NPCOverrideType] = instance;
             }
         }
@@ -97,5 +105,7 @@ namespace InfernumMode.OverridingSystem
         public virtual bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor) => true;
 
         public virtual void FindFrame(NPC npc, int frameHeight) { }
+
+        public virtual bool CheckDead(NPC npc) => true;
     }
 }

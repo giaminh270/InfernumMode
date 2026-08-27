@@ -1,6 +1,7 @@
 ﻿using CalamityMod;
 using CalamityMod.Particles;
 using InfernumMode.Particles;
+using InfernumMode;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -13,6 +14,7 @@ using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.Utilities;
+using InfernumMode.Effects;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 {
@@ -108,7 +110,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 
                 // Do funny screen stuff.
                 Main.LocalPlayer.Infernum().CurrentScreenShakePower = 12f;
-                // ScreenEffectSystem.SetBlurEffect(Destination, 0.8f, 45);
+                ScreenEffectSystem.SetBlurEffect(Destination, 0.8f, 45);
 
                 projectile.velocity = Vector2.Zero;
                 HasReachedDestination = true;
@@ -200,8 +202,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             if (LightningDrawer is null)
                 LightningDrawer = new PrimitiveTrail(PrimitiveWidthFunction, PrimitiveColorFunction, PrimitiveTrail.RigidPointRetreivalFunction, GameShaders.Misc["Infernum:LightningArc"]);
 
-            GameShaders.Misc["Infernum:LightningArc"].UseImage("Images/Misc/Perlin");
-            GameShaders.Misc["Infernum:LightningArc"].Apply();
+            InfernumEffectsRegistry.LightningArc.UseImage("Images/Misc/Perlin");
+            InfernumEffectsRegistry.LightningArc.Apply();
 
             LightningDrawer.Draw(projectile.oldPos, projectile.Size * 0.5f - Main.screenPosition, 18);
             return false;

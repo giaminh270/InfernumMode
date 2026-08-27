@@ -2,15 +2,16 @@ using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.Perforator;
-using InfernumMode.BehaviorOverrides.BossAIs.Perforators;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using System;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using InfernumMode.GlobalInstances;
+using InfernumMode.BehaviorOverrides.BossAIs.Perforators;
 
-namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
+namespace InfernumMode.Content.BehaviorOverrides.BossAIs.Perforators
 {
     public class SmallPerforatorHeadBehaviorOverride : NPCBehaviorOverride
     {
@@ -100,7 +101,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                             float horizontalSpeed = MathHelper.Lerp(-21f, 21f, projectileOffsetInterpolant) + Main.rand.NextFloatDirection() / fallingIchorCount * 6f;
                             float verticalSpeed = Main.rand.NextFloat(-12f, -11f);
                             Vector2 ichorVelocity = new Vector2(horizontalSpeed, verticalSpeed);
-                            Utilities.NewProjectileBetter(npc.Top + Vector2.UnitY * 10f, ichorVelocity, ModContent.ProjectileType<FallingIchor>(), 80, 0f);
+
+                            ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(ichor =>
+                            {
+                                ichor.tileCollide = false;
+                            });
+                            Utilities.NewProjectileBetter(npc.Top + Vector2.UnitY * 10f, ichorVelocity, ModContent.ProjectileType<FallingIchor>(), PerforatorHiveBehaviorOverride.IchorSpitDamage, 0f);
                         }
                         npc.netUpdate = true;
                     }

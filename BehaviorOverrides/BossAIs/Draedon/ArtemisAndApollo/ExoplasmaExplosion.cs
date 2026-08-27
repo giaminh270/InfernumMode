@@ -1,0 +1,103 @@
+﻿using CalamityMod;
+using InfernumMode.Effects;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using Terraria;
+using Terraria.ID;
+using Terraria.ModLoader;
+
+namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
+{
+    public class ExoplasmaExplosion : ModProjectile
+    {
+        public float MaxRadius;
+
+        public PrimitiveTrailCopy FireDrawer;
+
+        public ref float Time => ref projectile.ai[0];
+
+        public ref float Radius => ref projectile.ai[1];
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
+        public override void SetStaticDefaults() => DisplayName.SetDefault("Exoplasma Explosion");
+
+        public override void SetDefaults()
+        {
+            projectile.width = projectile.height = 8;
+            projectile.hostile = true;
+            projectile.tileCollide = false;
+            projectile.ignoreWater = true;
+            projectile.penetrate = -1;
+            projectile.timeLeft = 84;
+            projectile.MaxUpdates = 3;
+            projectile.scale = 1f;
+            projectile.hide = true;
+            projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
+        }
+
+        public override void SendExtraAI(BinaryWriter writer) => writer.Write(MaxRadius);
+
+        public override void ReceiveExtraAI(BinaryReader reader) => MaxRadius = reader.ReadSingle();
+
+        public override void AI()
+        {
+            projectile.scale += 0.08f;
+            Radius = MathHelper.Lerp(Radius, MaxRadius, 0.1f);
+            projectile.Opacity = Utils.InverseLerp(8f, 42f, projectile.timeLeft, true) * 0.55f;
+
+            Time++;
+        }
+
+        public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox) => Utilities.CircularCollision(targetHitbox.Center.ToVector2(), projHitbox, Radius * 0.8f);
+
+        public float SunWidthFunction(float completionRatio) => Radius * (float)Math.Sin(MathHelper.Pi * completionRatio);
+
+        public Color SunColorFunction(float completionRatio)
+        {
+            return Color.Lerp(Color.Lime, Color.White, (float)Math.Sin(MathHelper.Pi * completionRatio) * 0.5f + 0.3f) * projectile.Opacity;
+        }
+
+        public override void DrawBehind(int index, List<int> behindNPCsAndTiles, List<int> behindNPCs, List<int> behindProjectiles, List<int> overPlayers)
+        {
+            behindNPCs.Add(index);
+        }
+
+        public override bool CanDamage() => projectile.Opacity >= 0.37f;
+
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        {
+            if (FireDrawer is null)
+				FireDrawer = new PrimitiveTrailCopy(SunWidthFunction, SunColorFunction, null, true, InfernumEffectsRegistry.FireVertexShader);
+
+            InfernumEffectsRegistry.FireVertexShader.UseSaturation(0.45f);
+            InfernumEffectsRegistry.FireVertexShader.UseImage("Images/Misc/Perlin");
+
+            List<float> rotationPoints = new List<float> ();
+            List<Vector2> drawPoints = new List<Vector2>();
+
+            int pointCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 5 : 15;
+            int sampleCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 5 : 14;
+            for (float offsetAngle = -MathHelper.PiOver2; offsetAngle <= MathHelper.PiOver2; offsetAngle += MathHelper.Pi / 10f)
+            {
+                rotationPoints.Clear();
+                drawPoints.Clear();
+
+                float adjustedAngle = offsetAngle + MathHelper.Pi * -0.2f;
+                Vector2 offsetDirection = adjustedAngle.ToRotationVector2();
+                for (int i = 0; i < pointCount; i++)
+                {
+                    rotationPoints.Add(adjustedAngle);
+                    drawPoints.Add(Vector2.Lerp(projectile.Center - offsetDirection * Radius / 2f, projectile.Center + offsetDirection * Radius / 2f, i / (float)pointCount));
+                }
+
+                FireDrawer.Draw(drawPoints, -Main.screenPosition, sampleCount);
+            }
+            return false;
+        }
+    }
+}

@@ -3,6 +3,7 @@ using CalamityMod.NPCs.AstrumDeus;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -34,7 +35,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             npc.dontTakeDamage = aheadSegment.dontTakeDamage;
             npc.damage = npc.alpha > 40 ? 0 : npc.defDamage;
 
-            npc.Calamity().DR = MathHelper.Min(npc.Calamity().DR, 0.65f);
+            npc.Calamity().DR = Math.Min(npc.Calamity().DR, 0.65f);
 
             Vector2 directionToNextSegment = aheadSegment.Center - npc.Center;
             if (aheadSegment.rotation != npc.rotation)

@@ -27,7 +27,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.timeLeft = 300;
+            cooldownSlot = 1;
         }
+
         public override void AI()
         {
             if (projectile.localAI[0] == 0f)

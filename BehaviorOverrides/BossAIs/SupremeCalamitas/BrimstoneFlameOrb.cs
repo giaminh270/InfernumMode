@@ -1,4 +1,10 @@
 using CalamityMod;
+using CalamityMod.NPCs;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Sounds;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -7,11 +13,14 @@ using Terraria;
 using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.ModLoader;
+using static InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas.SupremeCalamitasBehaviorOverride;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
-    public class BrimstoneFlameOrb : ModProjectile
+    public class BrimstoneFlameOrb : ModProjectile, IPixelPrimitiveDrawer
     {
+        public bool DrawBeforeNPCs => false;
+
         public PrimitiveTrailCopy FireDrawer;
 
         public NPC Owner => Main.npc.IndexInRange((int)projectile.ai[1]) && Main.npc[(int)projectile.ai[1]].active ? Main.npc[(int)projectile.ai[1]] : null;
@@ -28,6 +37,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public const int LaserReleaseDelay = 125;
 
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Brimstone Flame Orb");
@@ -42,6 +53,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.tileCollide = false;
             projectile.timeLeft = 9000;
             projectile.scale = 0.2f;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -62,17 +74,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             // Release beams outward once ready.
             if (Time == LaserReleaseDelay)
             {
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/WyrmElectricCharge"), projectile.Center);
+                Main.PlaySound(InfernumSoundRegistry.WyrmChargeSound, projectile.Center);
 
                 for (int i = 0; i < LaserCount; i++)
                 {
                     Vector2 laserDirection = (MathHelper.TwoPi * i / LaserCount + 0.8f).ToRotationVector2();
-                    int laser = Utilities.NewProjectileBetter(projectile.Center, laserDirection, ModContent.ProjectileType<FlameOverloadBeam>(), 900, 0f);
-                    if (Main.projectile.IndexInRange(laser))
-                        Main.projectile[laser].ai[0] = Owner.whoAmI;
+                    Utilities.NewProjectileBetter(projectile.Center, laserDirection, ModContent.ProjectileType<FlameOverloadBeam>(), SupremeCalamitasBehaviorOverride.FlameOverloadBeamDamage, 0f, -1, Owner.whoAmI);
                 }
             }
-            
+
             Time++;
         }
 
@@ -81,37 +91,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
         public Color OrbColorFunction(float completionRatio)
         {
             Color c = Color.Lerp(Color.Yellow, Color.Red, MathHelper.Lerp(0.2f, 0.8f, projectile.localAI[0] % 1f));
+			if (SupremeCalamitasBehaviorOverride.CurrentPhase == SCalPhase.SCalLament)
+                c = Color.Lerp(c, Color.DeepSkyBlue, 0.65f);
             c = Color.Lerp(c, Color.White, completionRatio * 0.5f);
             c.A = 0;
             return c;
         }
 
 		public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
-		{
-			if (InfernumConfig.Instance.ReducedGraphicsConfig)
-			{
-				OptimizedDraw();
-				return false;
-			}
-
-			DefaultDraw();
-			return false;
-		}
-
-		public void DefaultDraw()
         {
             if (Owner is null || !Owner.active)
-				return;
-
-            if (FireDrawer is null)
-                FireDrawer = new PrimitiveTrailCopy(OrbWidthFunction, OrbColorFunction, null, true, GameShaders.Misc["Infernum:PrismaticRay"]);
-
-            GameShaders.Misc["Infernum:PrismaticRay"].UseOpacity(0.25f);
-            GameShaders.Misc["Infernum:PrismaticRay"].UseImage("Images/Misc/Perlin");
-            Main.instance.GraphicsDevice.Textures[2] = ModContent.GetTexture("InfernumMode/ExtraTextures/PrismaticLaserbeamStreak");
-
-            List<float> rotationPoints = new List<float>();
-            List<Vector2> drawPoints = new List<Vector2>();
+                return false;
 
             // Draw telegraphs.
             if (TelegraphInterpolant >= 0 && TelegraphInterpolant < 1)
@@ -122,12 +112,27 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                     Vector2 laserDirection = (MathHelper.TwoPi * i / LaserCount + 0.8f).ToRotationVector2();
                     Vector2 start = projectile.Center;
                     Vector2 end = projectile.Center + laserDirection * 4200f;
-                    Color telegraphColor = Color.Orange * (float)Math.Pow(TelegraphInterpolant, 0.67);
-                    Main.spriteBatch.DrawLineBetter(start, end, telegraphColor, telegraphWidth);
+                    Color telegraphColor = Color.Orange;
+                    Main.spriteBatch.DrawLineBetter(start, end, telegraphColor * (float)Math.Pow(TelegraphInterpolant, 0.67f), telegraphWidth);
                 }
             }
+            return false;
+        }
 
-            Main.spriteBatch.EnterShaderRegion();
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
+        {
+            if (Owner is null || !Owner.active)
+                return;
+
+            if (FireDrawer is null)
+                FireDrawer = new PrimitiveTrailCopy(OrbWidthFunction, OrbColorFunction, null, true, InfernumEffectsRegistry.PrismaticRayVertexShader);
+            InfernumEffectsRegistry.PrismaticRayVertexShader.UseOpacity(0.05f);
+            InfernumEffectsRegistry.PrismaticRayVertexShader.UseImage("Images/Misc/Perlin");
+            Main.instance.GraphicsDevice.Textures[2] = InfernumTextureRegistry.StreakSolid;
+
+            List<float> rotationPoints = new List<float>();
+            List<Vector2> drawPoints = new List<Vector2>();
+
             for (float offsetAngle = -MathHelper.PiOver2; offsetAngle <= MathHelper.PiOver2; offsetAngle += MathHelper.Pi / 30f)
             {
                 projectile.localAI[0] = MathHelper.Clamp((offsetAngle + MathHelper.PiOver2) / MathHelper.Pi, 0f, 1f);
@@ -137,42 +142,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
                 float adjustedAngle = offsetAngle + CalamityUtils.PerlinNoise2D(offsetAngle, Main.GlobalTime * 0.02f, 3, 185) * 3f;
                 Vector2 offsetDirection = adjustedAngle.ToRotationVector2();
-                for (int i = 0; i < 4; i++)
+                for (int i = 0; i < 8; i++)
                 {
                     rotationPoints.Add(adjustedAngle);
-                    drawPoints.Add(Vector2.Lerp(projectile.Center - offsetDirection * Radius / 2f, projectile.Center + offsetDirection * Radius / 2f, i / 3f));
+                    drawPoints.Add(Vector2.Lerp(projectile.Center - offsetDirection * Radius / 2f, projectile.Center + offsetDirection * Radius / 2f, i / 7f));
                 }
 
-                FireDrawer.Draw(drawPoints, -Main.screenPosition, 30);
+                FireDrawer.DrawPixelated(drawPoints, -Main.screenPosition, 39);
             }
-            Main.spriteBatch.ExitShaderRegion();
         }
-		
-		public void OptimizedDraw()
-		{
-			if (Owner is null || !Owner.active)
-				return;
-
-			Texture2D circleTexture = ModContent.GetTexture("InfernumMode/ExtraTextures/PrismaticLaserbeamStreak");
-			Vector2 drawPosition = projectile.Center - Main.screenPosition;
-			float scale = Radius * 2f / circleTexture.Width;
-			Color color = Color.Lerp(Color.Red, Color.Orange, 0.5f) * 0.6f;
-			
-			Main.spriteBatch.Draw(circleTexture, drawPosition, null, color, 0f, circleTexture.Size() * 0.5f, scale, SpriteEffects.None, 0f);
-
-			if (TelegraphInterpolant >= 0 && TelegraphInterpolant < 1)
-			{
-				float telegraphWidth = MathHelper.Lerp(1f, 3f, TelegraphInterpolant);
-				for (int i = 0; i < LaserCount; i++)
-				{
-					Vector2 laserDirection = (MathHelper.TwoPi * i / LaserCount + 0.8f).ToRotationVector2();
-					Vector2 start = projectile.Center;
-					Vector2 end = projectile.Center + laserDirection * 1200f;
-					Color telegraphColor = Color.Orange * TelegraphInterpolant * 0.5f;
-					Main.spriteBatch.DrawLineBetter(start, end, telegraphColor, telegraphWidth);
-				}
-			}
-		}
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox) => Utilities.CircularCollision(projectile.Center, targetHitbox, Radius * 0.85f);
     }

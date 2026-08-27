@@ -13,7 +13,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
             get => projectile.ai[0] == 1f;
             set => projectile.ai[0] = value.ToInt();
         }
+
         public bool ShouldFloatUpward => projectile.localAI[1] == 1f;
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Soul");
@@ -27,6 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.timeLeft = 240;
+            cooldownSlot = 1;
         }
 
         public override void AI()

@@ -19,6 +19,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             projectile.tileCollide = false;
             projectile.timeLeft = 420;
             projectile.penetrate = 1;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -33,8 +34,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
 
             projectile.velocity.Y += Gravity;
         }
-
-        
 
         public override void OnHitPlayer(Player target, int damage, bool crit) => target.AddBuff(ModContent.BuffType<BurningBlood>(), 120);
 

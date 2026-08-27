@@ -8,6 +8,8 @@ using Terraria;
 using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.ModLoader;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
 {
@@ -101,10 +103,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             if (LightningDrawer is null)
-                LightningDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:RealityTear"]);
+                LightningDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.RealityTearVertexShader);
 
-            GameShaders.Misc["Infernum:RealityTear"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/Stars"));
-            GameShaders.Misc["Infernum:RealityTear"].Shader.Parameters["useOutline"].SetValue(true);
+            InfernumEffectsRegistry.RealityTearVertexShader.SetShaderTexture(InfernumTextureRegistry.Stars);
+            InfernumEffectsRegistry.RealityTearVertexShader.Shader.Parameters["useOutline"].SetValue(true);
             LightningDrawer.Draw(TrailCache, projectile.Size * 0.5f - Main.screenPosition, 82);
             return false;
         }

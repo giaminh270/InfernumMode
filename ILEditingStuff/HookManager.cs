@@ -123,6 +123,11 @@ namespace InfernumMode.ILEditingStuff
             remove => HookEndpointManager.Unmodify(typeof(SCalWormTail).GetMethod("ModifyHitByProjectile", Utilities.UniversalBindingFlags), value);
         }
 
+        public static event ILContext.Manipulator SepulcherHeadDrawHealthBar
+        {
+            add => HookEndpointManager.Modify(typeof(SCalWormHead).GetMethod("DrawHealthBar", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(SCalWormHead).GetMethod("DrawHealthBar", Utilities.UniversalBindingFlags), value);
+        }
         public static event ILContext.Manipulator DesertScourgeItemUseItem
         {
             add => HookEndpointManager.Modify(typeof(DriedSeafood).GetMethod("UseItem", Utilities.UniversalBindingFlags), value);
@@ -228,6 +233,12 @@ namespace InfernumMode.ILEditingStuff
         {
             add => HookEndpointManager.Modify(typeof(CalamityPlayer).GetMethod("UpdateBadLifeRegen", Utilities.UniversalBindingFlags), value);
             remove => HookEndpointManager.Unmodify(typeof(CalamityPlayer).GetMethod("UpdateBadLifeRegen", Utilities.UniversalBindingFlags), value);
+        }
+		
+		public static event ILContext.Manipulator ProfanedShardUseItem
+        {
+            add => HookEndpointManager.Modify(typeof(ProfanedShard).GetMethod("UseItem", Utilities.UniversalBindingFlags), value);
+            remove => HookEndpointManager.Unmodify(typeof(ProfanedShard).GetMethod("UseItem", Utilities.UniversalBindingFlags), value);
         }
 		
     }

@@ -28,6 +28,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             projectile.alpha = 255;
             projectile.penetrate = -1;
             projectile.timeLeft = 300;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -42,8 +43,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             projectile.frameCounter++;
             projectile.frame = projectile.frameCounter / 6 % Main.projFrames[projectile.type];
             projectile.Opacity = Utils.InverseLerp(300f, 285f, projectile.timeLeft, true) * Utils.InverseLerp(0f, 35f, projectile.timeLeft, true);
-
             projectile.rotation = projectile.velocity.ToRotation() + MathHelper.PiOver2;
+
             if (projectile.velocity.Length() < 38f)
                 projectile.velocity *= 1.022f;
         }
@@ -60,6 +61,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             target.AddBuff(BuffID.Darkness, 90, true);
 		}
 		
-        public override void Kill(int timeLeft) => Main.PlaySound(SoundID.Item, (int)projectile.position.X, (int)projectile.position.Y, 74);	
+        public override void Kill(int timeLeft) => Main.PlaySound(SoundID.Item, projectile.Center, 74);	
     }
 }

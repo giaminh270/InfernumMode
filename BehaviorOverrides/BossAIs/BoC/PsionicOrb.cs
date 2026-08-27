@@ -1,4 +1,9 @@
-using CalamityMod;
+﻿using CalamityMod;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Sounds;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -11,8 +16,10 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
 {
-    public class PsionicOrb : ModProjectile
+    public class PsionicOrb : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
+		
         public PrimitiveTrailCopy OrbDrawer;
 
         public bool UseUndergroundAI
@@ -60,6 +67,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.timeLeft = Lifetime;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer) => writer.Write(UseUndergroundAI);
@@ -68,6 +76,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
 
         public override void AI()
         {
+            // Disappear if the brain is not present.
+            if (!NPC.AnyNPCs(NPCID.BrainofCthulhu))
+            {
+                projectile.Kill();
+                return;
+            }
+
             projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.06f, 0f, 1f);
             projectile.velocity *= 0.97f;
 
@@ -77,6 +92,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
                 if (Time % AttackCycleTime == (int)(AttackCycleTime * 0.667f) + 5)
                 {
                     Main.PlaySound(SoundID.Item125, nearestTarget.Center);
+                    Main.PlaySound(InfernumSoundRegistry.BrainLightningSound.WithVolume(0.6f), nearestTarget.Center);
 
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
@@ -84,7 +100,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
                         for (int i = 0; i < 10; i++)
                         {
                             Vector2 shootVelocity = (MathHelper.TwoPi * i / 10f + offsetAngle).ToRotationVector2() * 9f;
-                            Utilities.NewProjectileBetter(projectile.position, shootVelocity, ProjectileID.MartianTurretBolt, 90, 0f);
+                            Utilities.NewProjectileBetter(projectile.position, shootVelocity, ProjectileID.MartianTurretBolt, BoCBehaviorOverride.ElectricBoltDamage, 0f);
                         }
                     }
                 }
@@ -96,7 +112,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             if (Time % AttackCycleTime < AttackCycleTime * 0.5f)
             {
                 Vector2 aimVector = (nearestTarget.Center + nearestTarget.velocity * 32f - projectile.Center).SafeNormalize(Vector2.UnitY);
-                PredictiveAimRotation = Vector2.Normalize(Vector2.Lerp(aimVector, PredictiveAimRotation.ToRotationVector2(), 0.02f)).ToRotation();
+                PredictiveAimRotation = PredictiveAimRotation.AngleLerp(aimVector.ToRotation(), 0.03f).AngleTowards(aimVector.ToRotation(), 0.02f);
+
+                if (Time <= 2f)
+                    PredictiveAimRotation = aimVector.ToRotation();
             }
 
             Lighting.AddLight(projectile.Center, Color.Cyan.ToVector3() * 1.6f);
@@ -108,14 +127,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
                 Vector2 shootVelocity = PredictiveAimRotation.ToRotationVector2() * 16f;
-                int ray = Utilities.NewProjectileBetter(projectile.Center - shootVelocity * 7.6f, shootVelocity, ModContent.ProjectileType<PsionicLightningBolt>(), 135, 0f, 255);
-
-                if (Main.projectile.IndexInRange(ray))
-                {
-                    Main.projectile[ray].ai[0] = shootVelocity.ToRotation();
-                    Main.projectile[ray].ai[1] = Main.rand.Next(100);
-                    Main.projectile[ray].tileCollide = false;
-                }
+                Utilities.NewProjectileBetter(projectile.Center - shootVelocity * 7.6f, shootVelocity, ModContent.ProjectileType<PsionicLightningBolt>(), BoCBehaviorOverride.PsionicLightningBoltDamage, 0f, -1, shootVelocity.ToRotation(), Main.rand.Next(100));
             }
 
             for (int i = 0; i < 36; i++)
@@ -128,8 +140,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             }
         }
 
-        
-
         public float WidthFunction(float completionRatio)
         {
             float squeezeInterpolant = (float)Math.Pow(Utils.InverseLerp(0f, 0.27f, completionRatio, true), 0.9f) * Utils.InverseLerp(1f, 0.86f, completionRatio, true);
@@ -138,36 +148,40 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
 
         public Color ColorFunction(float completionRatio)
         {
-            Color color = Color.Lerp(Color.Cyan, Color.White, (float)Math.Sin(Math.Pow(completionRatio, 2D) * MathHelper.Pi));
-            color *= 1f - 0.5f * (float)Math.Pow(completionRatio, 3D);
+            Color color = Color.Lerp(Color.Cyan, Color.White, CalamityUtils.Convert01To010((float)Math.Pow(completionRatio, 2f)));
+            color *= 1f - 0.5f * (float)Math.Pow(completionRatio, 3f);
             color *= projectile.Opacity * 3f;
             return color;
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            if (OrbDrawer is null)
-                OrbDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:BrainPsychic"]);
-
-            List<Vector2> drawPoints = new List<Vector2>();
-
             // Draw a line telegraph as necessary
             if (TelegraphInterpolant > 0f)
             {
-                spriteBatch.SetBlendState(BlendState.Additive);
+                Main.spriteBatch.SetBlendState(BlendState.Additive);
 
-                Texture2D telegraphTexture = ModContent.GetTexture("InfernumMode/ExtraTextures/BloomLine");
+                Texture2D telegraphTexture = InfernumTextureRegistry.BloomLine;
                 float telegraphScaleFactor = TelegraphInterpolant * 0.7f;
 
                 Vector2 telegraphStart = projectile.Center - Main.screenPosition;
                 Vector2 telegraphOrigin = new Vector2(0.5f, 0f) * telegraphTexture.Size();
                 Vector2 telegraphScale = new Vector2(telegraphScaleFactor, 3f);
-                Color telegraphColor = new Color(50, 255, 232) * (float)Math.Pow(TelegraphInterpolant, 0.79) * 1.4f;
-                spriteBatch.Draw(telegraphTexture, telegraphStart, null, telegraphColor, PredictiveAimRotation - MathHelper.PiOver2, telegraphOrigin, telegraphScale, 0, 0f);
-                spriteBatch.ResetBlendState();
+                Color telegraphColor = new Color(50, 255, 232) * (float)Math.Pow(TelegraphInterpolant, 0.79f) * 1.4f;
+                Main.spriteBatch.Draw(telegraphTexture, telegraphStart, null, telegraphColor, PredictiveAimRotation - MathHelper.PiOver2, telegraphOrigin, telegraphScale, 0, 0f);
+                Main.spriteBatch.ResetBlendState();
             }
+            return false;
+        }
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
+        {
+            if (OrbDrawer is null)
+                OrbDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.BrainPsychicVertexShader);
 
             spriteBatch.EnterShaderRegion();
+
+            List<Vector2> drawPoints = new List<Vector2>();
 
             // Create a charged circle out of several primitives.
             for (float offsetAngle = 0f; offsetAngle <= MathHelper.TwoPi; offsetAngle += MathHelper.Pi / 6f)
@@ -180,10 +194,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
                 for (int i = 0; i < 16; i++)
                     drawPoints.Add(Vector2.Lerp(center - offsetDirection * Radius * 0.925f, center + offsetDirection * Radius * 0.925f, i / 16f));
 
-                OrbDrawer.Draw(drawPoints, projectile.Size * 0.5f - Main.screenPosition, 24);
+                OrbDrawer.DrawPixelated(drawPoints, projectile.Size * 0.5f - Main.screenPosition, 24);
             }
             spriteBatch.ExitShaderRegion();
-            return false;
         }
     }
 }

@@ -1,9 +1,12 @@
 using CalamityMod;
 using CalamityMod.Events;
+using CalamityMod.Particles;
 using InfernumMode.BehaviorOverrides.BossAIs.Polterghast;
 using InfernumMode.OverridingSystem;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -12,6 +15,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
 {
     public class SkeletronHeadBehaviorOverride : NPCBehaviorOverride
     {
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCCheckDead;
         public enum SkeletronAttackType
         {
             Phase1Fakeout,
@@ -20,20 +24,40 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
             HandWaves,
             HandShadowflameBurst,
             HandShadowflameWaves,
-            DownwardAcceleratingSkulls
+            DownwardAcceleratingSkulls,
+            DeathAnimation
         }
 
         public override int NPCOverrideType => NPCID.SkeletronHead;
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw;
+        public static int ShadowflameFireballDamage => 100;
+
+        public static int SkullDamage => 105;
+
+        public static int ShadowflameFireballArenaDamage => 150;
 
         public const float Phase2LifeRatio = 0.85f;
+
         public const float Phase3LifeRatio = 0.475f;
+
         public override float[] PhaseLifeRatioThresholds => new float[]
         {
             Phase2LifeRatio,
             Phase3LifeRatio
         };
+
+        private bool DisableNaturalSkeletronDeath(NPC npc, ref double damage, int realDamage, int defense, ref float knockback, int hitDirection, ref bool crit)
+        {
+            if (npc.type == NPCID.SkeletronHead && npc.life - realDamage <= 1)
+            {
+                npc.life = 0;
+                npc.checkDead();
+                damage = 0;
+                npc.dontTakeDamage = true;
+                return false;
+            }
+            return true;
+        }
 
         #region AI
 
@@ -88,10 +112,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
                 npc.rotation = npc.velocity.X * 0.04f;
             }
 
-            if (animationChargeTimer <= 0f)
+            if (animationChargeTimer <= 0f || attackState == (int)SkeletronAttackType.DeathAnimation)
             {
                 // Do phase transition effects as needed.
-                if (phaseChangeCountdown > 0f)
+                if (phaseChangeCountdown > 0f && attackState != (int)SkeletronAttackType.DeathAnimation)
                 {
                     npc.velocity *= 0.96f;
                     npc.rotation *= 0.94f;
@@ -142,6 +166,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
                     case SkeletronAttackType.DownwardAcceleratingSkulls:
                         DoBehavior_DownwardAcceleratingSkulls(npc, target, ref attackTimer);
                         break;
+                    case SkeletronAttackType.DeathAnimation:
+                        phaseChangeCountdown = 0f;
+                        phaseChangeState = 2f;
+                        DoBehavior_DeathAnimation(npc, target, ref attackTimer);
+                        break;
                 }
 
                 // Phase transition effects.
@@ -182,7 +211,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
         public static void DoSpawnAnimationStuff(NPC npc, Player target, float animationTimer, ref float animationChargeTimer)
         {
             // Focus on the boss as it spawns.
-            if (Main.LocalPlayer.WithinRange(Main.LocalPlayer.Center, 2000f))
+            if (npc.WithinRange(Main.LocalPlayer.Center, 2000f))
             {
                 Main.LocalPlayer.Infernum().ScreenFocusPosition = npc.Center;
                 Main.LocalPlayer.Infernum().ScreenFocusInterpolant = Utils.InverseLerp(0f, 15f, animationTimer, true);
@@ -324,7 +353,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
                 DoHoverMovement(npc, destination, acceleration);
 
                 int skullShootRate = 42;
-                bool targetInLineOfSight = Collision.CanHit(npc.Center, 1, 1, target.position, target.width, target.head);
+                bool targetInLineOfSight = Collision.CanHitLine(npc.Center, 1, 1, target.position, 1, 1);
                 if (attackTimer % skullShootRate == skullShootRate - 1f && targetInLineOfSight)
                 {
                     Main.PlaySound(SoundID.Item8, target.Center);
@@ -386,7 +415,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
             if (!npc.WithinRange(target.Center, 85f) && attackTimer % shootRate == shootRate - 1f)
             {
                 int currentShotCounter = (int)(attackTimer / shootRate);
-                Main.PlaySound(SoundID.Item8, target.Center);
+                Main.PlaySound(InfernumSoundRegistry.DarkMagicSkullShootDamage, target.Center);
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
@@ -404,7 +433,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
                     for (int i = 0; i < skullCount; i++)
                     {
                         Vector2 skullShootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.Lerp(-0.59f, 0.59f, i / (skullCount - 1f))) * skullSpeed;
-                        int skull = Utilities.NewProjectileBetter(npc.Center + skullShootVelocity * 6f, skullShootVelocity, ModContent.ProjectileType<NonHomingSkull>(), 90, 0f);
+                        int skull = Utilities.NewProjectileBetter(npc.Center + skullShootVelocity * 6f, skullShootVelocity, ModContent.ProjectileType<NonHomingSkull>(), SkullDamage, 0f);
                         if (Main.projectile.IndexInRange(skull))
                             Main.projectile[skull].ai[0] = 0.005f;
                     }
@@ -414,6 +443,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
             // Go to the next state after enough shots have been performed.
             if (attackTimer >= totalShots * shootRate + 35f)
             {
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<ShadowflameFireball>());
                 SelectNextAttack(npc);
                 attackTimer = 0f;
                 npc.netUpdate = true;
@@ -439,7 +469,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
                 Vector2 shootVelocity = -Vector2.UnitY.RotatedByRandom(0.75f) * Main.rand.NextFloat(8f, 12.65f);
                 if (Main.rand.NextBool(2))
                     shootVelocity.Y *= -1f;
-                Utilities.NewProjectileBetter(npc.Center + shootVelocity * 4f, shootVelocity, ModContent.ProjectileType<NonHomingSkull>(), 95, 0f);
+                Utilities.NewProjectileBetter(npc.Center + shootVelocity * 4f, shootVelocity, ModContent.ProjectileType<NonHomingSkull>(), SkullDamage, 0f);
             }
 
             npc.damage = 0;
@@ -478,7 +508,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
                         for (int i = 0; i < 3; i++)
                         {
                             Vector2 skullShootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.TwoPi * i / 3f) * 10f;
-                            int skull = Utilities.NewProjectileBetter(npc.Center, skullShootVelocity, ProjectileID.Skull, 95, 0f);
+                            int skull = Utilities.NewProjectileBetter(npc.Center, skullShootVelocity, ProjectileID.Skull, SkullDamage, 0f);
                             if (Main.projectile.IndexInRange(skull))
                             {
                                 Main.projectile[skull].ai[0] = -1f;
@@ -490,8 +520,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
                     {
                         for (int i = 0; i < 8; i++)
                         {
-                            Vector2 skullShootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.TwoPi * i / 8f) * 14f;
-                            Utilities.NewProjectileBetter(npc.Center, skullShootVelocity, ModContent.ProjectileType<SpinningFireball>(), 95, 0f);
+                            Vector2 skullShootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.TwoPi * i / 8f) * 9f;
+                            Utilities.NewProjectileBetter(npc.Center, skullShootVelocity, ModContent.ProjectileType<SpinningFireball>(), ShadowflameFireballDamage, 0f);
                         }
                     }
                 }
@@ -542,8 +572,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
             DoHoverMovement(npc, destination, acceleration);
             npc.rotation = npc.velocity.X * 0.05f;
 
-            if (attackTimer >= 385f)
+            if (attackTimer >= 420f)
             {
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<ShadowflameFireball>());
                 SelectNextAttack(npc);
                 attackTimer = 0f;
                 npc.netUpdate = true;
@@ -569,6 +600,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
 
             if (attackTimer >= 660f)
             {
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<ShadowflameFireball>());
                 SelectNextAttack(npc);
                 attackTimer = 0f;
                 npc.netUpdate = true;
@@ -580,9 +612,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
             int totalShots = 7;
             int shootRate = 90;
             int attackDelay = 135;
-            Vector2 destination = target.Center - Vector2.UnitY * 400f;
+            float slowdownInterpolant = Utils.InverseLerp(90f, 150f, attackTimer, true);
+            Vector2 destination = target.Center - Vector2.UnitY * 440f;
             Vector2 acceleration = new Vector2(0.08f, 0.12f);
-            DoHoverMovement(npc, destination, acceleration);
+            DoHoverMovement(npc, destination, (1f - slowdownInterpolant) * acceleration);
+            if (slowdownInterpolant >= 0.9f)
+                npc.velocity *= 0.9f;
 
             npc.rotation = npc.velocity.X * 0.05f;
 
@@ -603,7 +638,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
 
             if (!npc.WithinRange(target.Center, 85f) && attackTimer % shootRate == shootRate - 1f && attackTimer > attackDelay)
             {
-                Main.PlaySound(SoundID.Item8, target.Center);
+                Main.PlaySound(InfernumSoundRegistry.DarkMagicSkullShootDamage, target.Center);
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
@@ -618,19 +653,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
 
                         Vector2 shootVelocity = Vector2.UnitX * (offset + fuck) * 0.3f;
                         shootVelocity.Y += Main.rand.NextFloat(2f);
-                        int fire = Utilities.NewProjectileBetter(npc.Center + Vector2.UnitY * 20f, shootVelocity, ModContent.ProjectileType<AcceleratingSkull>(), 100, 0f);
-                        if (Main.projectile.IndexInRange(fire))
-                        {
-                            Main.projectile[fire].ai[0] = offset + fuck;
-                            Main.projectile[fire].netUpdate = true;
-                        }
+                        Utilities.NewProjectileBetter(npc.Center + Vector2.UnitY * 20f, shootVelocity, ModContent.ProjectileType<AcceleratingSkull>(), SkullDamage, 0f, -1, offset + fuck);
                     }
 
                     // Fire one skull directly at the target.
                     Vector2 skullShootVelocity = npc.SafeDirectionTo(target.Center) * 5f;
-                    int skull = Utilities.NewProjectileBetter(npc.Center + skullShootVelocity * 6f, skullShootVelocity, ModContent.ProjectileType<AcceleratingSkull>(), 95, 0f);
-                    if (Main.projectile.IndexInRange(skull))
-                        Main.projectile[skull].ai[0] = -9999f;
+                    Utilities.NewProjectileBetter(npc.Center + skullShootVelocity * 6f, skullShootVelocity, ModContent.ProjectileType<AcceleratingSkull>(), SkullDamage, 0f, -1, -9999f);
                 }
             }
 
@@ -640,6 +668,117 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
                 SelectNextAttack(npc);
                 attackTimer = 0f;
                 npc.netUpdate = true;
+            }
+        }
+
+        public static void DoBehavior_DeathAnimation(NPC npc, Player target, ref float attackTimer)
+        {
+            int hoverTime = 90;
+            int spinTime = 270;
+            int groundSitTime = 167;
+            float chargeSpeed = 23f;
+            ref float spinAcceleration = ref npc.Infernum().ExtraAI[5];
+            ref float groundHitTimer = ref npc.Infernum().ExtraAI[6];
+
+            // Disable damage.
+            npc.damage = 0;
+            npc.dontTakeDamage = true;
+
+            // Get rid of the boss bar.
+            npc.Calamity().ShouldCloseHPBar = true;
+
+            // Hover above the target.
+            if (attackTimer < hoverTime)
+            {
+                Vector2 hoverDestination = target.Center - Vector2.UnitY * 300f;
+                npc.velocity = Vector2.Zero.MoveTowards(hoverDestination - npc.Center, 35f);
+                npc.rotation = npc.velocity.X * 0.008f;
+                return;
+            }
+
+            if (attackTimer < hoverTime + spinTime)
+            {
+                // Screech to a halt and begin spinning in place, while charging energy.
+                spinAcceleration = MathHelper.Lerp(spinAcceleration, MathHelper.Pi / 12f, 0.015f);
+                npc.rotation += spinAcceleration;
+                npc.velocity *= 0.9f;
+
+                // Create charge particles.
+                if (spinAcceleration > 0.066f)
+                {
+                    float lightSpawnOffset = Main.rand.NextFloat(96f, 124f);
+                    Vector2 lightSpawnPosition = npc.Center + Main.rand.NextVector2Unit() * lightSpawnOffset;
+                    Vector2 lightSpawnVelocity = (npc.Center - lightSpawnPosition) * 0.03f;
+
+                    if (Main.rand.NextFloat() < Utils.InverseLerp(0.066f, 0.095f, spinAcceleration, true))
+                    {
+                        SquishyLightParticle light = new SquishyLightParticle(lightSpawnPosition, lightSpawnVelocity, 1f, Color.Lerp(Color.White, Color.Purple, Main.rand.NextFloat(0.2f, 0.85f)), 42, 1f, 2.25f);
+                        GeneralParticleHandler.SpawnParticle(light);
+                    }
+                }
+
+                // Play charge sounds.
+                if (Main.rand.NextFloat() < Utils.InverseLerp(0.066f, 0.095f, spinAcceleration, true) * 0.055f)
+                    Main.PlaySound(SoundID.Item103, target.Center);
+                return;
+            }
+
+            // Charge very quickly at the target.
+            if (attackTimer == hoverTime + spinTime)
+            {
+                Main.PlaySound(SoundID.Roar, target.Center, 0);
+
+                npc.velocity = npc.SafeDirectionTo(target.Center) * chargeSpeed;
+                npc.netUpdate = true;
+            }
+
+            // Give the player loot by default if Skeletron for some reason didn't find any tiles to collide with.
+            if (!npc.WithinRange(target.Center, 3600f) && groundHitTimer <= 0f)
+            {
+                npc.life = 0;
+                npc.Center = target.Center;
+                npc.checkDead();
+                return;
+            }
+
+            if (groundHitTimer <= 0f)
+                npc.rotation += spinAcceleration;
+
+            // Stop in place immediately if tiles were hit.
+            if (Collision.SolidCollision(npc.TopLeft, npc.width, npc.height) && groundHitTimer <= 0f)
+            {
+                groundHitTimer = 1f;
+
+                Utilities.CreateShockwave(npc.Center, 2, 9, 65f, false);
+                Main.PlaySound(InfernumSoundRegistry.SkeletronHeadBonkSound);
+                npc.rotation = npc.velocity.ToRotation() + MathHelper.PiOver2;
+                npc.velocity = Vector2.Zero;
+                npc.netUpdate = true;
+            }
+
+            // Make the camera focus on Skeletron as he dies.
+            if (groundHitTimer >= 1f)
+            {
+                Main.LocalPlayer.Infernum().ScreenFocusHoldInPlaceTime = 30;
+                Main.LocalPlayer.Infernum().ScreenFocusPosition = npc.Center;
+                Main.LocalPlayer.Infernum().ScreenFocusInterpolant = Utils.InverseLerp(0f, 15f, groundHitTimer, true);
+
+                // Jitter in pain.
+                if (groundHitTimer >= 60f)
+                    npc.Center += Main.rand.NextVector2Circular(1.25f, 1.25f);
+
+                // Break open.
+                if (groundHitTimer >= groundSitTime)
+                {
+                    npc.life = 0;
+                    npc.HitEffect();
+                    npc.NPCLoot();
+                    Main.PlaySound(npc.DeathSound, npc.Center);
+                    npc.netUpdate = true;
+                    npc.active = false;
+                }
+
+                groundHitTimer++;
             }
         }
 
@@ -672,5 +811,35 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
             return true;
         }
         #endregion
+		
+		#region Death Effects
+		public override bool CheckDead(NPC npc)
+        {
+            if (npc.ai[0] != (int)SkeletronAttackType.DeathAnimation)
+            {
+                npc.ai[0] = (int)SkeletronAttackType.DeathAnimation;
+                npc.ai[1] = 0f;
+            }
+            for (int i = 0; i < 5; i++)
+                npc.Infernum().ExtraAI[i] = 0f;
+
+            // Get rid of the silly hands.
+            for (int i = 0; i < Main.maxNPCs; i++)
+            {
+                if (Main.npc[i].type == NPCID.SkeletronHand && Main.npc[i].active)
+                {
+                    Main.npc[i].active = false;
+                    Main.npc[i].netUpdate = true;
+                }
+            }
+
+            // Delete old projectiles.
+            Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<AcceleratingSkull>(), ModContent.ProjectileType<NonHomingSkull>(), ModContent.ProjectileType<ShadowflameFireball>(), ModContent.ProjectileType<SpinningFireball>());
+
+            npc.life = npc.lifeMax;
+            npc.netUpdate = true;
+            return false;
+        }
+        #endregion Death Effects
     }
 }

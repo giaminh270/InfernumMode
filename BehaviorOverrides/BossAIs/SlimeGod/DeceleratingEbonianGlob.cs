@@ -28,8 +28,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             projectile.penetrate = -1;
             projectile.timeLeft = 240;
             projectile.Opacity = 0f;
+            cooldownSlot = 1;
         }
-        
+
         public override void AI()
         {
             // Determine opacity and rotation.

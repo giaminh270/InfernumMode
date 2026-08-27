@@ -27,6 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.HiveMind
             projectile.friendly = false;
             projectile.hostile = true;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI() => projectile.rotation = projectile.velocity.ToRotation() - MathHelper.PiOver2;
@@ -40,5 +41,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.HiveMind
             Utilities.DrawAfterimagesCentered(projectile, drawColor, ProjectileID.Sets.TrailingMode[projectile.type], 3);
             return true;
         }
+
+        // This is mainly for multiplayer, to ensure that walls don't spawn on top of players and cheaply hit them.
+        public override bool CanDamage() => projectile.timeLeft < 460;
     }
 }

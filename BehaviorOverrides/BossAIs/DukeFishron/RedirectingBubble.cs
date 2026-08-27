@@ -13,7 +13,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
         public ref float Time => ref npc.ai[0];
 
         public const float InitialSpeed = 0.3f;
+
         public const float RedirectSpeed = 11f;
+
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Bubble");

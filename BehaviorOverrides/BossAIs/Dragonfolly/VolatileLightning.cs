@@ -21,6 +21,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             projectile.friendly = false;
             projectile.tileCollide = true;
             projectile.timeLeft = 45;
+            cooldownSlot = 1;
         }
 
         public override void AI()

@@ -1,7 +1,8 @@
-using CalamityMod;
+﻿using CalamityMod;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
+using System.IO;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -21,6 +22,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             projectile.hide = true;
             projectile.timeLeft = 45;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
+        }
+
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(projectile.timeLeft);
+            writer.Write(projectile.extraUpdates);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            projectile.timeLeft = reader.ReadInt32();
+            projectile.extraUpdates = reader.ReadInt32();
         }
 
         public override void AI()
@@ -79,7 +93,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
         public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
         {
-            
+
         }
     }
 }

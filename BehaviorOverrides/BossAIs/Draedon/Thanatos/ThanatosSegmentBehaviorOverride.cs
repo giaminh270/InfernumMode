@@ -23,7 +23,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
     {
         public override int NPCOverrideType => ModContent.NPCType<ThanatosBody1>();
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame | NPCOverrideContext.NPCPreDraw;
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCCheckDead;
 
         public override bool PreAI(NPC npc)
         {
@@ -41,7 +41,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             // Die if necessary segments are not present.
             if (!Main.npc.IndexInRange(npc.realLife) || !Main.npc[npc.realLife].active || !Main.npc.IndexInRange((int)npc.ai[1]) || !Main.npc[(int)npc.ai[1]].active)
             {
-                npc.active = false;
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                    npc.active = false;
                 return;
             }
 
@@ -90,6 +91,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 DoBehavior_DeathAnimation(npc, target, ref npc.Infernum().ExtraAI[ExoMechManagement.DeathAnimationTimerIndex], ref frameType);
             }
 
+            // Keep a handful of segments open if the head is open, for the sake of making it easier to damage Thanatos.
+            // This does not happen if he's doing his desperation phase attack.
+            int openSegmentPeriodWhenHeadIsOpen = 12;
+            bool busyObliteratingTarget = head.ai[0] == (int)ThanatosHeadAttackType.MaximumOverdrive && head.Infernum().ExtraAI[0] == 0f;
+            if (head.localAI[0] == (int)ThanatosFrameType.Open && segmentAttackIndex % openSegmentPeriodWhenHeadIsOpen == openSegmentPeriodWhenHeadIsOpen - 1f && !busyObliteratingTarget)
+            {
+                thanatosIsFiring = false;
+                canBeOpen = true;
+                segmentShouldContiuouslyBeOpen = true;
+            }
+
             // Handle segment opening/closing and projectile firing.
             if (thanatosIsFiring && canBeOpen)
             {
@@ -104,7 +116,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
                 if (segmentFireCountdown == (int)(segmentFireTime / 2) + fireDelay)
                 {
-                    bool willShootProjectile = (int)headAttackType != (int)ExoMechComboAttackContent.ExoMechComboAttackType.ThanatosAres_ElectricCage;
+                    bool willShootProjectile = (int)headAttackType != (int)ExoMechComboAttackContent.ExoMechComboAttackType.ThanatosAres_EnergySlashesAndCharges;
 
                     // Decide what sound to play.
                     if (willShootProjectile)
@@ -131,16 +143,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                                 generalShootSpeedFactor *= 1.15f;
                         }
 
-                        // Đã xóa phần xử lý cho combo attack LaserCircle
-                        // if ((int)headAttackType == (int)ExoMechComboAttackContent.ExoMechComboAttackType.ThanatosAres_LaserCircle)
-                        //     generalShootSpeedFactor *= ExoMechManagement.CurrentThanatosPhase != 4f ? 0.36f : 0.5f;
+                        if ((int)headAttackType == (int)ExoMechComboAttackContent.ExoMechComboAttackType.ThanatosAres_LaserCircle)
+                            generalShootSpeedFactor *= ExoMechManagement.CurrentThanatosPhase != 4f ? 0.36f : 0.5f;
 
                         switch ((int)headAttackType)
                         {
-                            // Đã xóa case LaserBarrage và combo attack LaserCircle
-                            // Xử lý các loại tấn công khác nếu có thể thêm vào đây
-                            default:
-                                // Không làm gì cả cho các loại tấn công không xác định
+                            // Fire regular lasers.
+                            case (int)ExoMechComboAttackContent.ExoMechComboAttackType.ThanatosAres_LaserCircle:
+                                int type = ModContent.ProjectileType<ThanatosAresComboLaser>();
+                                float shootSpeed = generalShootSpeedFactor * 10f;
+                                Vector2 projectileDestination = Main.npc[CalamityGlobalNPC.draedonExoMechPrime].Center + Vector2.UnitY * 34f;
+                                int laser = Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(projectileDestination) * shootSpeed, type, StrongerNormalShotDamage, 0f, Main.myPlayer, 0f, npc.whoAmI);
+                                if (Main.projectile.IndexInRange(laser))
+                                {
+                                    Main.projectile[laser].owner = npc.target;
+                                    Main.projectile[laser].ModProjectile<ThanatosAresComboLaser>().InitialDestination = projectileDestination;
+                                    Main.projectile[laser].ai[1] = npc.whoAmI;
+                                    Main.projectile[laser].netUpdate = true;
+                                }
                                 break;
                         }
                     }
@@ -167,39 +187,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             npc.Calamity().unbreakableDR = true;
             npc.chaseable = false;
             npc.defense = 0;
-            npc.takenDamageMultiplier = 5.6f;
+            npc.takenDamageMultiplier = 3.2f;
 
-            if (npc.type == ModContent.NPCType<ThanatosBody1>())
-                npc.ModNPC<ThanatosBody1>().SmokeDrawer.ParticleSpawnRate = 9999999;
-            if (npc.type == ModContent.NPCType<ThanatosBody2>())
-                npc.ModNPC<ThanatosBody2>().SmokeDrawer.ParticleSpawnRate = 9999999;
-            if (npc.type == ModContent.NPCType<ThanatosTail>())
-                npc.ModNPC<ThanatosTail>().SmokeDrawer.ParticleSpawnRate = 9999999;
             if (frameType == (int)ThanatosFrameType.Open)
             {
                 // Emit light.
                 Lighting.AddLight(npc.Center, 0.35f * npc.Opacity, 0.05f * npc.Opacity, 0.05f * npc.Opacity);
 
-                // Emit smoke.
                 npc.takenDamageMultiplier = 242f;
-                if (npc.Opacity > 0.6f)
-                {
-                    if (npc.type == ModContent.NPCType<ThanatosBody1>())
-                    {
-                        npc.ModNPC<ThanatosBody1>().SmokeDrawer.BaseMoveRotation = npc.rotation - MathHelper.PiOver2;
-                        npc.ModNPC<ThanatosBody1>().SmokeDrawer.ParticleSpawnRate = 5;
-                    }
-                    if (npc.type == ModContent.NPCType<ThanatosBody2>())
-                    {
-                        npc.ModNPC<ThanatosBody2>().SmokeDrawer.BaseMoveRotation = npc.rotation - MathHelper.PiOver2;
-                        npc.ModNPC<ThanatosBody2>().SmokeDrawer.ParticleSpawnRate = 5;
-                    }
-                    if (npc.type == ModContent.NPCType<ThanatosTail>())
-                    {
-                        npc.ModNPC<ThanatosTail>().SmokeDrawer.BaseMoveRotation = npc.rotation - MathHelper.PiOver2;
-                        npc.ModNPC<ThanatosTail>().SmokeDrawer.ParticleSpawnRate = 5;
-                    }
-                }
                 npc.Calamity().DR = OpenSegmentDR;
                 if (head.ai[0] >= 100f)
                     npc.takenDamageMultiplier *= 2f;
@@ -211,22 +206,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             else
                 Lighting.AddLight(npc.Center, 0.05f * npc.Opacity, 0.2f * npc.Opacity, 0.2f * npc.Opacity);
 
-            if (head.Calamity().unbreakableDR)
+            if (head.Calamity().DR >= 0.999f)
+            {
                 npc.Calamity().DR = 0.9999999f;
+                npc.takenDamageMultiplier = 0.01f;
+            }
 
             if (head.Infernum().ExtraAI[17] >= 1f)
                 npc.takenDamageMultiplier *= 0.5f;
-
-            // Handle smoke updating.
-            if (npc.type == ModContent.NPCType<ThanatosBody1>())
-                npc.ModNPC<ThanatosBody1>().SmokeDrawer.Update();
-            if (npc.type == ModContent.NPCType<ThanatosBody2>())
-                npc.ModNPC<ThanatosBody2>().SmokeDrawer.Update();
-            if (npc.type == ModContent.NPCType<ThanatosTail>())
-                npc.ModNPC<ThanatosTail>().SmokeDrawer.Update();
-
-            // Become vulnerable on the map.
-            npc.modNPC.GetType().GetField("vulnerable", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(npc.modNPC, frameType == (int)ThanatosFrameType.Open);
         }
 
         public override void FindFrame(NPC npc, int frameHeight)
@@ -245,21 +232,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
             Vector2 center = npc.Center - Main.screenPosition;
 
-            ExoMechAIUtilities.DrawFinalPhaseGlow(spriteBatch, npc, texture, center, npc.frame, origin);
+            ExoMechAIUtilities.DrawFinalPhaseGlow(npc, texture, center, npc.frame, origin);
             Main.spriteBatch.Draw(texture, center, npc.frame, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, spriteEffects, 0f);
 
             texture = ModContent.GetTexture("CalamityMod/NPCs/ExoMechs/Thanatos/ThanatosBody1Glow");
             Main.spriteBatch.Draw(texture, center, npc.frame, Color.White * npc.Opacity, npc.rotation, origin, npc.scale, spriteEffects, 0f);
-            npc.ModNPC<ThanatosBody1>().SmokeDrawer.DrawSet(npc.Center);
             return false;
         }
+		
+		public override bool CheckDead(NPC npc) => ExoMechManagement.HandleDeathEffects(npc);
     }
 
     public class ThanatosBody2BehaviorOverride : NPCBehaviorOverride
     {
         public override int NPCOverrideType => ModContent.NPCType<ThanatosBody2>();
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame | NPCOverrideContext.NPCPreDraw;
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCCheckDead;
 
         public override bool PreAI(NPC npc)
         {
@@ -283,7 +271,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
             Vector2 center = npc.Center - Main.screenPosition;
 
-            ExoMechAIUtilities.DrawFinalPhaseGlow(spriteBatch, npc, texture, center, npc.frame, origin);
+            ExoMechAIUtilities.DrawFinalPhaseGlow(npc, texture, center, npc.frame, origin);
             Main.spriteBatch.Draw(texture, center, npc.frame, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, spriteEffects, 0f);
 
             texture = ModContent.GetTexture("CalamityMod/NPCs/ExoMechs/Thanatos/ThanatosBody2Glow");
@@ -291,13 +279,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             npc.ModNPC<ThanatosBody2>().SmokeDrawer.DrawSet(npc.Center);
             return false;
         }
+		
+		public override bool CheckDead(NPC npc) => ExoMechManagement.HandleDeathEffects(npc);
     }
 
     public class ThanatosTailBehaviorOverride : NPCBehaviorOverride
     {
         public override int NPCOverrideType => ModContent.NPCType<ThanatosTail>();
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame | NPCOverrideContext.NPCPreDraw;
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCCheckDead;
 
         public override bool PreAI(NPC npc)
         {
@@ -321,12 +311,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
             Vector2 center = npc.Center - Main.screenPosition;
 
-            ExoMechAIUtilities.DrawFinalPhaseGlow(spriteBatch, npc, texture, center, npc.frame, origin);
+            ExoMechAIUtilities.DrawFinalPhaseGlow(npc, texture, center, npc.frame, origin);
             Main.spriteBatch.Draw(texture, center, npc.frame, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, spriteEffects, 0f);
 
             texture = ModContent.GetTexture("CalamityMod/NPCs/ExoMechs/Thanatos/ThanatosTailGlow");
             Main.spriteBatch.Draw(texture, center, npc.frame, Color.White * npc.Opacity, npc.rotation, origin, npc.scale, spriteEffects, 0f);
             return false;
         }
+		
+		public override bool CheckDead(NPC npc) => ExoMechManagement.HandleDeathEffects(npc);
     }
 }

@@ -15,6 +15,7 @@ using Terraria.ID;
 using Terraria.ModLoader;
 
 using SCalNPC = CalamityMod.NPCs.SupremeCalamitas.SupremeCalamitas;
+using InfernumMode.Sounds;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
@@ -157,7 +158,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 else
                     npc.SimpleFlyMovement(npc.SafeDirectionTo(hoverDestination) * 11f, 0.2f);
 
-                int transitionDelay = shootCounter == 0f ? 150 : 85;
+                int transitionDelay = shootCounter == 0f ? 210 : 105;
                 if (attackTimer >= transitionDelay)
                 {
                     attackSubstate = 1f;
@@ -183,7 +184,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                             {
                                 float shootOffsetAngle = MathHelper.Lerp(-0.44f, 0.44f, i / 2f) + Main.rand.NextFloatDirection() * 0.04f;
                                 Vector2 shadowBlastShootVelocity = (Target.Center - head.Center).SafeNormalize(Vector2.UnitY).RotatedBy(shootOffsetAngle) * blastShootSpeed;
-                                Utilities.NewProjectileBetter(head.Center, shadowBlastShootVelocity, ModContent.ProjectileType<ShadowFlameBlast>(), 550, 0f);
+                                Utilities.NewProjectileBetter(head.Center, shadowBlastShootVelocity, ModContent.ProjectileType<ShadowFlameBlast>(), SupremeCalamitasBehaviorOverride.ShadowBlastDamage, 0f);
                             }
                         }
                     }
@@ -193,7 +194,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
                 if (attackTimer >= chargeDelay)
                 {
-                    Main.PlaySound(SoundID.Zombie, npc.Center, 93);
+                    Main.PlaySound(InfernumSoundRegistry.ShadowHydraCharge, npc.Center);
                     attackSubstate = 2f;
                     attackTimer = 0f;
                     scal.netUpdate = true;
@@ -223,7 +224,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public void DoBehavior_ShadowGigablastsAndCharges(NPC scal, ref float attackTimer)
         {
-            int hoverTime = 35;
+            int hoverTime = 67;
             int chargeTime = 56;
             int chargeCount = 5;
             int boltReleaseRate = 8;
@@ -254,7 +255,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
                         Vector2 gigablastShootVelocity = (Target.Center - Heads[1].Center).SafeNormalize(Vector2.UnitY) * 12.5f;
-                        Utilities.NewProjectileBetter(Heads[1].Center, gigablastShootVelocity, ModContent.ProjectileType<ShadowGigablast>(), 550, 0f);
+                        Utilities.NewProjectileBetter(Heads[1].Center, gigablastShootVelocity, ModContent.ProjectileType<ShadowGigablast>(), SupremeCalamitasBehaviorOverride.ShadowBlastDamage, 0f);
                     }
 
                     npc.netUpdate = true;
@@ -270,13 +271,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 npc.damage = npc.defDamage;
 
                 int headToShoot = Main.rand.Next(Heads.Length);
-                if (Vector2.Distance(Heads[headToShoot].Center, Target.Center) > 300f && attackTimer % boltReleaseRate == boltReleaseRate - 1f)
+                if (Vector2.Distance(Heads[headToShoot].Center, Target.Center) >= 300f && attackTimer % boltReleaseRate == boltReleaseRate - 1f)
                 {
 					Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SCalSounds/BrimstoneShoot"), Heads[headToShoot].Center);
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
                         Vector2 boltVelocity = (Target.Center - Heads[headToShoot].Center).SafeNormalize(Vector2.UnitY) * 14.5f;
-                        Utilities.NewProjectileBetter(Heads[headToShoot].Center, boltVelocity, ModContent.ProjectileType<ShadowBolt>(), 500, 0f);
+                        Utilities.NewProjectileBetter(Heads[headToShoot].Center, boltVelocity, ModContent.ProjectileType<ShadowBolt>(), SupremeCalamitasBehaviorOverride.ShadowBoltDamage, 0f);
                     }
                 }
 
@@ -343,7 +344,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             if (particleSize > 500f)
                 particleSize = 500f;
 
-            for (int i = 0; i < 2; i++)
+            int particleSpawnCount = Main.rand.NextBool(8) ? 3 : 1;
+            for (int i = 0; i < particleSpawnCount; i++)
             {
                 // Summon a base particle.
                 Vector2 spawnPosition = npc.Center + Main.rand.NextVector2Circular(1f, 1f) * particleSize / 26f;				
@@ -358,9 +360,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color drawColor)
         {
+            if (Heads is null || Heads.Length <= 0)
+                return false;
+
             float headScale = npc.scale * 1.6f;
             for (int i = 0; i < Heads.Length; i++)
             {
+                if (Heads[i] is null)
+                    continue;
+
                 int maxFrame = 6;
                 Texture2D texture = ModContent.GetTexture("CalamityMod/Projectiles/Magic/SpiritCongregation");
                 Texture2D backTexture = ModContent.GetTexture("CalamityMod/Projectiles/Magic/SpiritCongregationBack");

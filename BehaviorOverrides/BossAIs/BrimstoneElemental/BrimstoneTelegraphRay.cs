@@ -18,7 +18,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
         public override Texture2D LaserEndTexture => ModContent.GetTexture("CalamityMod/ExtraTextures/Lasers/BrimstoneRayEnd");
         public override float MaxLaserLength => 3100f;
         public override float MaxScale => 1f;
-        public Vector2 OwnerEyePosition => Main.npc[OwnerIndex].Center + new Vector2(Main.npc[OwnerIndex].spriteDirection * 20f, -70f);
+        public Vector2 OwnerEyePosition => Main.npc[OwnerIndex].Center + new Vector2(Main.npc[OwnerIndex].spriteDirection * 26f, -64f).RotatedBy(Main.npc[OwnerIndex].rotation);
         public override void SetStaticDefaults() => DisplayName.SetDefault("Brimstone Deathray");
 
         public override void SetDefaults()
@@ -55,7 +55,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
             projectile.velocity = new Vector2(Main.npc[OwnerIndex].Infernum().ExtraAI[0], Main.npc[OwnerIndex].Infernum().ExtraAI[1]).SafeNormalize(Vector2.UnitY);
         }
 
-        public override void DetermineScale() => projectile.scale = 0.1f;
+        public override void DetermineScale() => projectile.scale = 0.4f;
 
         public override bool CanDamage() => false;
     }

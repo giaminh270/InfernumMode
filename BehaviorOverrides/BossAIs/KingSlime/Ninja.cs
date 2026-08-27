@@ -1,6 +1,7 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.NPCs.SlimeGod;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -30,6 +31,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
         public ref float AttackDelayFuckYou => ref npc.Infernum().ExtraAI[3];
         public ref float StuckTimer => ref npc.localAI[0];
         public static ref float CurrentTeleportDirection => ref Main.npc[NPC.FindFirstNPC(NPCID.KingSlime)].Infernum().ExtraAI[6];
+        public ref float SyncedDeathTimer => ref npc.Infernum().ExtraAI[7];
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Ninja");
@@ -68,7 +70,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
                 return;
             }
 
-            npc.damage = KatanaUseTimer > 0 ? 115 : 0;
+            // Create an explosion of slime and play a slimy sound to indicate that he escaped the King Slime.
+            if (!HasCreatedSlimeExplosion)
+            {
+                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SlimeGodPossession"), npc.Center);
+                for (int i = 0; i < 30; i++)
+                {
+                    Dust slime = Dust.NewDustPerfect(npc.Center + Main.rand.NextVector2Circular(20f, 20f), 4);
+                    slime.color = new Color(78, 136, 255, 80);
+                    slime.noGravity = true;
+                    slime.velocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(2f, 14.5f);
+                    slime.scale = 2.3f;
+                }
+                HasCreatedSlimeExplosion = true;
+            }
+
+            npc.damage = 0;
             npc.noTileCollide = npc.Bottom.Y < Target.Top.Y;
             AttackDelayFuckYou++;
 
@@ -82,6 +99,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
             if (Main.tileSolidTop[tileBelow.type] && tileBelow.nactive())
                 onSolidGround = true;
             float horizontalDistanceFromTarget = MathHelper.Distance(Target.Center.X, npc.Center.X);
+
+            if (SyncedDeathTimer > 0)
+            {
+                DoBehaviorDeathAnimation();
+                SyncedDeathTimer++;
+                return;
+            }
 
             if (ShurikenShootCountdown > 0f)
             {
@@ -101,7 +125,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
                         for (int i = 0; i < shurikenCount; i++)
                         {
                             Vector2 shurikenVelocity = npc.SafeDirectionTo(Target.Center).RotatedBy(MathHelper.Lerp(-0.36f, 0.36f, i / (float)(shurikenCount - 1f))) * shurikenSpeed;
-                            Utilities.NewProjectileBetter(npc.Center + shurikenVelocity, shurikenVelocity, ModContent.ProjectileType<Shuriken>(), 72, 0f);
+                            Utilities.NewProjectileBetter(npc.Center + shurikenVelocity, shurikenVelocity, ModContent.ProjectileType<Shuriken>(), KingSlimeBehaviorOverride.ShurikenDamage, 0f);
                         }
                     }
 
@@ -167,19 +191,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
             if (onSolidGround)
                 KatanaUseTimer = 0f;
 
-            if (npc.WithinRange(Target.Center, 260f) && KatanaUseTimer <= 0f && AttackDelayFuckYou > 150f && onSolidGround)
-            {
-                npc.spriteDirection = (Target.Center.X > npc.Center.X).ToDirectionInt();
-                npc.velocity = npc.SafeDirectionTo(Target.Center) * 8f;
-                npc.velocity.Y -= 4f;
-                KatanaRotation = 0f;
-                KatanaUseTimer = KatanaUseLength = 54f;
-                ShurikenShootCountdown = 0f;
-                npc.netUpdate = true;
-
-                Main.PlaySound(SoundID.Item1, npc.Center);
-            }
-
             if (Main.netMode != NetmodeID.MultiplayerClient && canDashTeleport)
             {
                 StuckTimer = 0f;
@@ -200,6 +211,148 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
             }
 
             Time++;
+        }
+
+        public void DoBehaviorDeathAnimation()
+        {
+            // Variables
+            float kingSlimeCenterX = npc.Infernum().ExtraAI[8];
+            float kingSlimeCenterY = npc.Infernum().ExtraAI[9];
+            ref float localDeathTimer = ref npc.Infernum().ExtraAI[10];
+            ref float tearProjectileIndex = ref npc.Infernum().ExtraAI[11];
+            float chargeSpeed = 25;
+            float extraEndSlashDelay = 20;
+            Vector2 kingSlimeCenter = new Vector2(kingSlimeCenterX, kingSlimeCenterY);
+            Vector2 teleportOffset = new Vector2(375, -100);
+
+            // Calclate the length of the Vector, using pythagarus theorum.
+            float teleportOffsetDifference = teleportOffset.Length();
+
+            // Then the length in time it will take to move two of them at the charge speed.
+            int dashLength = (int)(teleportOffsetDifference / chargeSpeed * 2);
+
+            // If king slime has set us a landing position.
+            if (kingSlimeCenterX > 0 && localDeathTimer == 0)
+            {
+                // Stops us running this again. Also save the current timer time.
+                localDeathTimer = SyncedDeathTimer;
+                // Teleport to the initial position.
+                npc.Center = kingSlimeCenter + new Vector2(375, -100);
+                // Reset a bunch of variables, and make us invisible.
+                npc.velocity = Vector2.Zero;
+                npc.Opacity = 0;
+                npc.rotation = 0;
+                npc.noGravity = true;
+                npc.spriteDirection = -1;
+                // Create dust
+                for (int i = 0; i < 6; i++)
+                {
+                    Dust ninjaDodgeDust = Dust.NewDustDirect(npc.position, npc.width, npc.height, DustID.Smoke, 0f, 0f, 100, default, 2f);
+                    ninjaDodgeDust.position += Main.rand.NextVector2Square(-20f, 20f);
+                    ninjaDodgeDust.velocity *= 0.4f;
+                    ninjaDodgeDust.scale *= Main.rand.NextFloat(1f, 1.4f);
+                    if (Main.rand.NextBool(2))
+                    {
+                        ninjaDodgeDust.scale *= Main.rand.NextFloat(1f, 1.4f);
+                        ninjaDodgeDust.noGravity = true;
+                    }
+                }
+            }
+            // If we've teleported, and our local timer has been set.
+            else if (localDeathTimer > 0)
+            {
+                // Allow us to go through tiles.
+                npc.noTileCollide = true;
+
+                // If the synced timer is equal to the saved one plus 1
+                if (SyncedDeathTimer == localDeathTimer + 1)
+                {
+                    // Spawn dust
+                    for (int i = 0; i < 6; i++)
+                    {
+                        Dust ninjaDodgeDust = Dust.NewDustDirect(npc.position, npc.width, npc.height, DustID.Smoke, 0f, 0f, 100, default, 2f);
+                        ninjaDodgeDust.position += Main.rand.NextVector2Square(-20f, 20f);
+                        ninjaDodgeDust.velocity *= 0.4f;
+                        ninjaDodgeDust.scale *= Main.rand.NextFloat(1f, 1.4f);
+                        if (Main.rand.NextBool(2))
+                        {
+                            ninjaDodgeDust.scale *= Main.rand.NextFloat(1f, 1.4f);
+                            ninjaDodgeDust.noGravity = true;
+                        }
+                    }
+                    // Re-appear
+                    npc.Opacity = 1;
+                    // Play a sound, and begin moving through king slime.
+                    Main.PlaySound(InfernumSoundRegistry.VassalSlashSound, npc.Center);
+                    npc.velocity = npc.SafeDirectionTo(kingSlimeCenter) * chargeSpeed;
+                    npc.netUpdate = true;
+
+                    // Create the slash.
+                    if (Main.netMode != NetmodeID.MultiplayerClient)
+                        tearProjectileIndex = Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<DeathSlash>(), 200, 0f);
+                }
+                // If we have reached the end of the time we want to spend slashing.
+                if (SyncedDeathTimer > localDeathTimer + dashLength)
+                {
+                    // If we should vanish, this extraEndSlashDelay is the amount of time it takes for the slash to catch up to us,
+                    if (SyncedDeathTimer > localDeathTimer + dashLength + extraEndSlashDelay)
+                    {
+                        // Clear this
+                        tearProjectileIndex = -1f;
+
+                        // Kill the slash projectile.
+                        for (int i = 0; i < Main.projectile.Length; i++)
+                        {
+                            if (Main.projectile[i].type == ModContent.ProjectileType<DeathSlash>())
+                            {
+                                Main.projectile[i].active = false;
+                                break;
+                            }
+                        }
+                    }
+                    // Freeze in place.
+                    npc.velocity = Vector2.Zero;
+                    // If we havent faded out, spawn dust. this is to prevent looping.
+                    if (npc.Opacity > 0)
+                        for (int i = 0; i < 6; i++)
+                        {
+                            Dust ninjaDodgeDust = Dust.NewDustDirect(npc.position, npc.width, npc.height, DustID.Smoke, 0f, 0f, 100, default, 2f);
+                            ninjaDodgeDust.position += Main.rand.NextVector2Square(-20f, 20f);
+                            ninjaDodgeDust.velocity *= 0.4f;
+                            ninjaDodgeDust.scale *= Main.rand.NextFloat(1f, 1.4f);
+                            if (Main.rand.NextBool(2))
+                            {
+                                ninjaDodgeDust.scale *= Main.rand.NextFloat(1f, 1.4f);
+                                ninjaDodgeDust.noGravity = true;
+                            }
+                        }
+                    // Fade out.
+                    npc.Opacity = 0;
+                }
+            }
+            // Else, go invisible and await being told where to TP to.
+            else
+            {
+                // Reset our rotation, and make sure we dont fall anywhere.
+                npc.rotation = 0;
+                npc.noGravity = true;
+                // If we havent faded out, spawn dust. this is to prevent looping.
+                if (npc.Opacity > 0)
+                    for (int i = 0; i < 6; i++)
+                    {
+                        Dust ninjaDodgeDust = Dust.NewDustDirect(npc.position, npc.width, npc.height, DustID.Smoke, 0f, 0f, 100, default, 2f);
+                        ninjaDodgeDust.position += Main.rand.NextVector2Square(-20f, 20f);
+                        ninjaDodgeDust.velocity *= 0.4f;
+                        ninjaDodgeDust.scale *= Main.rand.NextFloat(1f, 1.4f);
+                        if (Main.rand.NextBool(2))
+                        {
+                            ninjaDodgeDust.scale *= Main.rand.NextFloat(1f, 1.4f);
+                            ninjaDodgeDust.noGravity = true;
+                        }
+                    }
+                // Fade out
+                npc.Opacity = 0;
+            }
         }
 
         public void DoJump(float jumpSpeed, Vector2? destination = null)
@@ -354,9 +507,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
             // Release ninja dodge dust.
             if (TeleportCountdown % 3f == 2f)
             {
-                for (int i = 0; i < 3; i++)
+                for (int i = 0; i < 6; i++)
                 {
-                    Dust ninjaDodgeDust = Dust.NewDustDirect(npc.position, npc.width, npc.height, 31, 0f, 0f, 100, default, 2f);
+                    Dust ninjaDodgeDust = Dust.NewDustDirect(npc.position, npc.width, npc.height, DustID.Smoke, 0f, 0f, 100, default, 2f);
                     ninjaDodgeDust.position += Main.rand.NextVector2Square(-20f, 20f);
                     ninjaDodgeDust.velocity *= 0.4f;
                     ninjaDodgeDust.scale *= Main.rand.NextFloat(1f, 1.4f);

@@ -17,6 +17,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Prime
             projectile.ignoreWater = true;
             projectile.penetrate = -1;
             projectile.timeLeft = 300;
+            cooldownSlot = 1;
         }
 
         public override void AI()

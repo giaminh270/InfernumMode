@@ -23,6 +23,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.ignoreWater = true;
             projectile.tileCollide = false;
             projectile.timeLeft = Main.projFrames[projectile.type] * 6;
+            cooldownSlot = 1;
         }
 
         public override void AI()

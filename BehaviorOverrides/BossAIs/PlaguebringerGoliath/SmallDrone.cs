@@ -1,5 +1,6 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Items.Weapons.Ranged;
+using InfernumMode.GlobalInstances;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -10,7 +11,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
     public class SmallDrone : ModNPC
     {
         public int SpinDirection = 1;
-        public float MoveIncrement = 0;
+        public float MoveIncrement;
         public Vector2 InitialTargetPosition;
         public Player Target => Main.player[npc.target];
         public ref float AttackTimer => ref npc.ai[0];
@@ -71,12 +72,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     Vector2 laserDirection = npc.SafeDirectionTo(Main.npc[(int)NextDroneIndex].Center, Vector2.UnitY);
-                    int laser = Utilities.NewProjectileBetter(npc.Center, laserDirection, ModContent.ProjectileType<PlagueDeathray>(), 270, 0f);
-                    if (Main.projectile.IndexInRange(laser))
+
+                    ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(deathray =>
                     {
-                        Main.projectile[laser].ModProjectile<PlagueDeathray>().LocalLifetime = 1200;
-                        Main.projectile[laser].ai[1] = npc.whoAmI;
-                    }
+                        deathray.ModProjectile<PlagueDeathray>().LocalLifetime = 1200;
+                    });
+                    Utilities.NewProjectileBetter(npc.Center, laserDirection, ModContent.ProjectileType<PlagueDeathray>(), PlaguebringerGoliathBehaviorOverride.DroneDeathrayDamage, 0f, -1, 0f, npc.whoAmI);
                 }
             }
             AttackTimer++;

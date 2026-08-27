@@ -43,6 +43,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             Time++;
         }
 
+        public override Color? GetAlpha(Color lightColor) => Color.White * projectile.Opacity;
+
         public override void Kill(int timeLeft)
         {
             Main.PlaySound(SoundID.Item74, projectile.Center);

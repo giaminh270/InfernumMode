@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using Terraria;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
@@ -11,15 +12,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
     {
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
 
-        public ref float TelegraphDelay => ref projectile.ai[0];
-
         public NPC ThingToAttachTo => Main.npc.IndexInRange((int)projectile.ai[1]) ? Main.npc[(int)projectile.ai[1]] : null;
+
+        public ref float TelegraphDelay => ref projectile.ai[0];
 
         public ref float TelegraphLifetime => ref projectile.localAI[0];
 
         public Vector2 OldVelocity;
+
         public const float TelegraphFadeTime = 8f;
-        public const float TelegraphWidth = 2800f;
+
+        public const float TelegraphWidth = 4000f;
 
         public override void SetStaticDefaults() => DisplayName.SetDefault("Exo Overload Telegraph");
 
@@ -33,6 +36,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             projectile.alpha = 255;
             projectile.penetrate = -1;
             projectile.timeLeft = 600;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)

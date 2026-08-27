@@ -24,6 +24,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
             projectile.hostile = true;
             projectile.penetrate = -1;
             projectile.timeLeft = 600;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -64,6 +65,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
             Vector2 spikeTip = projectile.Center + Vector2.UnitY * SpikeDirection * SpikeReach;
             float frameHeight = Vector2.Distance(projectile.Center, spikeTip) - projectile.velocity.Length();
             float frameTop = Main.chain17Texture.Height - frameHeight;
+
             Color spikeColor = new Color(1f, 1f, 0f, 0f);
             if (frameHeight > 0f)
             {

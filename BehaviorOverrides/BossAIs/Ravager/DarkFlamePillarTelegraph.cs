@@ -23,6 +23,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.hide = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()

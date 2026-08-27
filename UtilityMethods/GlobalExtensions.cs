@@ -11,6 +11,7 @@ namespace InfernumMode
         public static GlobalProjectileOverrides Infernum(this Projectile projectile) => projectile.GetGlobalProjectile<GlobalProjectileOverrides>();
 		//public static bool WithinRange(this Vector2 Origin, Vector2 Target, float MaxRange) => (double) Vector2.DistanceSquared(Origin, Target) <= (double) MaxRange * (double) MaxRange;
 		public static PoDPlayer Infernum_CalShadowHex(this Player player) => player.GetModPlayer<PoDPlayer>();
+		public static UIPlayer Infernum_UI(this Player player) => player.GetModPlayer<UIPlayer>();
     }
 }
 

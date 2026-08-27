@@ -11,7 +11,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
     public class CultistRitual : ModProjectile
     {
         public ref float Time => ref projectile.ai[0];
-        
+
         public int MainCultistIndex => (int)projectile.ai[1];
 
         public static Color RitualColor => Color.White;
@@ -27,6 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             projectile.hide = true;
             projectile.timeLeft = 325;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public static int GetWaitTime(bool phase2) => phase2 ? 290 : 250;

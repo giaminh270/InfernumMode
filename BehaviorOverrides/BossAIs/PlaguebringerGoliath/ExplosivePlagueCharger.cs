@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -19,7 +19,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
 
         public override void SetDefaults()
         {
-            npc.damage = 180;
+            npc.damage = 150;
             npc.npcSlots = 0f;
             npc.width = npc.height = 42;
             npc.defense = 10;
@@ -128,6 +128,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
                 plague.velocity *= 2f;
                 plague.noGravity = true;
             }
+            return true;
+        }
+
+        public override bool CanHitPlayer(Player target, ref int cooldownSlot)
+        {
+            cooldownSlot = 1;
             return true;
         }
 

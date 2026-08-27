@@ -23,6 +23,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
             projectile.ignoreWater = true;
             projectile.penetrate = -1;
             projectile.tileCollide = false;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)
@@ -60,7 +61,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
                 projectile.velocity *= 0.985f;
         }
 
-        public override bool CanHitPlayer(Player target) => projectile.ai[1] <= 720f;
+		public override bool CanHitPlayer(Player target)
+		{
+		    return projectile.ai[1] <= 720f && projectile.ai[1] >= 120f;
+		}
 
         public override Color? GetAlpha(Color lightColor)
         {

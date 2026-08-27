@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using InfernumMode.Miscellaneous;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -14,9 +14,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EoW
 {
     public class CorruptThorn : ModProjectile
     {
+        public float CurrentHeight;
+
         public ref float MaxPillarHeight => ref projectile.ai[0];
+
         public ref float Time => ref projectile.ai[1];
-        public float CurrentHeight = 0f;
+
         public const float StartingHeight = 22f;
         public override void SetStaticDefaults() => DisplayName.SetDefault("Corrupt Thorn");
 
@@ -29,6 +32,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EoW
             projectile.penetrate = -1;
             projectile.timeLeft = 480;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)
@@ -92,7 +96,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EoW
             projectile.Bottom = newBottom.ToWorldCoordinates(8, isHalfTile ? 8 : 0);
 
             Player target = Main.player[Player.FindClosest(projectile.Center, 1, 1)];
-            MaxPillarHeight = MathHelper.Max(0f, projectile.Top.Y - target.Top.Y) + StartingHeight + 320f + Math.Abs(target.velocity.Y * 25f);
+            MaxPillarHeight = Math.Max(0f, projectile.Top.Y - target.Top.Y) + StartingHeight + 320f + Math.Abs(target.velocity.Y * 25f);
 
             // Add some variance to the pillar height to make them feel a bit more alive.
             MaxPillarHeight += MathHelper.Lerp(0f, 100f, projectile.identity / 7f % 7f) * Main.rand.NextFloat(0.45f, 1.55f);
@@ -130,6 +134,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EoW
 
         public void DrawVine(SpriteBatch spriteBatch, Vector2 scale, Vector2 aimDirection, Texture2D tipTexture, ref float tipBottom)
         {
+            Main.instance.LoadProjectile(ProjectileID.VilethornBase);
             Texture2D thornBodyPiece = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/EoW/CorruptThornPiece");
 
             UnifiedRandom sideThornRNG = new UnifiedRandom(projectile.identity);
@@ -155,8 +160,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EoW
                 tipBottom = i;
             }
         }
-
-        
 
         public override bool CanDamage() => Time >= 70f;
 

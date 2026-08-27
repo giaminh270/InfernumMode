@@ -75,7 +75,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AdultEidolonWyrm
             {
                 projectile.frameCounter = 0;
 
-                float originalSpeed = MathHelper.Min(6f, projectile.velocity.Length());
+                float originalSpeed = Math.Min(6f, projectile.velocity.Length());
                 UnifiedRandom unifiedRandom = new UnifiedRandom((int)BaseTurnAngleRatio);
                 int turnTries = 0;
                 Vector2 newBaseDirection = -Vector2.UnitY;

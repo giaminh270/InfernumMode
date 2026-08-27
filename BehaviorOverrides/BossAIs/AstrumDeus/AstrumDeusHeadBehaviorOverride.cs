@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Buffs.StatDebuffs;
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Events;
@@ -7,7 +7,9 @@ using CalamityMod.Items.Weapons.Ranged;
 using CalamityMod.NPCs.AstrumDeus;
 using CalamityMod.Projectiles.Boss;
 using CalamityMod.Sounds;
+using InfernumMode.Sounds;
 using InfernumMode.BehaviorOverrides.BossAIs.AstrumAureus;
+using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -44,6 +46,27 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
         #endregion Enumerations
 
         #region AI
+
+        public static int AstralPlasmaSparkDamage => 180;
+
+        public static int AstralFlameDamage => 200;
+
+        public static int AstralLaserDamage => 200;
+
+        public static int AstralPlasmaFireballDamage => 200;
+
+        public static int AstralRubbleDamage => 200;
+
+        public static int DarkBoltDamage => 200;
+
+        public static int InfectionGlobDamage => 200;
+
+        public static int AstralVortexDamage => 250;
+
+        public static int BlackHoleDamage => 300;
+
+        public static int BlackHoleLaserDamage => 300;
+
         public const float Phase2LifeRatio = 0.6f;
 
         public const float Phase3LifeRatio = 0.33333f;
@@ -123,8 +146,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
 
             bool enteringLastPhase = lifeRatio < Phase3LifeRatio && inFinalPhase == 0f;
 
-            // Clamp position into the world.
-            npc.position.X = MathHelper.Clamp(npc.position.X, 1300f, Main.maxTilesX * 16f - 700f);
+            // MathHelper.Clamp position into the world.
+            npc.position.X = MathHelper.Clamp(npc.position.X, 1300f, Main.maxTilesX * 16f - 1300f);
 
             // Don't take damage if requested.
             if (dontTakeDamage == 1f)
@@ -136,8 +159,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             if (enteringLastPhase)
             {
                 int deusSpawnID = ModContent.NPCType<DeusSpawn>();
-                Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<AstralConstellation>(), 
-                    ModContent.ProjectileType<AstralPlasmaFireball>(), 
+                Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<AstralConstellation>(),
+                    ModContent.ProjectileType<AstralPlasmaFireball>(),
                     ModContent.ProjectileType<AstralPlasmaSpark>(),
                     ModContent.ProjectileType<AstralFlame2>(),
                     ModContent.ProjectileType<AstralCrystal>(),
@@ -270,7 +293,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                     if (npc.velocity.Length() < maxSpeed)
                         npc.velocity *= 1.0167f;
                 }
-                
+
                 // Rapidly fade out and do the teleport.
                 npc.Opacity = MathHelper.Clamp(npc.Opacity - 0.13f, 0f, 1f);
                 if (wrappedTimer == fadeInTime - 1f)
@@ -284,11 +307,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                         Vector2 bottomRightOfWorld = new Vector2(Main.maxTilesX, Main.maxTilesY) * 16f - topLeftOfWorld;
                         Vector2 teleportPosition = Vector2.Clamp(target.Center + teleportOffsetDirection * teleportOutwardness * 1.35f, topLeftOfWorld, bottomRightOfWorld);
                         npc.Center = teleportPosition;
+
                         npc.velocity = npc.SafeDirectionTo(target.Center) * chargeSpeed;
                         npc.netUpdate = true;
-                        int telegraph = Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(target.Center), ModContent.ProjectileType<AstralTelegraphLine>(), 0, 0f);
-                        if (Main.projectile.IndexInRange(telegraph))
-                            Main.projectile[telegraph].ai[1] = 32f;
+                        Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(target.Center), ModContent.ProjectileType<AstralTelegraphLine>(), 0, 0f, -1, 0f, 32f);
 
                         for (int i = 0; i < 7; i++)
                         {
@@ -297,7 +319,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                             if (BossRushEvent.BossRushActive)
                                 fireVelocity *= 2.3f;
 
-                            Utilities.NewProjectileBetter(npc.Center, fireVelocity, ModContent.ProjectileType<AstralFlame2>(), 200, 0f);
+                            Utilities.NewProjectileBetter(npc.Center, fireVelocity, ModContent.ProjectileType<AstralFlame2>(), AstralFlameDamage, 0f);
                         }
 
                         BringAllSegmentsToNPCPosition(npc);
@@ -330,7 +352,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                     }
                 }
             }
-            
+
             if (attackTimer >= chargeCount * (fadeInTime + chargeTime + fadeOutTime) + 3)
                 SelectNextAttack(npc);
 
@@ -368,7 +390,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 meteorReleaseRate--;
                 meteorSpeed += 3.5f;
             }
-            
+
             // Apply distance-enrage buffs.
             meteorReleaseRate = Utils.Clamp((int)(meteorReleaseRate - beaconAngerFactor * 5f), 3, 20);
             meteorSpeed = MathHelper.Lerp(meteorSpeed, 24.5f, beaconAngerFactor);
@@ -404,7 +426,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
 
             // Play a powerful thunder sound before the meteor show begins, as a telegraph.
             if (attackTimer == upwardRiseTime + 1f)
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ThunderStrike"), target.Center);
+                Main.PlaySound(InfernumSoundRegistry.CalThunderStrikeSound, target.Center);
 
             // Slam downward, and attempt to aim horizontally in such a way that Deus loosely tries to hit the target.
             // While this isn't necessarily supposed to be the primary source of damage, it's best to be closer to the target than not,
@@ -429,7 +451,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 Vector2 shootVelocity = shootDirection * meteorSpeed;
 
                 int cometType = ModContent.ProjectileType<AstralBlueComet>();
-                Utilities.NewProjectileBetter(cometSpawnPosition, shootVelocity, cometType, 200, 0f);
+                Utilities.NewProjectileBetter(cometSpawnPosition, shootVelocity, cometType, AstralFlameDamage, 0f);
             }
 
             if (withinShootInterval && !npc.WithinRange(target.Center, 600f))
@@ -478,7 +500,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 // Let the descent persist if not sufficiently far down below the target yet.
                 if (isntFarEnoughDown && attackTimer >= minDescendTime - 5f)
                     attackTimer = minDescendTime - 5f;
-                
+
                 if (attackTimer >= minDescendTime + minRiseTime + attackTransitionDelay)
                 {
                     Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<AstralRubble>());
@@ -523,7 +545,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                             float shootOffsetAngle = MathHelper.Lerp(-1.24f, 1.24f, i / (float)(rubbleCount - 1f)) + Main.rand.NextFloatDirection() * 0.032f;
                             Vector2 rubbleVelocity = Vector2.Lerp(-Vector2.UnitY, (npc.rotation + MathHelper.PiOver2).ToRotationVector2(), 0.32f);
                             rubbleVelocity = rubbleVelocity.SafeNormalize(Vector2.UnitY).RotatedBy(shootOffsetAngle) * Main.rand.NextFloat(17.5f, 25f) * rubbleFlySpeedFactor * j;
-                            Utilities.NewProjectileBetter(npc.Center + rubbleVelocity * 2f, rubbleVelocity, ModContent.ProjectileType<AstralRubble>(), 200, 0f);
+                            Utilities.NewProjectileBetter(npc.Center + rubbleVelocity * 2f, rubbleVelocity, ModContent.ProjectileType<AstralRubble>(), AstralRubbleDamage, 0f);
                         }
                     }
                 }
@@ -592,7 +614,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 float denominator = (float)(1f + 1f * Math.Pow(Math.Sin(t), 2f) + Math.Pow(sinT, 4f));
 
                 float speedX = flySpeed * (float)(-sinT - Math.Pow(sinT, 3f) - cosT * sin2T) / denominator;
-                float speedY = flySpeed * (float)(Math.Pow(cosT, 2f) - 2f * Math.Pow(sinT, 4f) - sinT * cosT * sin2T) / denominator;
+                float speedY = flySpeed * (float)(Math.Pow(cosT, 2f) - Math.Pow(sinT, 4f) *2f - sinT * cosT * sin2T) / denominator;
                 npc.velocity = new Vector2(speedX, speedY);
             }
 
@@ -622,10 +644,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 {
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        int vortex = Utilities.NewProjectileBetter(focus, Vector2.Zero, ModContent.ProjectileType<AstralVortex>(), 300, 0f);
+                        ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(p => p.localAI[0] = cyan.ToInt());
+
+                        int vortex = Utilities.NewProjectileBetter(focus, Vector2.Zero, ModContent.ProjectileType<AstralVortex>(), AstralVortexDamage, 0f);
                         if (Main.projectile.IndexInRange(vortex))
                         {
-                            Main.projectile[vortex].localAI[0] = cyan.ToInt();
                             vortices.Add(vortex);
                             cyan = false;
                         }
@@ -671,13 +694,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
                         Vector2 plasmaShootVelocity = npc.SafeDirectionTo(target.Center) * (BossRushEvent.BossRushActive ? 20.5f : 13f);
-                        Utilities.NewProjectileBetter(npc.Center + plasmaShootVelocity * 3f, plasmaShootVelocity, ModContent.ProjectileType<AstralPlasmaFireball>(), 200, 0f);
+                        Utilities.NewProjectileBetter(npc.Center + plasmaShootVelocity * 3f, plasmaShootVelocity, ModContent.ProjectileType<AstralPlasmaFireball>(), AstralPlasmaFireballDamage, 0f);
                         npc.netUpdate = true;
                     }
                 }
 
                 npc.Center = npc.Center.MoveTowards(spinDestination, target.velocity.Length() * 1.2f + 35f);
-                npc.velocity = npc.SafeDirectionTo(spinDestination) * MathHelper.Min(npc.Distance(spinDestination), 34f);
+                npc.velocity = npc.SafeDirectionTo(spinDestination) * Math.Min(npc.Distance(spinDestination), 34f);
                 if (!Utilities.AnyProjectiles(ModContent.ProjectileType<AstralVortex>()) && !Utilities.AnyProjectiles(ModContent.ProjectileType<AstralFlame2>()))
                     SelectNextAttack(npc);
             }
@@ -734,7 +757,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
                         Vector2 plasmaShootVelocity = npc.velocity.SafeNormalize(Vector2.UnitY) * plasmaShootSpeed;
-                        Utilities.NewProjectileBetter(npc.Center + plasmaShootVelocity * 3f, plasmaShootVelocity, ModContent.ProjectileType<AstralPlasmaFireball>(), 200, 0f);
+                        Utilities.NewProjectileBetter(npc.Center + plasmaShootVelocity * 3f, plasmaShootVelocity, ModContent.ProjectileType<AstralPlasmaFireball>(), AstralPlasmaFireballDamage, 0f);
 
                         plasmaShootTimer = 0f;
                         npc.netUpdate = true;
@@ -759,7 +782,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                     {
                         Vector2 shootPosition = bodyToShootFrom.Center;
                         Vector2 shootVelocity = (target.Center - shootPosition).SafeNormalize(Vector2.UnitY) * 8f;
-                        Utilities.NewProjectileBetter(shootPosition, shootVelocity, ModContent.ProjectileType<AstralCrystal>(), 200, 0f);
+                        Utilities.NewProjectileBetter(shootPosition, shootVelocity, ModContent.ProjectileType<AstralCrystal>(), AstralFlameDamage, 0f);
                     }
                 }
             }
@@ -814,7 +837,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
                         Vector2 plasmaShootVelocity = npc.velocity.SafeNormalize(Vector2.UnitY) * plasmaShootSpeed;
-                        Utilities.NewProjectileBetter(npc.Center + plasmaShootVelocity * 3f, plasmaShootVelocity, ModContent.ProjectileType<AstralPlasmaFireball>(), 200, 0f);
+                        Utilities.NewProjectileBetter(npc.Center + plasmaShootVelocity * 3f, plasmaShootVelocity, ModContent.ProjectileType<AstralPlasmaFireball>(), AstralPlasmaFireballDamage, 0f);
 
                         plasmaShootTimer = 0f;
                         npc.netUpdate = true;
@@ -898,6 +921,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 Vector2 starSpawnPosition = target.Center + Main.rand.NextVector2CircularEdge(1150f, 1150f);
                 starSpawnCenterX = starSpawnPosition.X;
                 starSpawnCenterY = starSpawnPosition.Y;
+
                 npc.netUpdate = true;
             }
 
@@ -920,7 +944,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 Vector2 spinDestination = new Vector2(starSpawnCenterX, starSpawnCenterY) + (MathHelper.TwoPi * attackTimer / 135f).ToRotationVector2() * 640f;
                 Vector2 oldCenter = npc.Center;
                 npc.Center = npc.Center.MoveTowards(spinDestination, target.velocity.Length() * 1.2f + 35f);
-                npc.velocity = npc.SafeDirectionTo(spinDestination) * MathHelper.Min(npc.Distance(spinDestination), 34f);
+                npc.velocity = npc.SafeDirectionTo(spinDestination) * Math.Min(npc.Distance(spinDestination), 34f);
                 if (npc.velocity == Vector2.Zero)
                     npc.rotation = (spinDestination - oldCenter).ToRotation() + MathHelper.PiOver2;
 
@@ -934,9 +958,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             // Create the star once ready.
             if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer == repositionTimeBuffer + 1f)
             {
-                int star = Utilities.NewProjectileBetter(new Vector2(starSpawnCenterX, starSpawnCenterY), Vector2.Zero, ModContent.ProjectileType<MassiveInfectedStar>(), 300, 0f);
-                if (Main.projectile.IndexInRange(star))
-                    Main.projectile[star].ModProjectile<MassiveInfectedStar>().GrowTime = starGrowTime;
+                ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(star =>
+                {
+                    star.ModProjectile<MassiveInfectedStar>().GrowTime = starGrowTime;
+                });
+                Utilities.NewProjectileBetter(new Vector2(starSpawnCenterX, starSpawnCenterY), Vector2.Zero, ModContent.ProjectileType<MassiveInfectedStar>(), BlackHoleDamage, 0f);
             }
 
             // Send energy bolts towards the star.
@@ -973,7 +999,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     Vector2 laserShootVelocity = bodyToShoot.SafeDirectionTo(target.Center) * 16f;
-                    Utilities.NewProjectileBetter(bodyToShoot.Center, laserShootVelocity, ModContent.ProjectileType<AstralShot2>(), 200, 0f);
+                    Utilities.NewProjectileBetter(bodyToShoot.Center, laserShootVelocity, ModContent.ProjectileType<AstralShot2>(), AstralLaserDamage, 0f);
                 }
             }
 
@@ -994,38 +1020,41 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             // Decide the position to spawn the black hole and create the dark star constellation at on the first frame.
             if (attackTimer == 1f)
             {
-                int tries = 0;
-                do
+                if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    tries++;
-                    if (tries >= 500)
-                        break;
-                    
-                    Vector2 blackHoleCenter = target.Center + Main.rand.NextVector2CircularEdge(700f, 700f);
-                    blackHoleCenterX = blackHoleCenter.X;
-                    blackHoleCenterY = blackHoleCenter.Y;
-                }
-
-                // Avoid placing the black hole near tiles. The laser spin needs to be able to be dodged by letting the target
-                // spin in tandem with the lasers. If they're blocked by tiles then they could recieve an unfair hit or two.
-                while (Collision.SolidCollision(new Vector2(blackHoleCenterX, blackHoleCenterY) - Vector2.One * 600f, 1200, 1200));
-
-                for (int i = 0; i < starsInConstellation; i++)
-                {
-                    float offsetAngle = MathHelper.TwoPi * i / starsInConstellation;
-                    Vector2 starPosition = DarkStar.CalculateStarPosition(new Vector2(blackHoleCenterX, blackHoleCenterY), offsetAngle, 0f);
-                    int star = Utilities.NewProjectileBetter(starPosition, Vector2.Zero, ModContent.ProjectileType<DarkStar>(), 0, 0f);
-                    if (Main.projectile.IndexInRange(star))
+                    int tries = 0;
+                    do
                     {
-                        Main.projectile[star].ai[0] = i;
-                        Main.projectile[star].ai[1] = (i + 1) % starsInConstellation;
-                        Main.projectile[star].ModProjectile<DarkStar>().InitialOffsetAngle = offsetAngle;
-                        Main.projectile[star].ModProjectile<DarkStar>().AnchorPoint = new Vector2(blackHoleCenterX, blackHoleCenterY);
-                    }
-                    }
-                Utilities.NewProjectileBetter(new Vector2(blackHoleCenterX, blackHoleCenterY), Vector2.Zero, ModContent.ProjectileType<AstralBlackHole>(), 300, 0f);
+                        tries++;
+                        if (tries >= 500)
+                            break;
 
-                npc.netUpdate = true;
+                        Vector2 blackHoleCenter = target.Center + Main.rand.NextVector2CircularEdge(700f, 700f);
+                        blackHoleCenterX = blackHoleCenter.X;
+                        blackHoleCenterY = blackHoleCenter.Y;
+                    }
+
+                    // Avoid placing the black hole near tiles. The laser spin needs to be able to be dodged by letting the target
+                    // spin in tandem with the lasers. If they're blocked by tiles then they could recieve an unfair hit or two.
+                    while (Collision.SolidCollision(new Vector2(blackHoleCenterX, blackHoleCenterY) - Vector2.One * 600f, 1200, 1200));
+
+                    for (int i = 0; i < starsInConstellation; i++)
+                    {
+                        float offsetAngle = MathHelper.TwoPi * i / starsInConstellation;
+                        Vector2 starPosition = DarkStar.CalculateStarPosition(new Vector2(blackHoleCenterX, blackHoleCenterY), offsetAngle, 0f);
+                        Vector2 blackHoleCenter = new Vector2(blackHoleCenterX, blackHoleCenterY);
+
+                        ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(star =>
+                        {
+                            star.ModProjectile<DarkStar>().InitialOffsetAngle = offsetAngle;
+                            star.ModProjectile<DarkStar>().AnchorPoint = blackHoleCenter;
+                        });
+                        Utilities.NewProjectileBetter(starPosition, Vector2.Zero, ModContent.ProjectileType<DarkStar>(), 0, 0f, -1, i, (i + 1f) % starsInConstellation);
+                    }
+                	Utilities.NewProjectileBetter(new Vector2(blackHoleCenterX, blackHoleCenterY), Vector2.Zero, ModContent.ProjectileType<AstralBlackHole>(), BlackHoleDamage, 0f);
+
+                    npc.netUpdate = true;
+                }
 
             }
 
@@ -1036,7 +1065,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             Vector2 spinDestination = new Vector2(blackHoleCenterX, blackHoleCenterY) + (MathHelper.TwoPi * attackTimer / 135f).ToRotationVector2() * 640f;
             Vector2 oldCenter = npc.Center;
             npc.Center = npc.Center.MoveTowards(spinDestination, target.velocity.Length() * 1.2f + 35f);
-            npc.velocity = npc.SafeDirectionTo(spinDestination) * MathHelper.Min(npc.Distance(spinDestination), 34f);
+            npc.velocity = npc.SafeDirectionTo(spinDestination) * Math.Min(npc.Distance(spinDestination), 34f);
             npc.rotation = (spinDestination - oldCenter).ToRotation() + MathHelper.PiOver2;
 
             if (!Utilities.AnyProjectiles(ModContent.ProjectileType<AstralBlackHole>()) && attackTimer >= 2f)
@@ -1052,7 +1081,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             float flySpeed = 24.5f;
             float flyTurnSpeed = 0.05f;
             ref float blobShootTimer = ref npc.Infernum().ExtraAI[0];
-            
+
             // Fly near the target and snap at them if sufficiently close.
             float nextFlySpeed = MathHelper.Lerp(npc.velocity.Length(), flySpeed, 0.1f);
             Vector2 idealVelocity = npc.SafeDirectionTo(target.Center) * flySpeed;
@@ -1077,9 +1106,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                     for (int i = 0; i < chargeBlobCount; i++)
                     {
                         Vector2 blobVelocity = shootDirection * 24f + Main.rand.NextVector2Circular(4f, 4f);
-                        int blob = Utilities.NewProjectileBetter(npc.Center + blobVelocity, blobVelocity, ModContent.ProjectileType<InfectionGlob>(), 200, 0f);
-                        if (Main.projectile.IndexInRange(blob))
-                            Main.projectile[blob].ai[1] = target.Center.Y;
+                        Utilities.NewProjectileBetter(npc.Center + blobVelocity, blobVelocity, ModContent.ProjectileType<InfectionGlob>(), InfectionGlobDamage, 0f, -1, 0f, target.Center.Y);
                     }
                     blobShootTimer = 0f;
                     npc.netUpdate = true;
@@ -1152,12 +1179,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 Main.PlaySound(SoundID.Item72, currentPoint);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int star = Utilities.NewProjectileBetter(currentPoint, Vector2.Zero, ModContent.ProjectileType<AstralConstellation>(), 0, 0f);
-                    if (Main.projectile.IndexInRange(star))
-                    {
-                        Main.projectile[star].ai[0] = (int)(patternCompletion * totalStarsToCreate);
-                        Main.projectile[star].ai[1] = npc.whoAmI;
-                    }
+                    int starIndex = (int)(patternCompletion * totalStarsToCreate);
+                    Utilities.NewProjectileBetter(currentPoint, Vector2.Zero, ModContent.ProjectileType<AstralConstellation>(), 0, 0f, -1, starIndex, npc.whoAmI);
                 }
             }
 
@@ -1167,7 +1190,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     Vector2 plasmaShootVelocity = npc.velocity.SafeNormalize(Vector2.UnitY) * plasmaShootSpeed;
-                    Utilities.NewProjectileBetter(npc.Center + plasmaShootVelocity * 3f, plasmaShootVelocity, ModContent.ProjectileType<AstralPlasmaFireball>(), 200, 0f);
+                    Utilities.NewProjectileBetter(npc.Center + plasmaShootVelocity * 3f, plasmaShootVelocity, ModContent.ProjectileType<AstralPlasmaFireball>(), AstralPlasmaFireballDamage, 0f);
                     npc.netUpdate = true;
                 }
             }
@@ -1294,7 +1317,5 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             return false;
         }
         #endregion Drawing
-
-
     }
 }

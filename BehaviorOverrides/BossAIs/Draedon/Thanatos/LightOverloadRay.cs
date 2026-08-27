@@ -1,7 +1,12 @@
 using CalamityMod;
 using CalamityMod.NPCs;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.Graphics.Shaders;
@@ -9,14 +14,15 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 {
-    public class LightOverloadRay : ModProjectile
+    public class LightOverloadRay : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
         public PrimitiveTrailCopy LaserDrawer;
         public static NPC Thanatos => Main.npc[CalamityGlobalNPC.draedonExoMechWorm];
         public Vector2 StartingPosition => Thanatos.Center - (Thanatos.rotation - MathHelper.PiOver2).ToRotationVector2() * projectile.Opacity * 5f;
 
         // This is only used in drawing to represent increments as a semi-hack. Don't mess with it.
-        public float RayHue = 0f;
+        public float RayHue;
 
         public const int Lifetime = 45;
         public ref float Time => ref projectile.ai[0];
@@ -38,6 +44,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             projectile.ignoreWater = true;
             projectile.timeLeft = Lifetime;
             projectile.hostile = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -86,15 +93,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             return color;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
-            Main.spriteBatch.SetBlendState(BlendState.Additive);
+            spriteBatch.SetBlendState(BlendState.Additive);
 
             if (LaserDrawer is null)
-                LaserDrawer = new PrimitiveTrailCopy(LaserWidthFunction, LaserColorFunction, null, true, GameShaders.Misc["Infernum:Fire"]);
+                LaserDrawer = new PrimitiveTrailCopy(LaserWidthFunction, LaserColorFunction, null, true, InfernumEffectsRegistry.FireVertexShader);
 
-            GameShaders.Misc["Infernum:Fire"].UseSaturation(0.14f);
-            GameShaders.Misc["Infernum:Fire"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/CultistRayMap"));
+            InfernumEffectsRegistry.FireVertexShader.UseSaturation(0.14f);
+            InfernumEffectsRegistry.FireVertexShader.SetShaderTexture(InfernumTextureRegistry.CultistRayMap);
 
             List<float> rotationPoints = new List<float>();
             List<Vector2> drawPoints = new List<Vector2>();
@@ -116,11 +125,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                     drawPoints.Add(Vector2.Lerp(start, end, j / 8f));
                 }
 
-                LaserDrawer.Draw(drawPoints, -Main.screenPosition, 20);
-                LaserDrawer.Draw(drawPoints, -Main.screenPosition, 20);
+                LaserDrawer.DrawPixelated(drawPoints, -Main.screenPosition, 20);
+                LaserDrawer.DrawPixelated(drawPoints, -Main.screenPosition, 20);
             }
             Main.instance.GraphicsDevice.BlendState = oldBlendState;
-            return false;
         }
 
         public override Color? GetAlpha(Color lightColor) => new Color(projectile.Opacity, projectile.Opacity, projectile.Opacity, 0);

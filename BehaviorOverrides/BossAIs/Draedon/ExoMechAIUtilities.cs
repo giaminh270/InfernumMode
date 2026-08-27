@@ -1,5 +1,6 @@
-using CalamityMod.NPCs;
+﻿using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Ares;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -10,6 +11,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
 {
     public static class ExoMechAIUtilities
     {
+        public enum ExoMechMusicPhases
+        {
+            Draedon,
+            Thanatos,
+            Twins,
+            Ares,
+            AllThree
+        }
+
         public static void DoSnapHoverMovement(NPC npc, Vector2 destination, float flySpeed, float hyperSpeedCap)
         {
             float distanceFromDestination = npc.Distance(destination);
@@ -68,6 +78,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             npc.target = aresBody.target;
             npc.Opacity = aresBody.Opacity;
             npc.dontTakeDamage = aresBody.dontTakeDamage;
+            npc.scale = aresBody.scale;
+            npc.hide = aresBody.hide;
 
             // Inherit death animation variables from Ares.
             npc.Infernum().ExtraAI[ExoMechManagement.DeathAnimationTimerIndex] = aresBody.Infernum().ExtraAI[ExoMechManagement.DeathAnimationTimerIndex];
@@ -90,7 +102,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                 idealRotation += MathHelper.TwoPi;
             if (idealRotation > MathHelper.TwoPi)
                 idealRotation -= MathHelper.TwoPi;
-            npc.rotation = npc.rotation.AngleTowards(idealRotation, 0.065f);
+
+            // Turn more sharply during the ultimate attack, to ensure that players don't get fucked due to it taking a long time for their baiting movements to actually matter.
+            bool performingUltimateAttack = aresBody.ai[0] == (int)AresBodyBehaviorOverride.AresBodyAttackType.PrecisionBlasts;
+            float angularVelocity = performingUltimateAttack ? 0.156f : 0.065f;
+
+            npc.rotation = npc.rotation.AngleTowards(idealRotation, angularVelocity);
             currentDirection = npc.rotation;
             if (Math.Sin(currentDirection) < 0f)
                 currentDirection += MathHelper.Pi;
@@ -105,10 +122,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
 
                 npc.spriteDirection = -npc.direction;
             }
+
+            // Determine direction based on rotation.
+            npc.direction = (npc.rotation > 0f).ToDirectionInt();
+
             return aimDirection;
         }
 
-        public static void DrawAresArmTelegraphEffect(SpriteBatch spriteBatch, NPC npc, Color telegraphColor, Texture2D texture, Vector2 drawCenter, Rectangle frame, Vector2 origin)
+        public static void DrawAresArmTelegraphEffect(NPC npc, Color telegraphColor, Texture2D texture, Vector2 drawCenter, Rectangle frame, Vector2 origin)
         {
             SpriteEffects spriteEffects = SpriteEffects.None;
             if (npc.spriteDirection == 1)
@@ -122,21 +143,23 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             {
                 float whiteFade = (float)Math.Sin(Main.GlobalTime * 20f) * 0.5f + 0.5f;
                 telegraphColor = Color.Lerp(telegraphColor, Color.White, whiteFade);
-                telegraphColor *= Utils.InverseLerp(0f, 0.65f, telegraphGlowInterpolant, true) * (float)Math.Pow(Utils.InverseLerp(1f, 0.85f, telegraphGlowInterpolant, true), 2D);
+                telegraphColor *= Utils.InverseLerp(0f, 0.65f, telegraphGlowInterpolant, true) * (float)Math.Pow(Utils.InverseLerp(1f, 0.85f, telegraphGlowInterpolant, true), 2f);
 
                 float backAfterimageOffset = telegraphGlowInterpolant * 10f;
                 backAfterimageOffset += Utils.InverseLerp(0.85f, 1f, telegraphGlowInterpolant, true) * 20f;
-                for (int i = 0; i < 13; i++)
+
+                int afterimageCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 4 : 13;
+                for (int i = 0; i < afterimageCount; i++)
                 {
                     Color color = telegraphColor * 0.6f;
                     color.A = 0;
-                    Vector2 drawOffset = (MathHelper.TwoPi * i / 13f).ToRotationVector2() * backAfterimageOffset;
+                    Vector2 drawOffset = (MathHelper.TwoPi * i / afterimageCount).ToRotationVector2() * backAfterimageOffset;
                     Main.spriteBatch.Draw(texture, drawCenter + drawOffset, frame, npc.GetAlpha(color), npc.rotation, origin, npc.scale, spriteEffects, 0f);
                 }
             }
         }
 
-        public static void DrawFinalPhaseGlow(SpriteBatch spriteBatch, NPC npc, Texture2D texture, Vector2 drawCenter, Rectangle frame, Vector2 origin)
+        public static void DrawFinalPhaseGlow(NPC npc, Texture2D texture, Vector2 drawCenter, Rectangle frame, Vector2 origin)
         {
             SpriteEffects spriteEffects = SpriteEffects.None;
             if (npc.spriteDirection == 1)
@@ -159,11 +182,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             if (finalPhaseGlowInterpolant > 0f)
             {
                 float backAfterimageOffset = finalPhaseGlowInterpolant * 6f;
-                for (int i = 0; i < 6; i++)
+                // Fewer afterimages under Reduced Graphics.
+                int afterimageCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 2 : 6;
+                for (int i = 0; i < afterimageCount; i++)
                 {
-                    Color color = Main.hslToRgb((i / 12f + Main.GlobalTime * 0.6f + npc.whoAmI * 0.54f) % 1f, 1f, 0.56f);
+                    Color color = Main.hslToRgb((i / (float)afterimageCount + Main.GlobalTime * 0.6f + npc.whoAmI * 0.54f) % 1f, 1f, 0.56f);
                     color.A = 0;
-                    Vector2 drawOffset = (MathHelper.TwoPi * i / 6f + Main.GlobalTime * 0.8f).ToRotationVector2() * backAfterimageOffset;
+
+                    if (npc.realLife >= 0 && Main.npc[npc.realLife].type == ModContent.NPCType<AresBody>())
+                        color *= (float)Math.Pow(1f - Main.npc[npc.realLife].localAI[3], 1.9f);
+
+                    Vector2 drawOffset = (MathHelper.TwoPi * i / afterimageCount + Main.GlobalTime * 0.8f).ToRotationVector2() * backAfterimageOffset;
                     Main.spriteBatch.Draw(texture, drawCenter + drawOffset, frame, npc.GetAlpha(color), npc.rotation, origin, npc.scale, spriteEffects, 0f);
                 }
             }

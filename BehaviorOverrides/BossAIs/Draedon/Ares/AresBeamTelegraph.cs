@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using Terraria;
@@ -11,13 +11,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
 
         public NPC ThingToAttachTo => Main.npc.IndexInRange((int)projectile.ai[0]) ? Main.npc[(int)projectile.ai[0]] : null;
+
         public float ConvergenceRatio => MathHelper.SmoothStep(0f, 1f, Utils.InverseLerp(Lifetime * 0.2f, Lifetime * 0.66f, Time, true));
+
         public ref float StartingRotationalOffset => ref projectile.ai[1];
+
         public ref float ConvergenceAngle => ref projectile.localAI[0];
+
         public ref float Time => ref projectile.localAI[1];
+
         public const int Lifetime = 40;
+
         public const float TelegraphWidth = 3600f;
+
         public const float BeamPosOffset = 16f;
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Gamma Disintegration Beam Telegraph");
 
         public override void SetDefaults()
@@ -28,6 +36,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             projectile.alpha = 255;
             projectile.penetrate = -1;
             projectile.timeLeft = Lifetime;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)

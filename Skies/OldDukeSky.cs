@@ -10,8 +10,8 @@ namespace InfernumMode.Skies
 {
     public class OldDukeSky : CustomSky
     {
-        private bool isActive = false;
-        private float intensity = 0f;
+        private bool isActive;
+        private float intensity;
         private int OldDukeIndex = -1;
 
         public override void Update(GameTime gameTime)
@@ -33,7 +33,7 @@ namespace InfernumMode.Skies
                 float x = 0f;
                 if (OldDukeIndex != -1)
                 {
-                    x = Vector2.Distance(Main.player[Main.myPlayer].Center, Main.npc[this.OldDukeIndex].Center);
+                    x = Vector2.Distance(Main.player[Main.myPlayer].Center, Main.npc[OldDukeIndex].Center);
                 }
                 return (1f - Utils.SmoothStep(3000f, 6000f, x)) * 0.65f;
             }
@@ -42,7 +42,7 @@ namespace InfernumMode.Skies
 
         public override Color OnTileColor(Color inColor)
         {
-            float intensity = this.GetIntensity();
+            float intensity = GetIntensity();
             return new Color(Vector4.Lerp(new Vector4(0.5f, 0.8f, 0.5f, 1f), inColor.ToVector4(), 1f - intensity));
         }
 
@@ -69,7 +69,7 @@ namespace InfernumMode.Skies
             if (maxDepth >= 0 && minDepth < 0)
             {
                 float intensity = GetIntensity();
-                spriteBatch.Draw(Main.blackTileTexture, new Rectangle(0, 0, Main.screenWidth, Main.screenHeight), InfernumMode.HiveMindSkyColor * intensity);
+                spriteBatch.Draw(Main.blackTileTexture, new Rectangle(0, 0, Main.screenWidth, Main.screenHeight), new Color(42, 52, 82) * intensity);
             }
         }
 

@@ -1,3 +1,4 @@
+using InfernumMode.DataStructures;
 using InfernumMode.ILEditingStuff;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -9,10 +10,14 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 {
-    public class StardustConstellation : ModProjectile
+    public class StardustConstellation : ModProjectile, IAdditiveDrawer
     {
         public ref float Index => ref projectile.ai[0];
+
         public ref float Time => ref projectile.localAI[1];
+
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/LaserCircle";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Star");
 
         public override void SetDefaults()
@@ -24,6 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             projectile.tileCollide = false;
             projectile.hide = true;
             projectile.timeLeft = 900;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -37,7 +43,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             Time++;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void AdditiveDraw(SpriteBatch spriteBatch)
         {
             Projectile projectileToConnectTo = null;
             for (int i = 0; i < Main.maxProjectiles; i++)
@@ -53,7 +61,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                 break;
             }
 
-            float fadeToOrange = Utils.InverseLerp(50f, 0f, projectile.timeLeft, true);
+            float fadeToOrange = Utils.InverseLerp(50f, 0f, projectile.timeLeft, true) * 0.4f;
             Color stardustColor = new Color(0, 213, 255);
             Color solarColor = new Color(255, 140, 0);
             Color starColor = Color.Lerp(stardustColor, solarColor, fadeToOrange);
@@ -66,9 +74,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             {
                 float drawOffsetFactor = ((float)Math.Cos(Main.GlobalTime * 40f) * 0.5f + 0.5f) * scaleFactor * fadeToOrange * 8f + 1f;
                 Vector2 drawOffset = (MathHelper.TwoPi * i / 16f).ToRotationVector2() * drawOffsetFactor;
-                spriteBatch.Draw(starTexture, drawPosition + drawOffset, null, starColor * 0.4f, 0f, starTexture.Size() * 0.5f, projectile.scale * scaleFactor, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(starTexture, drawPosition + drawOffset, null, starColor * 0.4f, 0f, starTexture.Size() * 0.5f, projectile.scale * scaleFactor, 0, 0f);
             }
-            spriteBatch.Draw(starTexture, drawPosition, null, starColor * 4f, 0f, starTexture.Size() * 0.5f, projectile.scale * scaleFactor, SpriteEffects.None, 0f);
+            spriteBatch.Draw(starTexture, drawPosition, null, starColor * 4f, 0f, starTexture.Size() * 0.5f, projectile.scale * scaleFactor, 0, 0f);
 
             if (projectileToConnectTo != null)
             {
@@ -81,15 +89,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                 Color drawColor = Color.White;
                 float rotation = (end - start).ToRotation() - MathHelper.PiOver2;
 
-                spriteBatch.Draw(lineTexture, start - Main.screenPosition, null, drawColor, rotation, origin, scale, SpriteEffects.None, 0f);
+                spriteBatch.Draw(lineTexture, start - Main.screenPosition, null, drawColor, rotation, origin, scale, 0, 0f);
             }
-
-            return false;
-        }
-
-        public override void DrawBehind(int index, List<int> drawCacheProjsBehindNPCsAndTiles, List<int> drawCacheProjsBehindNPCs, List<int> drawCacheProjsBehindProjectiles, List<int> drawCacheProjsOverWiresUI)
-        {
-            DrawBlackEffectHook.DrawCacheAdditiveLighting.Add(index);
         }
 
         public override void Kill(int timeLeft)
@@ -102,8 +103,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             if (projectile.identity % 2f == 1f)
                 initialVelocity = initialVelocity.RotatedBy(MathHelper.PiOver2);
 
-            Utilities.NewProjectileBetter(projectile.Center, -initialVelocity, ProjectileID.CultistBossFireBall, 215, 0f);
-            Utilities.NewProjectileBetter(projectile.Center, initialVelocity, ProjectileID.CultistBossFireBall, 215, 0f);
+            Utilities.NewProjectileBetter(projectile.Center, -initialVelocity, ProjectileID.CultistBossFireBall, MoonLordCoreBehaviorOverride.FireballDamage, 0f);
+            Utilities.NewProjectileBetter(projectile.Center, initialVelocity, ProjectileID.CultistBossFireBall, MoonLordCoreBehaviorOverride.FireballDamage, 0f);
             Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<MoonLordExplosion>(), 0, 0f);
         }
     }

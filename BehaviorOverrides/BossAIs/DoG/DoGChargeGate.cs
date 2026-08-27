@@ -1,4 +1,5 @@
-using CalamityMod.NPCs.DevourerofGods;
+﻿using CalamityMod.NPCs.DevourerofGods;
+using InfernumMode.ExtraTextures;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
@@ -17,12 +18,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
 
         public Vector2 Destination;
 
-        public float TelegraphDelay
+        public bool IsGeneralPortalIndex;
+
+        public bool IsChargePortalIndex;
+
+        public ref float TelegraphDelay => ref projectile.ai[0];
+
+        public bool NoTelegraph
         {
-            get => projectile.localAI[0];
-            set => projectile.localAI[0] = value;
+            get => projectile.localAI[0] == 1f;
+            set => projectile.localAI[0] = value.ToInt();
         }
-        public bool NoTelegraph => projectile.localAI[0] == 1f;
 
         public ref float TelegraphTotalTime => ref projectile.ai[1];
 
@@ -37,6 +43,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
         public const float TelegraphWidth = 6400f;
 
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Portal");
 
         public override void SetDefaults()
@@ -48,19 +55,30 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             projectile.alpha = 255;
             projectile.timeLeft = 600;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)
         {
+            writer.Write(NoTelegraph);
+            writer.Write(IsGeneralPortalIndex);
+            writer.Write(IsChargePortalIndex);
             writer.Write(Time);
+            writer.Write(Lifetime);
             writer.Write(TelegraphShouldAim);
+            writer.Write(projectile.scale);
             writer.WriteVector2(Destination);
         }
 
         public override void ReceiveExtraAI(BinaryReader reader)
         {
+            NoTelegraph = reader.ReadBoolean();
+            IsGeneralPortalIndex = reader.ReadBoolean();
+            IsChargePortalIndex = reader.ReadBoolean();
             Time = reader.ReadInt32();
+            Lifetime = reader.ReadSingle();
             TelegraphShouldAim = reader.ReadBoolean();
+            projectile.scale = reader.ReadSingle();
             Destination = reader.ReadVector2();
         }
 
@@ -76,6 +94,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             {
                 projectile.Kill();
                 return;
+            }
+
+            if (Time < Lifetime - FadeoutTime)
+            {
+                if (IsGeneralPortalIndex)
+                    DoGPhase1HeadBehaviorOverride.GeneralPortalIndex = projectile.whoAmI;
+                if (IsChargePortalIndex)
+                    DoGPhase1HeadBehaviorOverride.ChargePortalIndex = projectile.whoAmI;
             }
 
             if (Time >= Lifetime)
@@ -99,40 +125,40 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             Time++;
         }
 
-        // TODO -- Potentially try to put the portal drawing code into a utility method of sorts?
+        public override void Kill(int timeLeft)
+        {
+            if (IsGeneralPortalIndex)
+                DoGPhase1HeadBehaviorOverride.GeneralPortalIndex = -1;
+            if (IsChargePortalIndex)
+                DoGPhase1HeadBehaviorOverride.ChargePortalIndex = -1;
+        }
+
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             float fade = Utils.InverseLerp(0f, 35f, Time, true);
             if (Time >= Lifetime - FadeoutTime)
                 fade = Utils.InverseLerp(Lifetime, Lifetime - FadeoutTime, Time, true);
 
-            Texture2D noiseTexture = ModContent.GetTexture("CalamityMod/ExtraTextures/VoronoiShapes");
+            Texture2D noiseTexture = InfernumTextureRegistry.VoronoiShapes;
             Vector2 drawPosition = projectile.Center - Main.screenPosition;
             Vector2 origin2 = noiseTexture.Size() * 0.5f;
             if (NoTelegraph)
             {
-                spriteBatch.EnterShaderRegion();
+                Main.spriteBatch.EnterShaderRegion();
 
                 GameShaders.Misc["CalamityMod:DoGPortal"].UseOpacity(fade);
                 GameShaders.Misc["CalamityMod:DoGPortal"].UseColor(new Color(0.2f, 1f, 1f, 0f));
                 GameShaders.Misc["CalamityMod:DoGPortal"].UseSecondaryColor(new Color(1f, 0.2f, 1f, 0f));
                 GameShaders.Misc["CalamityMod:DoGPortal"].Apply();
 
-                spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin2, projectile.scale * 3.5f, SpriteEffects.None, 0f);
-                spriteBatch.ExitShaderRegion();
+                Main.spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin2, projectile.scale * 3.5f, SpriteEffects.None, 0f);
+                Main.spriteBatch.ExitShaderRegion();
                 return false;
             }
 
             Texture2D laserTelegraph = ModContent.GetTexture("CalamityMod/ExtraTextures/LaserWallTelegraphBeam");
-            float yScale = 4f;
-            if (TelegraphDelay < TelegraphFadeTime)
-            {
-                yScale = MathHelper.Lerp(0f, 2f, TelegraphDelay / 15f);
-            }
-            if (TelegraphDelay > TelegraphTotalTime - TelegraphFadeTime)
-            {
-                yScale = MathHelper.Lerp(2f, 0f, (TelegraphDelay - (TelegraphTotalTime - TelegraphFadeTime)) / 15f);
-            }
+            float yScale = Utils.InverseLerp(0f, 12f, TelegraphDelay, true) * Utils.InverseLerp(TelegraphTotalTime, TelegraphTotalTime - 12f, TelegraphDelay, true) * 4f;
+
             Vector2 scaleInner = new Vector2(TelegraphWidth / laserTelegraph.Width, yScale);
             Vector2 origin = laserTelegraph.Size() * new Vector2(0f, 0.5f);
             Vector2 scaleOuter = scaleInner * new Vector2(1f, 1.9f);
@@ -154,8 +180,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             GameShaders.Misc["CalamityMod:DoGPortal"].UseSecondaryColor(Color.Fuchsia);
             GameShaders.Misc["CalamityMod:DoGPortal"].Apply();
 
-            spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin2, 2.7f, SpriteEffects.None, 0f);
-            spriteBatch.ExitShaderRegion();
+            Main.spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin2, 2.7f, SpriteEffects.None, 0f);
+            Main.spriteBatch.ExitShaderRegion();
             return false;
         }
     }

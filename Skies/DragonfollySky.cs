@@ -1,14 +1,16 @@
+﻿using CalamityMod.NPCs.Bumblebirb;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.Graphics.Effects;
+using Terraria.ModLoader;
 
 namespace InfernumMode.Skies
 {
     public class DragonfollySky : CustomSky
     {
-        public bool isActive = false;
-        public float Intensity = 0f;
+        public bool isActive;
+        public float Intensity;
         public int BirdbrainIndex = -1;
 
         public override void Update(GameTime gameTime)
@@ -26,13 +28,13 @@ namespace InfernumMode.Skies
 
         public override Color OnTileColor(Color inColor)
         {
-            float Intensity = this.GetIntensity();
+            float Intensity = GetIntensity();
             return new Color(Vector4.Lerp(new Vector4(0.5f, 0.8f, 1f, 1f), inColor.ToVector4(), 1f - Intensity));
         }
 
         private bool UpdatePIndex()
         {
-            int ProvType = InfernumMode.CalamityMod.NPCType("HiveMindP2");
+            int ProvType = ModContent.NPCType<Bumblefuck>();
             if (BirdbrainIndex >= 0 && Main.npc[BirdbrainIndex].active && Main.npc[BirdbrainIndex].type == ProvType)
             {
                 return true;
@@ -53,8 +55,8 @@ namespace InfernumMode.Skies
         {
             if (maxDepth >= 0 && minDepth < 0)
             {
-                float Intensity = this.GetIntensity();
-                spriteBatch.Draw(Main.blackTileTexture, new Rectangle(0, 0, Main.screenWidth, Main.screenHeight), InfernumMode.HiveMindSkyColor * Intensity);
+                float intensity = GetIntensity();
+                spriteBatch.Draw(Main.blackTileTexture, new Rectangle(0, 0, Main.screenWidth, Main.screenHeight), new Color(52, 42, 82) * intensity);
             }
         }
 

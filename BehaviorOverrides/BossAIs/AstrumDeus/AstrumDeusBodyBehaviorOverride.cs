@@ -57,7 +57,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             // Emit particles if the head says to do so.
             if (Main.netMode != NetmodeID.MultiplayerClient && headSegment.localAI[1] == 1f && Main.rand.NextFloat() < npc.Opacity)
                 Utilities.NewProjectileBetter(npc.Center, Main.rand.NextVector2Circular(4f, 4f), ModContent.ProjectileType<AstralSparkle>(), 0, 0f);
-            
+
             return false;
         }
 

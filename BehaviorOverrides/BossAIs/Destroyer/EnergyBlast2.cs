@@ -1,4 +1,6 @@
+using CalamityMod.Particles;
 using CalamityMod;
+using InfernumMode.Particles;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -22,6 +24,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.timeLeft = 240;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -44,7 +47,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
         // Explode on death.
         public override void Kill(int timeLeft)
         {
-            Utilities.CreateGenericDustExplosion(projectile.Center, 235, 35, 12f, 4.25f);
+            // Create particles and sounds at the explosion point.
+            for (int i = 0; i < 20; i++)
+            {
+                Color fireColor = Main.rand.NextBool() ? Color.Yellow : Color.Red;
+                CloudParticle fireCloud = new CloudParticle(projectile.Center, Main.rand.NextVector2Circular(8f, 8f), fireColor, Color.DarkGray, 54, Main.rand.NextFloat(2f, 3f));
+                GeneralParticleHandler.SpawnParticle(fireCloud);
+            }
             Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/FlareSound"), projectile.Center);
             if (Main.netMode == NetmodeID.MultiplayerClient)
                 return;
@@ -52,10 +61,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
             for (int i = 0; i < 35; i++)
             {
                 Vector2 fireVelocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(14f, 21f);
-                Utilities.NewProjectileBetter(projectile.Center, fireVelocity, ModContent.ProjectileType<EnergySpark>(), 125, 0f);
+                Utilities.NewProjectileBetter(projectile.Center, fireVelocity, ModContent.ProjectileType<EnergySpark>(), DestroyerHeadBehaviorOverride.EnergySparkDamage, 0f);
             }
         }
-
-        
     }
 }

@@ -19,6 +19,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
             projectile.ignoreWater = true;
             projectile.tileCollide = false;
             projectile.timeLeft = 420;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -27,7 +28,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
             {
                 Dust dust = Dust.NewDustPerfect(projectile.Center + Main.rand.NextVector2Circular(35f, 35f), 89);
                 dust.velocity = Main.rand.NextVector2Circular(6f, 6f);
-                dust.scale = Main.rand.NextFloat(1.1f, 1.35f);
+                dust.scale = Main.rand.NextFloat(0.5f, 0.7f);
                 dust.noGravity = true;
             }
             projectile.frameCounter++;

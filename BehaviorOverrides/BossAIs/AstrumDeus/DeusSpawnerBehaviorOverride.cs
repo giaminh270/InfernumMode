@@ -2,6 +2,7 @@ using CalamityMod;
 using CalamityMod.NPCs.AstrumDeus;
 using CalamityMod.Particles;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.Particles;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -35,9 +36,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     int deus = NPC.NewNPC((int)projectile.Center.X, (int)projectile.Center.Y - 1900, ModContent.NPCType<AstrumDeusHeadSpectral>());
-                    CalamityMod.CalamityUtils.BossAwakenMessage(deus);
+                    CalamityUtils.BossAwakenMessage(deus);
                 }
 
+                Color[] explosionColors = new Color[]
+                {
+                    new Color(250, 90, 74, 127),
+                    new Color(76, 255, 194, 127)
+                };
+                GeneralParticleHandler.SpawnParticle(new ElectricExplosionRing(projectile.Center, Vector2.Zero, explosionColors, 3f, 180, 1.9f));
+                ScreenEffectSystem.SetBlurEffect(projectile.Center, 0.5f, 20);
             }
 
             if (NPC.AnyNPCs(ModContent.NPCType<AstrumDeusHeadSpectral>()) && timer < 375f)
@@ -75,7 +83,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 {
                     float fade = 1f - Math.Abs(i - 75f) / 75f;
                     Vector2 drawPosition = baseDrawPosition + Vector2.UnitY * (i - 75f) / 75f * borderOutwardness;
-                    Main.spriteBatch.Draw(borderTexture, drawPosition, null, Color.Lerp(borderColor, borderColor2, 1f - fade) * fade, 0f, borderTexture.Size() * 0.5f, new Vector2(0.33f, 1f), 0, 0f);
+                    Main.spriteBatch.Draw(borderTexture, drawPosition, null, Color.Lerp(borderColor, borderColor2, 1f - fade) * fade, 0f, borderTexture.Size() * 0.5f, new Vector2(0.33f, 1f), SpriteEffects.None, 0f);
                 }
             }
 
@@ -83,7 +91,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             {
                 Vector2 baseDrawPosition = new Vector2(right, Main.LocalPlayer.Center.Y) - Main.screenPosition;
                 float borderOutwardness = Utils.InverseLerp(0f, 0.9f, rightBorderOpacity, true) * MathHelper.Lerp(700f, 755f, (float)Math.Cos(Main.GlobalTime * 4.4f) * 0.5f + 0.5f);
-                Color borderColor = Color.Lerp(Color.Transparent, Color.Orange, rightBorderOpacity);
+                Color borderColor = Color.Lerp(Color.Transparent, borderColor1, rightBorderOpacity);
 
                 for (int i = 0; i < 150; i++)
                 {

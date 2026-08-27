@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.Calamitas;
@@ -23,6 +23,7 @@ using CalCloneNPC = CalamityMod.NPCs.Calamitas.CalamitasRun3;
 using SCalNPC = CalamityMod.NPCs.SupremeCalamitas.SupremeCalamitas;
 using static System.Math;
 using static Microsoft.Xna.Framework.MathHelper;
+using InfernumMode.Sounds;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 {
@@ -453,9 +454,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                     // Release falling brimstone bombs after the uppercut is over.
                     if (wrappedAttackTimer == attackDelay + uppercutTime && !npc.WithinRange(target.Center, 300f))
                     {
-                        Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/Sizzle"), target.Center);
-                        Main.LocalPlayer.Infernum().CurrentScreenShakePower = 5f;
-                        //sus ScreenEffectSystem.SetFlashEffect(npc.Center, 1f, 20);
+                        Main.PlaySound(InfernumSoundRegistry.SizzleSound, target.Center);
+                        target.Infernum().CurrentScreenShakePower = 5f;
+                        ScreenEffectSystem.SetFlashEffect(npc.Center, 1f, 20);
 
                         if (Main.netMode != NetmodeID.MultiplayerClient)
                         {

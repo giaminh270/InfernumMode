@@ -1,6 +1,9 @@
 using CalamityMod;
 using CalamityMod.CalPlayer;
 using CalamityMod.Events;
+using InfernumMode.Effects;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -11,8 +14,9 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
 {
-    public class Tornado : ModProjectile
+    public class Tornado : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
         internal PrimitiveTrailCopy TornadoDrawer;
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
         public ref float TornadoHeight => ref projectile.ai[0];
@@ -83,12 +87,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
                 ref _);
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (TornadoDrawer is null)
-                TornadoDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:DukeTornado"]);
+                TornadoDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.DukeTornadoVertexShader);
 
-            GameShaders.Misc["Infernum:DukeTornado"].SetShaderTexture(ModContent.GetTexture("Terraria/Misc/Perlin"));
+            InfernumEffectsRegistry.DukeTornadoVertexShader.SetShaderTexture(ModContent.GetTexture("Terraria/Misc/Perlin"));
             Vector2 upwardAscent = Vector2.UnitY * TornadoHeight;
             Vector2 top = projectile.Bottom - upwardAscent;
             List<Vector2> drawPoints = new List<Vector2>()
@@ -99,13 +105,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
                 drawPoints.Add(Vector2.Lerp(top, projectile.Bottom, i / 19f) + Vector2.UnitY * 75f);
 
             for (int i = 0; i < 2; i++)
-                TornadoDrawer.Draw(drawPoints, -Main.screenPosition, 85);
-            return false;
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
+                TornadoDrawer.DrawPixelated(drawPoints, -Main.screenPosition, 85);
         }
     }
 }

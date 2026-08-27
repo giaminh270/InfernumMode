@@ -31,13 +31,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
             projectile.Opacity = 0f;
             cooldownSlot = 1;
         }
-        
+
         public override void AI()
         {
             // Create ice dust on the first frame.
             if (projectile.localAI[1] == 0f)
             {
-                for (int i = 0; i < 5; i++)
+                for (int i = 0; i < 10; i++)
                 {
                     Dust ice = Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, 33, 0f, 0f, 100, default, 2f);
                     ice.velocity *= 3f;

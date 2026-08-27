@@ -1,18 +1,23 @@
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using System;
+﻿using Microsoft.Xna.Framework;
 using System.Collections.Generic;
 using Terraria;
-using Terraria.Graphics.Shaders;
 using Terraria.ModLoader;
+using System;
+using Microsoft.Xna.Framework.Graphics;
+using InfernumMode.Effects;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 {
     public class DyingSun : ModProjectile
     {
         public PrimitiveTrailCopy FireDrawer;
+
         public ref float Time => ref projectile.ai[0];
+
         public ref float Radius => ref projectile.ai[1];
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Dying Sun");
 
         public override void SetDefaults()
@@ -48,10 +53,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             if (FireDrawer is null)
-                FireDrawer = new PrimitiveTrailCopy(SunWidthFunction, SunColorFunction, null, true, GameShaders.Misc["Infernum:Fire"]);
+                FireDrawer = new PrimitiveTrailCopy(SunWidthFunction, SunColorFunction, null, true, InfernumEffectsRegistry.FireVertexShader);
 
-            GameShaders.Misc["Infernum:Fire"].UseSaturation(0.45f);
-            GameShaders.Misc["Infernum:Fire"].UseImage("Images/Misc/Perlin");
+            InfernumEffectsRegistry.FireVertexShader.UseSaturation(0.45f);
+            InfernumEffectsRegistry.FireVertexShader.UseImage("Images/Misc/Perlin");
 
             List<float> rotationPoints = new List<float>();
             List<Vector2> drawPoints = new List<Vector2>();

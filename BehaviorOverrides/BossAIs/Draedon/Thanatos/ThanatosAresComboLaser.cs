@@ -1,16 +1,18 @@
 using CalamityMod;
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.NPCs;
+using InfernumMode.Graphics.Interfaces;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using InfernumMode.ExtraTextures;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 {
-    public class ThanatosAresComboLaser : ModProjectile
+    public class ThanatosAresComboLaser : ModProjectile, IScreenCullDrawer
     {
         public ref float TelegraphDelay => ref projectile.ai[0];
         public ref float PulseFlash => ref projectile.localAI[0];
@@ -22,7 +24,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
         public Vector2 Velocity;
         public const float TelegraphTotalTime = 55f;
         public const float TelegraphFadeTime = 15f;
-        public const float TelegraphWidth = 1950f;
+        public const float TelegraphWidth = 1200f;
         public const float LaserVelocity = 10f;
 
         public override void SetStaticDefaults()
@@ -42,6 +44,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             projectile.penetrate = -1;
             projectile.extraUpdates = 1;
             projectile.timeLeft = 960;
+            projectile.hide = true;
             projectile.Calamity().canBreakPlayerDefense = true;
             cooldownSlot = 1;
         }
@@ -156,11 +159,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             }
             else
             {
-                // Set start of telegraph to the npc center.
-                projectile.Center = ThingToAttachTo.Center;
-
                 // Calculate and store the velocity that will be used for laser telegraph rotation and beam firing.
-                Vector2 projectileDestination = Destination - ThingToAttachTo.Center;
+                Vector2 projectileDestination = Destination - projectile.Center;
                 Velocity = Vector2.Normalize(projectileDestination) * InitialSpeed;
 
                 // Direction and rotation.
@@ -187,45 +187,42 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 target.AddBuff(ModContent.BuffType<BrimstoneFlames>(), 180);
         }
 
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
-        }
-
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
         {
             return CalamityUtils.CircularHitboxCollision(projHitbox.Center(), projectile.Size.Length() * 0.5f, targetHitbox);
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void CullDraw(SpriteBatch spriteBatch)
         {
             if (TelegraphDelay >= TelegraphTotalTime)
             {
-                lightColor.R = (byte)(255 * projectile.Opacity);
-                lightColor.G = (byte)(255 * projectile.Opacity);
-                lightColor.B = (byte)(255 * projectile.Opacity);
                 Vector2 drawOffset = projectile.velocity.SafeNormalize(Vector2.Zero) * -30f;
                 projectile.Center += drawOffset;
-                CalamityUtils.DrawAfterimagesCentered(projectile, ProjectileID.Sets.TrailingMode[projectile.type], lightColor, 1);
+                CalamityUtils.DrawAfterimagesCentered(projectile, ProjectileID.Sets.TrailingMode[projectile.type], Color.White * projectile.Opacity, 1);
                 projectile.Center -= drawOffset;
-                return false;
+                return;
             }
 
-            Texture2D laserTelegraph = ModContent.GetTexture("CalamityMod/ExtraTextures/LaserWallTelegraphBeam");
+            Texture2D laserTelegraph = InfernumTextureRegistry.BloomLineSmall;
 
-            float yScale = 2f;
+            float xScale = 0.75f;
             if (TelegraphDelay < TelegraphFadeTime)
-                yScale = MathHelper.Lerp(0f, yScale, TelegraphDelay / 15f);
+                xScale = MathHelper.Lerp(0f, xScale, TelegraphDelay / 15f);
             if (TelegraphDelay > TelegraphTotalTime - TelegraphFadeTime)
-                yScale = MathHelper.Lerp(yScale, 0f, (TelegraphDelay - (TelegraphTotalTime - TelegraphFadeTime)) / 15f);
+                xScale = MathHelper.Lerp(xScale, 0f, (TelegraphDelay - (TelegraphTotalTime - TelegraphFadeTime)) / 15f);
 
-            Vector2 scaleInner = new Vector2(TelegraphWidth / laserTelegraph.Width, yScale);
-            Vector2 origin = laserTelegraph.Size() * new Vector2(0f, 0.5f);
-            Vector2 scaleOuter = scaleInner * new Vector2(1f, 1.5f);
+            Vector2 scaleInner = new Vector2(xScale, 1750f / laserTelegraph.Height);
+            Vector2 origin = laserTelegraph.Size() * new Vector2(0.5f, 0f);
+            Vector2 scaleOuter = scaleInner * new Vector2(1.5f, 1f);
 
             Color colorOuter = Color.Lerp(Color.Red, Color.White, TelegraphDelay / TelegraphTotalTime * 0.4f);
-            Main.spriteBatch.Draw(laserTelegraph, projectile.Center - Main.screenPosition, null, colorOuter, Velocity.ToRotation(), origin, scaleOuter, SpriteEffects.None, 0f);
-            return false;
+            Color colorInner = Color.Lerp(colorOuter, Color.White, 0.5f);
+            colorOuter.A = 0;
+            colorInner.A = 0;
+            Main.spriteBatch.Draw(laserTelegraph, projectile.Center - Main.screenPosition, null, colorOuter, Velocity.ToRotation() - MathHelper.PiOver2, origin, scaleOuter, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(laserTelegraph, projectile.Center - Main.screenPosition, null, colorInner, Velocity.ToRotation() - MathHelper.PiOver2, origin, scaleInner, SpriteEffects.None, 0f);
         }
     }
 }

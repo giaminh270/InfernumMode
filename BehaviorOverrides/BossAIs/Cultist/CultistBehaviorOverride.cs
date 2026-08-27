@@ -1,6 +1,12 @@
-using CalamityMod;
+﻿using CalamityMod;
+using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Dusts;
 using CalamityMod.Events;
+using CalamityMod.Sounds;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Projectiles;
+using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -9,6 +15,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Terraria;
 using Terraria.Graphics.Shaders;
+using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -18,7 +25,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
     {
         public override int NPCOverrideType => NPCID.CultistBoss;
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCFindFrame;
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCFindFrame | NPCOverrideContext.NPCCheckDead;
 
         public enum CultistFrameState
         {
@@ -41,9 +48,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
         }
 
         public const float BorderWidth = 3472f;
+
         public const float Phase2LifeRatio = 0.65f;
+
         public const float Phase3LifeRatio = 0.25f;
+
         public const float TransitionAnimationTime = 90f;
+
+        public override float[] PhaseLifeRatioThresholds => new float[]
+        {
+            Phase2LifeRatio,
+            Phase3LifeRatio,
+        };
 
         public static readonly Color[] PillarsPallete = new Color[]
         {
@@ -61,6 +77,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
         };
 
         #region AI
+
+        public static int IceShardDamage => 185;
+
+        public static int LightBurstDamage => 195;
+
+        public static int IceMassDamage => 195;
+
+        public static int FireballDamage => 195;
+
+        public static int LightningDamage => 200;
+
+        public static int ShadowFireballDamage => 200;
+
+        public static int DarkPulseDamage => 200;
+
+        public static int FireBeamDamage => 250;
+
+        public static int DoomBeamDamage => 300;
 
         public override bool PreAI(NPC npc)
         {
@@ -82,6 +116,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             // Universally disable contact damage.
             npc.damage = 0;
 
+            // Have an increased hitbox due to the shield. The hurtbox is set in GlobalNPCOverrides.
+            npc.width = npc.height = 150;
+
             ref float attackTimer = ref npc.ai[1];
             ref float phaseState = ref npc.ai[2];
             ref float transitionTimer = ref npc.ai[3];
@@ -96,13 +133,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
             if (initialXPosition == 0f)
             {
-                initialXPosition = npc.Center.X;
+                initialXPosition = target.Center.X;
                 npc.netUpdate = true;
             }
 
             // Use the desperation attack after "dying".
             if (npc.Infernum().ExtraAI[6] == 1f)
                 attackState = CultistAIState.DesperationAttack;
+
+            // Lol. Lmao.
+            if (target.HasBuff(BuffID.Electrified))
+                target.ClearBuff(BuffID.Electrified);
+            if (target.HasBuff(ModContent.BuffType<HolyFlames>()))
+                target.ClearBuff(ModContent.BuffType<HolyFlames>());
 
             if (dying)
             {
@@ -117,6 +160,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
             // Restrict the player's position.
             target.Center = Vector2.Clamp(target.Center, new Vector2(left + target.width * 0.5f, -100f), new Vector2(right - target.width * 0.5f, Main.maxTilesY * 16f + 100f));
+            if (target.Center.X <= left + target.width * 0.5f + 16f || target.Center.X >= right - target.width * 0.5f - 16f)
+            {
+                target.velocity = target.SafeDirectionTo(new Vector2(initialXPosition, target.Center.Y)) * 10f;
+                target.Hurt(PlayerDeathReason.ByCustomReason($"{target.name} was repelled by celestial forces."), 200, 0);
+            }
+
             if (target.Center.X < left + 160f)
             {
                 Dust magic = Dust.NewDustPerfect(new Vector2(left - 12f, target.Center.Y), 261);
@@ -139,7 +188,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             }
 
             // Create an eye effect, sans-style.
-            if ((phaseState == 1f && transitionTimer >= TransitionAnimationTime + 8f) || inPhase2)
+            if (phaseState == 1f && transitionTimer >= TransitionAnimationTime + 8f || inPhase2)
                 DoEyeEffect(npc);
 
             if (shouldBeInPhase2 && !inPhase2)
@@ -182,7 +231,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
         public static void DoEyeEffect(NPC npc)
         {
-            Vector2 eyePosition = npc.Top + new Vector2(npc.spriteDirection == -1f ? -8f : 6f, 12f);
+            Vector2 eyePosition = npc.Center + new Vector2(npc.spriteDirection == -1f ? -8f : 6f, -12f);
 
             Dust eyeDust = Dust.NewDustPerfect(eyePosition, 264);
             eyeDust.color = Color.CornflowerBlue;
@@ -265,13 +314,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 Main.LocalPlayer.Infernum().CurrentScreenShakePower = 15f;
                 return;
             }
-            
+
             if (Main.netMode != NetmodeID.MultiplayerClient && Main.rand.NextBool(36) && deathTimer >= 75f && deathTimer < 210f)
                 Utilities.NewProjectileBetter(npc.Center, Main.rand.NextVector2Unit(), ModContent.ProjectileType<LightBeam>(), 0, 0f);
 
             if (deathTimer > 100f)
             {
-                Dust magic = Dust.NewDustDirect(npc.position, npc.width, npc.height, 223);
+                Dust magic = Dust.NewDustDirect(npc.position, npc.width, npc.height, DustID.FireworkFountain_Pink);
                 magic.velocity = -Vector2.UnitY.RotatedByRandom(0.29f) * Main.rand.NextFloat(2.8f, 3.5f);
                 magic.scale = Main.rand.NextFloat(1.2f, 1.3f);
                 magic.fadeIn = 0.7f;
@@ -307,8 +356,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/FlareSound"), npc.Center);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int explosion = Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<DeathExplosion>(), 0, 0f);
-                    Main.projectile[explosion].localAI[1] = variant;
+                    ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(explosion => explosion.localAI[1] = variant);
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<DeathExplosion>(), 0, 0f);
                 }
             }
 
@@ -400,7 +449,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                         int totalDust = (int)MathHelper.Lerp(1f, 4f, Utils.InverseLerp(0.5f, 0.1f, npc.Opacity, true));
                         for (int i = 0; i < totalDust; i++)
                         {
-                            Dust magic = Dust.NewDustDirect(npc.position, npc.width, npc.height, 264);
+                            Dust magic = Dust.NewDustDirect(npc.position, npc.width, npc.height, DustID.PortalBoltTrail);
                             magic.color = Color.Lerp(Color.LightPink, Color.Magenta, Main.rand.NextFloat());
                             magic.velocity = -Vector2.UnitY.RotatedByRandom(0.4f) * Main.rand.NextFloat(2.8f, 3.5f);
                             magic.scale = Main.rand.NextFloat(1.2f, 1.3f);
@@ -450,11 +499,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
         public static void DoAttack_FireballBarrage(NPC npc, Player target, ref float frameType, ref float attackTimer, bool phase2)
         {
-            int fireballShootRate = phase2 ? 11 : 7;
+            int fireballShootRate = phase2 ? 14 : 7;
             int fireballCount = phase2 ? 30 : 32;
             int hoverTime = 105;
             int laserTelegraphCreationDelay = 90;
             int attackLength = hoverTime + fireballShootRate * fireballCount;
+            float telegraphPredictivenessFactor = 28f;
             if (phase2)
                 attackLength += 390;
 
@@ -501,13 +551,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                         if (BossRushEvent.BossRushActive)
                             fireballShootVelocity *= 1.5f;
 
-                        Utilities.NewProjectileBetter(fireballSpawnPosition, fireballShootVelocity, ProjectileID.CultistBossFireBall, 195, 0f);
+                        Utilities.NewProjectileBetter(fireballSpawnPosition, fireballShootVelocity, ProjectileID.CultistBossFireBall, FireballDamage, 0f);
                     }
-                    
+
                     if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % skyFireballShootRate == skyFireballShootRate - 1f)
                     {
                         Vector2 fireballSpawnPosition = target.Center - new Vector2(Main.rand.NextFloatDirection() * 600f, -850f - target.velocity.Y * 20f);
-                        Utilities.NewProjectileBetter(fireballSpawnPosition, Vector2.UnitY * 7.75f, ProjectileID.CultistBossFireBall, 195, 0f);
+                        Utilities.NewProjectileBetter(fireballSpawnPosition, Vector2.UnitY * 7.75f, ProjectileID.CultistBossFireBall, FireballDamage, 0f);
                     }
 
                     frameType = (int)CultistFrameState.HoldArmsOut;
@@ -518,7 +568,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 {
                     // Hover above the target.
                     Vector2 destination = target.Center - Vector2.UnitY * 385f;
-                    Vector2 idealVelocity = npc.SafeDirectionTo(destination) * MathHelper.Max(11f, npc.Distance(destination) * 0.05f);
+                    Vector2 idealVelocity = npc.SafeDirectionTo(destination) * Math.Max(11f, npc.Distance(destination) * 0.05f);
 
                     if (!npc.WithinRange(destination, 185f))
                         npc.velocity = Vector2.Lerp(npc.velocity, idealVelocity, 0.165f);
@@ -544,9 +594,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                     if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % fireballShootRate == fireballShootRate - 1f)
                     {
                         Vector2 fireballSpawnPosition = target.Center + Main.rand.NextVector2Unit() * Main.rand.NextFloat(1035f, 1185f);
-                        int telegraph = Utilities.NewProjectileBetter(fireballSpawnPosition, Vector2.Zero, ModContent.ProjectileType<FireballLineTelegraph>(), 0, 0f);
-                        if (Main.projectile.IndexInRange(telegraph))
-                            Main.projectile[telegraph].ModProjectile<FireballLineTelegraph>().Destination = target.Center + target.velocity * 28f;
+
+                        ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(telegraph =>
+                        {
+                            telegraph.ModProjectile<FireballLineTelegraph>().Destination = target.Center + target.velocity * telegraphPredictivenessFactor;
+                        });
+                        Utilities.NewProjectileBetter(fireballSpawnPosition, Vector2.Zero, ModContent.ProjectileType<FireballLineTelegraph>(), 0, 0f);
                     }
                     frameType = (int)CultistFrameState.RaiseArmsUp;
                 }
@@ -559,10 +612,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 frameType = (int)CultistFrameState.RaiseArmsUp;
 
                 // Laugh before the laserbeam is created.
-                if (adjustedTime > (laserTelegraphCreationDelay - 10f) && adjustedTime < laserTelegraphCreationDelay + 50f)
+                if (adjustedTime > laserTelegraphCreationDelay - 10f && adjustedTime < laserTelegraphCreationDelay + 50f)
                     frameType = (int)CultistFrameState.Laugh;
 
-                if (adjustedTime == 10f && !npc.WithinRange(target.Center, 720f))
+                if (adjustedTime == 10f && !npc.WithinRange(target.Center, 300f))
                 {
                     Vector2 teleportPosition = target.Center - Vector2.UnitY * 325f;
                     CreateTeleportTelegraph(npc.Center, teleportPosition, 250);
@@ -618,42 +671,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             int summonLightningTime = phase2 ? 27 : 36;
             int lightningBurstTime = (hoverTime + summonLightningTime) * lightningBurstCount;
             int attackLength = lightningBurstTime + 20;
-
-            int nebulaTelegraphTime = 50;
-            int nebulaShootTime = 50;
-            int lightningCount = 18;
-            int nebulaLightningCycleCount = 2;
-            int nebulaLightningShootTime = (nebulaTelegraphTime + nebulaShootTime + 10) * nebulaLightningCycleCount;
-            Vector2 lightningSpawnPosition = npc.Center + Vector2.UnitX * npc.spriteDirection * 20f;
-            if (phase2)
-                attackLength += (nebulaTelegraphTime + nebulaShootTime + 10) * nebulaLightningCycleCount - 2;
             ref float nebulaLightningDirection = ref npc.Infernum().ExtraAI[0];
             ref float telegraphSummonCounter = ref npc.Infernum().ExtraAI[1];
-
-            // Play a chant sound and create pink dust prior to releasing red lightning.
-            if (phase2 && attackTimer >= attackLength - nebulaLightningShootTime - 35f && attackTimer < attackLength - nebulaLightningShootTime + 5f)
-            {
-                // Release hand electric dust.
-                for (int j = 0; j < 2; j++)
-                {
-                    Dust electricity = Dust.NewDustPerfect(lightningSpawnPosition, 264);
-                    electricity.velocity = Vector2.UnitX.RotatedByRandom(0.2f) * npc.spriteDirection * 2.6f;
-                    electricity.scale = Main.rand.NextFloat(1.3f, 1.425f);
-                    electricity.fadeIn = 0.9f;
-                    electricity.color = Color.Red;
-                    electricity.noLight = true;
-                    electricity.noGravity = true;
-                }
-            }
-
-            if (phase2 && attackTimer == attackLength - nebulaLightningShootTime + 5f)
-                Main.PlaySound(SoundID.Zombie, npc.Center, 91);
 
             // Hover and fly above the player.
             if (attackTimer % (hoverTime + summonLightningTime) < hoverTime && attackTimer < lightningBurstTime + 20)
             {
                 Vector2 destination = target.Center - Vector2.UnitY * 375f;
-                Vector2 idealVelocity = npc.SafeDirectionTo(destination) * MathHelper.Max(10f, npc.Distance(destination) * 0.05f);
+                Vector2 idealVelocity = npc.SafeDirectionTo(destination) * Math.Max(10f, npc.Distance(destination) * 0.05f);
 
                 if (!npc.WithinRange(destination, 185f))
                     npc.velocity = Vector2.Lerp(npc.velocity, idealVelocity, 0.15f);
@@ -743,9 +768,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                                     if (BossRushEvent.BossRushActive)
                                         lightningVelocity *= 1.3f;
 
-                                    int lightning = Utilities.NewProjectileBetter(orbSummonPosition, lightningVelocity, ProjectileID.CultistBossLightningOrbArc, 200, 0f);
-                                    Main.projectile[lightning].ai[0] = lightningVelocity.ToRotation();
-                                    Main.projectile[lightning].ai[1] = Main.rand.Next(100);
+                                    int lightning = Utilities.NewProjectileBetter(orbSummonPosition, lightningVelocity, ProjectileID.CultistBossLightningOrbArc, LightningDamage, 0f, -1, lightningVelocity.ToRotation(), Main.rand.Next(100));
                                     Main.projectile[lightning].tileCollide = false;
                                 }
                             }
@@ -759,69 +782,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 frameType = (int)CultistFrameState.RaiseArmsUp;
             }
 
-            // Release a torrent of telegraphed nebula lightning in phase 2.
-            else if (phase2)
-            {
-                // Hold hands out.
-                frameType = (int)CultistFrameState.HoldArmsOut;
-
-                npc.velocity *= 0.95f;
-
-                float wrappedAttackTimer = (attackTimer - lightningBurstTime - 3f) % (nebulaTelegraphTime + nebulaShootTime);
-
-                // Create telegraph lines.
-                if (wrappedAttackTimer < nebulaTelegraphTime)
-                {
-                    npc.spriteDirection = (target.Center.X > npc.Center.X).ToDirectionInt();
-                    if (wrappedAttackTimer == 1f && telegraphSummonCounter < nebulaLightningCycleCount)
-                    {
-                        // Play a firing sound.
-                        Main.PlaySound(SoundID.Item72, target.Center);
-
-                        if (Main.netMode != NetmodeID.MultiplayerClient)
-                        {
-                            nebulaLightningDirection = npc.AngleTo(target.Center);
-                            telegraphSummonCounter++;
-                            for (int i = 0; i < lightningCount; i++)
-                            {
-                                Vector2 telegraphDirection = (MathHelper.TwoPi * i / lightningCount + nebulaLightningDirection).ToRotationVector2();
-                                int line = Utilities.NewProjectileBetter(npc.Center, telegraphDirection, ModContent.ProjectileType<NebulaTelegraphLine>(), 0, 0f);
-                                if (Main.projectile.IndexInRange(line))
-                                {
-                                    Main.projectile[line].ai[1] = nebulaTelegraphTime - 1f;
-                                    Main.projectile[line].localAI[0] = MathHelper.Lerp(1f, 0.35f, i / (float)(lightningCount - 1f));
-                                }
-                            }
-                            npc.netUpdate = true;
-                        }
-                    }
-                }
-
-                // Release the nebula lightning.
-                else if (wrappedAttackTimer % 3f == 2f && wrappedAttackTimer < nebulaTelegraphTime + nebulaShootTime)
-                {
-                    float shootInterpolant = Utils.InverseLerp(nebulaTelegraphTime, nebulaTelegraphTime + nebulaShootTime, wrappedAttackTimer, true);
-                    Vector2 lightningVelocity = (MathHelper.TwoPi * shootInterpolant + nebulaLightningDirection).ToRotationVector2() * 1.87f;
-                    lightningSpawnPosition -= lightningVelocity * 40f;
-
-                    npc.spriteDirection = (lightningVelocity.X > 0f).ToDirectionInt();
-                    Main.PlaySound(SoundID.Item72, target.Center);
-
-                    if (Main.netMode != NetmodeID.MultiplayerClient)
-                    {
-                        int lightning = Utilities.NewProjectileBetter(lightningSpawnPosition, lightningVelocity, ModContent.ProjectileType<PinkLightning>(), 225, 0f);
-                        if (Main.projectile.IndexInRange(lightning))
-                        {
-                            Main.projectile[lightning].ai[0] = Main.projectile[lightning].velocity.ToRotation();
-                            Main.projectile[lightning].ai[1] = Main.rand.Next(100);
-                        }
-                    }
-                }
-            }
-
             if (attackTimer >= attackLength)
             {
-                Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<FireballLineTelegraph>(), ModContent.ProjectileType<PinkLightning>());
+                Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<FireballLineTelegraph>());
                 SelectNextAttack(npc);
             }
         }
@@ -895,9 +858,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                     Vector2 lightSpawnPosition = target.Center + target.velocity * 15f + Main.rand.NextVector2Circular(920f, 920f) * (BossRushEvent.BossRushActive ? 1.45f : 1f);
                     lightSpawnPosition += target.velocity * Main.rand.NextFloat(5f, 32f);
                     CreateTeleportTelegraph(npc.Center, lightSpawnPosition, 150, true, 1);
-                    int light = Utilities.NewProjectileBetter(lightSpawnPosition, Vector2.Zero, ModContent.ProjectileType<LightBurst>(), 195, 0f);
-                    if (Main.projectile.IndexInRange(light))
-                        Main.projectile[light].ai[0] = 215f - adjustedTime + Main.rand.Next(20);
+
+                    int explosionDelay = (int)(215f - adjustedTime + Main.rand.Next(20));
+                    Utilities.NewProjectileBetter(lightSpawnPosition, Vector2.Zero, ModContent.ProjectileType<LightBurst>(), LightBurstDamage, 0f, -1, explosionDelay);
                 }
             }
 
@@ -952,6 +915,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                             {
                                 Main.npc[ancientLight].velocity = shootVelocity;
                                 Main.npc[ancientLight].target = npc.target;
+                                Main.npc[ancientLight].netUpdate = true;
                             }
 
                             shotCounter++;
@@ -973,6 +937,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                     {
                         Main.npc[ancientLight].velocity = (target.Center - lightSpawnPosition.ToVector2()).SafeNormalize(Vector2.UnitY) * 13f;
                         Main.npc[ancientLight].target = npc.target;
+                        Main.npc[ancientLight].netUpdate = true;
                     }
                 }
 
@@ -980,7 +945,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 if (waitingBeforeFiring)
                 {
                     Vector2 destination = target.Center - Vector2.UnitY * 370f;
-                    Vector2 idealVelocity = npc.SafeDirectionTo(destination) * MathHelper.Max(10f, npc.Distance(destination) * 0.05f);
+                    Vector2 idealVelocity = npc.SafeDirectionTo(destination) * Math.Max(10f, npc.Distance(destination) * 0.05f);
 
                     if (!npc.WithinRange(destination, 185f))
                         npc.velocity = Vector2.Lerp(npc.velocity, idealVelocity, 0.15f);
@@ -1077,6 +1042,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                     if (Main.npc.IndexInRange(clone) && clone < Main.maxNPCs)
                     {
                         Main.npc[clone].Infernum().ExtraAI[0] = npc.whoAmI;
+                        Main.npc[clone].netUpdate = true;
                         cultists.Add(clone);
                     }
                 }
@@ -1144,7 +1110,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             }
 
             // Teleport above the player if too far away or after the ritual ends.
-            if (attackTimer == waitDelay + 1f || (attackTimer > waitDelay + 1f && attackTimer % 45f == 44f && !npc.WithinRange(target.Center, 900f)))
+            if (attackTimer == waitDelay + 1f || attackTimer > waitDelay + 1f && attackTimer % 45f == 44f && !npc.WithinRange(target.Center, 900f))
             {
                 Vector2 targetPosition = target.Center - Vector2.UnitY * 300f;
                 CreateTeleportTelegraph(npc.Center, targetPosition, 200);
@@ -1199,7 +1165,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                     for (int i = 0; i < 5; i++)
                     {
                         Vector2 shootVelocity = (target.Center - iceMassSpawnPosition).SafeNormalize(Vector2.UnitY).RotatedBy(MathHelper.TwoPi * i / 5f) * 3.2f;
-                        Utilities.NewProjectileBetter(iceMassSpawnPosition, shootVelocity, ModContent.ProjectileType<IceMass>(), 190, 0f);
+                        Utilities.NewProjectileBetter(iceMassSpawnPosition, shootVelocity, ModContent.ProjectileType<IceMass>(), IceMassDamage, 0f);
                     }
 
                     npc.Center = teleportPosition;
@@ -1214,32 +1180,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
         public static void DoAttack_DesperationAttack(NPC npc, Player target, ref float frameType, ref float attackTimer)
         {
             int attackDelay = 75;
-
-            int chargeTime = 50;
-            int slowdownTime = 10;
-            int totalCharges = 5;
-            int chargePhaseTime = attackDelay + (chargeTime + slowdownTime) * totalCharges;
-            int chargeBoltCreationRate = 6;
-            float chargeSpeed = 31f;
-
-            int spinTime = 360;
-            int spinBoltCreationRate = 38;
-            int spinPhaseTime = chargePhaseTime + spinTime;
-            float spinSpeed = 30f;
-            float spinOffset = 560f;
-
             int burstTeleportTime = 30;
             int burstCount = 5;
             int burstShootRate = 110;
-            int spreadPhaseTime = spinPhaseTime + burstShootRate * burstCount + burstTeleportTime;
+            int spreadPhaseTime = burstShootRate * burstCount + burstTeleportTime;
             ref float burstShootCounter = ref npc.Infernum().ExtraAI[0];
             ref float cycleIndex = ref npc.Infernum().ExtraAI[1];
-
-            if (BossRushEvent.BossRushActive && attackTimer < spreadPhaseTime)
-            {
-                attackTimer = spreadPhaseTime;
-                npc.netUpdate = true;
-            }
 
             // Disable damage, allowing the player to focus solely on dodging.
             npc.dontTakeDamage = true;
@@ -1269,76 +1215,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 return;
             }
 
-            // Perform multiple fast charges at the target and release bolts perpendicular to the current direction.
-            if (attackTimer <= chargePhaseTime)
-            {
-                int chargeTimer = (int)(attackTimer - attackDelay) % (chargeTime + slowdownTime);
-
-                // Charge at the target.
-                Vector2 chargeVelocity = npc.SafeDirectionTo(target.Center) * chargeSpeed;
-                if (chargeTimer <= 6f)
-                {
-                    npc.velocity = Vector2.Lerp(npc.velocity, chargeVelocity, 0.2f);
-                    npc.spriteDirection = (npc.Center.X < target.Center.X).ToDirectionInt();
-                }
-                if (chargeTimer == 6f)
-                {
-                    Main.PlaySound(SoundID.DD2_WyvernDiveDown, npc.Center);
-                    npc.velocity = chargeVelocity;
-                    npc.netUpdate = true;
-                }
-
-                // Do contact damage when charging.
-                if (npc.velocity.Length() > chargeSpeed * 0.8f)
-                {
-                    npc.damage = 184;
-
-                    // Release perpendicular bolts.
-                    if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % chargeBoltCreationRate == chargeBoltCreationRate - 1f)
-                    {
-                        Vector2 left = npc.velocity.RotatedBy(-MathHelper.PiOver2) * 0.3f;
-                        Vector2 right = npc.velocity.RotatedBy(MathHelper.PiOver2) * 0.3f;
-                        Utilities.NewProjectileBetter(npc.Center, left, ModContent.ProjectileType<DarkBolt>(), 190, 0f);
-                        Utilities.NewProjectileBetter(npc.Center, right, ModContent.ProjectileType<DarkBolt>(), 190, 0f);
-                    }
-                }
-
-                // Slow down after charging.
-                if (chargeTimer >= chargeTime)
-                {
-                    npc.velocity *= 0.85f;
-                    npc.damage = 0;
-                }
-
-                return;
-            }
-
-            // Spin around the target and release redirecting large dark bolts.
-            if (attackTimer <= spinPhaseTime)
-            {
-                // Do the spin.
-                Vector2 hoverDestination = target.Center - Vector2.UnitY.RotatedBy(MathHelper.TwoPi / spinTime * 3f * attackTimer) * spinOffset;
-                npc.velocity = Vector2.Zero.MoveTowards(hoverDestination - npc.Center, spinSpeed);
-                
-                // Release bolts.
-                if (attackTimer % spinBoltCreationRate == spinBoltCreationRate - 1f && attackTimer < spinPhaseTime - 60f)
-                {
-                    Main.PlaySound(SoundID.Item28, npc.Center);
-                    if (Main.netMode != NetmodeID.MultiplayerClient)
-                        Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(target.Center) * 10f, ModContent.ProjectileType<DarkBoltLarge>(), 190, 0f);
-                }
-
-                npc.spriteDirection = (npc.Center.X < target.Center.X).ToDirectionInt();
-                return;
-            }
-
             // Delete large bolts.
             Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<DarkBoltLarge>());
 
-            // Release an even spread of bolts while hovering near the target.
+            // Release an even spread of laserbeams while hovering near the target.
             if (attackTimer <= spreadPhaseTime)
             {
-                float doomTimer = attackTimer - spinTime;
+                float doomTimer = attackTimer - spreadPhaseTime;
 
                 // Teleport and raise arms.
                 if (doomTimer == burstTeleportTime)
@@ -1418,19 +1301,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
             for (int i = 0; i < 6; i++)
             {
-                int laser = Projectile.NewProjectile(start, Vector2.Zero, ModContent.ProjectileType<TeleportTelegraph>(), 0, 0f);
-                Main.projectile[laser].ai[0] = (!canCreateDust).ToInt();
-                Main.projectile[laser].timeLeft -= i * 2;
+                ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(telegraph =>
+                {
+                    telegraph.timeLeft -= i * 2;
+                    if (extraUpdates > 0)
+                        telegraph.extraUpdates = extraUpdates;
+                });
 
-                if (extraUpdates > 0)
-                    Main.projectile[laser].extraUpdates = extraUpdates;
+                Utilities.NewProjectileBetter(start, Vector2.Zero, ModContent.ProjectileType<TeleportTelegraph>(), 0, 0f, -1, 1f - canCreateDust.ToInt());
 
-                laser = Projectile.NewProjectile(end, Vector2.Zero, ModContent.ProjectileType<TeleportTelegraph>(), 0, 0f);
-                Main.projectile[laser].ai[0] = (!canCreateDust).ToInt();
-                Main.projectile[laser].timeLeft -= i * 2;
-
-                if (extraUpdates > 0)
-                    Main.projectile[laser].extraUpdates = extraUpdates;
+                ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(telegraph =>
+                {
+                    telegraph.timeLeft -= i * 2;
+                    if (extraUpdates > 0)
+                        telegraph.extraUpdates = extraUpdates;
+                });
+                Utilities.NewProjectileBetter(end, Vector2.Zero, ModContent.ProjectileType<TeleportTelegraph>(), 0, 0f, -1, 1f - canCreateDust.ToInt());
             }
         }
 
@@ -1515,7 +1401,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             npc.frameCounter++;
         }
 
-        public static void ExtraDrawcode(NPC npc, SpriteBatch spriteBatch)
+        public static void ExtraDrawcode(NPC npc)
         {
             float frameState = npc.ai[2];
             float transitionTimer = npc.ai[3];
@@ -1538,7 +1424,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                     Vector2 drawPosition = npc.Center + drawOffset - Main.screenPosition;
                     SpriteEffects direction = (drawOffset.X < 0f) ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
-                    spriteBatch.Draw(cultistTexture, drawPosition, npc.frame, illusionColor, npc.rotation, npc.frame.Size() * 0.5f, npc.scale, direction, 0f);
+                    Main.spriteBatch.Draw(cultistTexture, drawPosition, npc.frame, illusionColor, npc.rotation, npc.frame.Size() * 0.5f, npc.scale, direction, 0f);
                 }
             }
 
@@ -1561,7 +1447,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 drawPosition += drawOffset;
                 SpriteEffects direction = npc.spriteDirection == 1 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
 
-                spriteBatch.Draw(cultistTexture, drawPosition, npc.frame, glowColor, npc.rotation, npc.frame.Size() * 0.5f, npc.scale, direction, 0f);
+                Main.spriteBatch.Draw(cultistTexture, drawPosition, npc.frame, glowColor, npc.rotation, npc.frame.Size() * 0.5f, npc.scale, direction, 0f);
             }
         }
 
@@ -1591,9 +1477,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 {
                     float fade = 1f - Math.Abs(i - 40f) / 40f;
                     Vector2 drawPosition = baseDrawPosition + Vector2.UnitY * (i - 40f) / 40f * borderOutwardness;
-                    spriteBatch.Draw(borderTexture, drawPosition, null, Color.Lerp(borderColor, Color.Purple, 1f - fade) * fade, 0f, borderTexture.Size() * 0.5f, new Vector2(0.33f, 1f), SpriteEffects.None, 0f);
+                    Main.spriteBatch.Draw(borderTexture, drawPosition, null, Color.Lerp(borderColor, Color.Purple, 1f - fade) * fade, 0f, borderTexture.Size() * 0.5f, new Vector2(0.33f, 1f), SpriteEffects.None, 0f);
                 }
-                spriteBatch.Draw(borderTexture, baseDrawPosition, null, Color.Lerp(borderColor, Color.Purple, 0.5f), 0f, borderTexture.Size() * 0.5f, new Vector2(0.33f, 1f), SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(borderTexture, baseDrawPosition, null, Color.Lerp(borderColor, Color.Purple, 0.5f), 0f, borderTexture.Size() * 0.5f, new Vector2(0.33f, 1f), SpriteEffects.None, 0f);
             }
 
             if (rightBorderOpacity > 0f && !dying)
@@ -1606,22 +1492,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 {
                     float fade = 1f - Math.Abs(i - 40f) / 40f;
                     Vector2 drawPosition = baseDrawPosition + Vector2.UnitY * (i - 40f) / 40f * borderOutwardness;
-                    spriteBatch.Draw(borderTexture, drawPosition, null, Color.Lerp(borderColor, Color.Purple, 1f - fade) * fade, 0f, borderTexture.Size() * 0.5f, new Vector2(0.33f, 1f), SpriteEffects.FlipHorizontally, 0f);
+                    Main.spriteBatch.Draw(borderTexture, drawPosition, null, Color.Lerp(borderColor, Color.Purple, 1f - fade) * fade, 0f, borderTexture.Size() * 0.5f, new Vector2(0.33f, 1f), SpriteEffects.FlipHorizontally, 0f);
                 }
-                spriteBatch.Draw(borderTexture, baseDrawPosition, null, Color.Lerp(borderColor, Color.Purple, 0.5f), 0f, borderTexture.Size() * 0.5f, new Vector2(0.33f, 1f), SpriteEffects.FlipHorizontally, 0f);
+                Main.spriteBatch.Draw(borderTexture, baseDrawPosition, null, Color.Lerp(borderColor, Color.Purple, 0.5f), 0f, borderTexture.Size() * 0.5f, new Vector2(0.33f, 1f), SpriteEffects.FlipHorizontally, 0f);
             }
 
-            spriteBatch.SetBlendState(BlendState.AlphaBlend);
+            Main.spriteBatch.SetBlendState(BlendState.AlphaBlend);
 
             float deathTimer = npc.Infernum().ExtraAI[7];
             if (!dying)
-                ExtraDrawcode(npc, spriteBatch);
+                ExtraDrawcode(npc);
             else if (deathTimer > 120f)
             {
-                spriteBatch.EnterShaderRegion();
-                GameShaders.Misc["Infernum:CultistDeath"].UseOpacity((1f - Utils.InverseLerp(120f, 305f, deathTimer, true)) * 0.8f);
-                GameShaders.Misc["Infernum:CultistDeath"].UseImage("Images/Misc/Perlin");
-                GameShaders.Misc["Infernum:CultistDeath"].Apply();
+                Main.spriteBatch.EnterShaderRegion();
+                InfernumEffectsRegistry.CultistDeathVertexShader.UseOpacity((1f - Utils.InverseLerp(120f, 305f, deathTimer, true)) * 0.8f);
+                InfernumEffectsRegistry.CultistDeathVertexShader.UseImage("Images/Misc/Perlin");
+                InfernumEffectsRegistry.CultistDeathVertexShader.Apply();
             }
 
             bool inPhase2 = npc.ai[2] == 2f;
@@ -1645,16 +1531,65 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                     float colorInterpolant = (Main.GlobalTime * 0.53f + i / 16f) % 1f;
                     Color illusionColor = CalamityUtils.MulticolorLerp(colorInterpolant, PillarsPallete) * npc.Opacity;
                     illusionColor *= Utils.InverseLerp(0.9f, 0.5f, completionRatio);
+                    illusionColor.A = (byte)Utilities.Remap(completionRatio, 0f, 0.54f, 255f, 0f);
                     Main.spriteBatch.Draw(baseTexture, drawPosition, frame, illusionColor, npc.rotation, frame.Size() * 0.5f, npc.scale, direction, 0f);
                 }
             }
-            spriteBatch.Draw(baseTexture, npc.Center - Main.screenPosition, frame, npc.GetAlpha(lightColor), npc.rotation, frame.Size() * 0.5f, npc.scale, direction, 0f);
+            Main.spriteBatch.Draw(baseTexture, npc.Center - Main.screenPosition, frame, npc.GetAlpha(lightColor), npc.rotation, frame.Size() * 0.5f, npc.scale, direction, 0f);
 
             if (deathTimer > 120f)
-                spriteBatch.ExitShaderRegion();
+                Main.spriteBatch.ExitShaderRegion();
+
+            if (!dying)
+                DrawForcefield(npc.Center - Main.screenPosition, npc.Opacity, Color.DeepSkyBlue, InfernumTextureRegistry.WavyNoise);
             return false;
         }
 
+        public static void DrawForcefield(Vector2 drawPosition, float opacity, Color color, Texture2D noise, bool useOutline = true, float mainScaleFactor = 1f, float fresnelScaleFactor = 1f, float noiseScaleFactor = 1f)
+        {
+            Texture2D invis = InfernumTextureRegistry.Invisible;
+            float interpolant = (1f + (float)Math.Sin(Main.GlobalTime * 2f)) / 2f;
+            float eased = Utilities.PolyInOutEasing(interpolant, 1);
+            float scale = MathHelper.Lerp(0.95f, 1.05f, eased) * mainScaleFactor;
+            float noiseScale = MathHelper.Lerp(1.55f, 1.45f, eased) * noiseScaleFactor;
+            float fresnelScale = MathHelper.Lerp(0.85f, 1.15f, eased) * fresnelScaleFactor;
+            Vector2 noiseDirection = -Vector2.UnitX;
+
+            Effect shield = InfernumEffectsRegistry.CultistShieldShader.Shader;
+            shield.Parameters["sampleTexture2"].SetValue(noise);
+            shield.Parameters["mainColor"].SetValue(color.ToVector3());
+            shield.Parameters["noiseScale"].SetValue(noiseScale);
+            shield.Parameters["noiseDirection"].SetValue(noiseDirection);
+            shield.Parameters["resolution"].SetValue(new Vector2(130f));
+            shield.Parameters["time"].SetValue(Main.GlobalTime);
+            shield.Parameters["fresnelPower"].SetValue(fresnelScale * 9f);
+            shield.Parameters["scrollSpeed"].SetValue(0.345f);
+            shield.Parameters["fill"].SetValue(0.1f);
+            shield.Parameters["opacity"].SetValue(opacity);
+            shield.Parameters["useOuterGlow"].SetValue(useOutline);
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.PointWrap, DepthStencilState.None, Main.instance.Rasterizer, shield, Main.GameViewMatrix.TransformationMatrix);
+            Main.spriteBatch.Draw(invis, drawPosition, null, Color.White, 0f, invis.Size() * 0.5f, scale * 150f, SpriteEffects.None, 0f);
+            Main.spriteBatch.ExitShaderRegion();
+        }
+
         #endregion Drawing and Frames
+		
+		#region Death Effects
+		public override bool CheckDead(NPC npc)
+        {
+            // Clear away stray projectiles.
+            ClearAwayEntities();
+
+            npc.Infernum().ExtraAI[6] = 1f;
+            npc.active = true;
+            npc.dontTakeDamage = true;
+            npc.life = 1;
+            npc.ai[1] = 0f;
+            npc.netUpdate = true;
+
+            return false;
+        }
+        #endregion Death Effects
     }
 }

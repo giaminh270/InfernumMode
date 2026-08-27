@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.Items.Weapons.Typeless;
 using CalamityMod.NPCs;
@@ -21,6 +21,8 @@ using Terraria.ID;
 using Terraria.ModLoader;
 
 using CeaselessVoidBoss = CalamityMod.NPCs.CeaselessVoid.CeaselessVoid;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
 {
@@ -350,7 +352,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
                         npc.netUpdate = true;
 
                         // Create the reality tear.
-						Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/YanmeiKnifeHit"), target.Center);
+						Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/YanmeiKnifeHit"), target.Center);
                         if (Main.netMode != NetmodeID.MultiplayerClient)
                         {
                             tearProjectileIndex = Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<RealityTear>(), 0, 0f);
@@ -710,8 +712,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
             Main.spriteBatch.EnterShaderRegion();
 
             DrawData drawData = new DrawData(voidTexture, npc.Center - Main.screenPosition, npc.frame, npc.GetAlpha(Color.White), npc.rotation, npc.frame.Size() * 0.5f, npc.scale, 0, 0);
-            GameShaders.Misc["Infernum:RealityTear2"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/Stars"));
-            GameShaders.Misc["Infernum:RealityTear2"].Apply(drawData);
+            InfernumEffectsRegistry.RealityTear2Shader.SetShaderTexture(InfernumTextureRegistry.Stars);
+            InfernumEffectsRegistry.RealityTear2Shader.Apply(drawData);
             drawData.Draw(Main.spriteBatch);
             Main.spriteBatch.ExitShaderRegion();
             return false;

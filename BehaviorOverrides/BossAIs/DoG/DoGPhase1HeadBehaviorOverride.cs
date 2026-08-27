@@ -1,10 +1,11 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.World;
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Buffs.StatDebuffs;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.DevourerofGods;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.GlobalInstances;
 using InfernumMode.BossIntroScreens;
 using InfernumMode.OverridingSystem;
 using InfernumMode.Skies;
@@ -16,7 +17,6 @@ using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-
 using DoGHead = CalamityMod.NPCs.DevourerofGods.DevourerofGodsHead;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
@@ -53,7 +53,23 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
 
         public override int NPCOverrideType => ModContent.NPCType<DoGHead>();
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw;
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCCheckDead;
+
+        public static int GeneralPortalIndex
+        {
+            get;
+            set;
+        }
+
+        public static int ChargePortalIndex
+        {
+            get;
+            set;
+        }
+
+        public static int AcceleratingFireballDamage => 380;
+
+        public static int DeathLaserDamage => 400;
 
         public const float Phase2LifeRatio = 0.8f;
 
@@ -61,7 +77,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
 
         public const int AggressiveMovementTimeP1 = 600;
 
-        // Define a bunch of AI indices. This is slightly cursed.
+        // Define a bunch of AI indices. This is slightly cursed due to how much DoG's AI has.
         public const int UniversalFightTimerIndex = 0;
 
         public const int CurrentFlyAccelerationIndex = 1;
@@ -71,8 +87,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
         public const int ChompEffectsCountdownIndex = 3;
 
         public const int Phase2TransitionStateIndex = 4;
-
-        public const int Phase2PortalProjectileIndexIndex = 5;
 
         public const int InPhase2FlagIndex = 6;
 
@@ -106,13 +120,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
 
         public const int HasSpawnedSegmentsIndex = 21;
 
-        public const int ChargeGatePortalIndexIndex = 22;
-
         public const int ChargeGatePortalTelegraphTimeIndex = 23;
 
         public const int SegmentNumberIndex = 24;
 
-        public const int BodySegmentFadeTypeIndex = 37;
+        public const int BodySegmentFadeTypeIndex = 25;
 
         public const int AntimatterFormInterpolantIndex = 26;
 
@@ -218,7 +230,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             ref float flyAcceleration = ref npc.Infernum().ExtraAI[CurrentFlyAccelerationIndex];
             ref float jawRotation = ref npc.Infernum().ExtraAI[JawRotationIndex];
             ref float chompEffectsCountdown = ref npc.Infernum().ExtraAI[ChompEffectsCountdownIndex];
-            ref float portalIndex = ref npc.Infernum().ExtraAI[Phase2PortalProjectileIndexIndex];
             ref float phaseCycleTimer = ref npc.Infernum().ExtraAI[PhaseCycleTimerIndex];
             ref float passiveAttackDelay = ref npc.Infernum().ExtraAI[PassiveAttackDelayTimerIndex];
             ref float uncoilTimer = ref npc.Infernum().ExtraAI[InitialUncoilTimerIndex];
@@ -273,7 +284,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                 typeof(DoGHead).GetField("phase2Started", Utilities.UniversalBindingFlags)?.SetValue(npc.modNPC, true);
                 typeof(DoGHead).GetField("Phase2Started", Utilities.UniversalBindingFlags)?.SetValue(npc.modNPC, true);
                 npc.Size = Vector2.One * 176f;
-                return DoGPhase2HeadBehaviorOverride.Phase2AI(npc, ref phaseCycleTimer, ref passiveAttackDelay, ref portalIndex, ref segmentFadeType, ref universalFightTimer);
+                return DoGPhase2HeadBehaviorOverride.Phase2AI(npc, ref phaseCycleTimer, ref passiveAttackDelay, ref segmentFadeType, ref universalFightTimer);
             }
 
             // Set music.
@@ -282,8 +293,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             // Do through the portal once ready to enter the second phase.
             if (CurrentPhase2TransitionState != Phase2TransitionState.NotEnteringPhase2)
             {
+                // Set music.
 				npc.modNPC.music = (InfernumMode.CalamityMod as CalamityMod.CalamityMod).GetMusicFromMusicMod("DevourerOfGodsP2") ?? MusicID.LunarBoss;		
-                HandlePhase2TransitionEffect(npc, ref portalIndex);
+
+                HandlePhase2TransitionEffect(npc);
                 getInTheFuckingPortalTimer++;
                 if (getInTheFuckingPortalTimer >= 540f)
                 {
@@ -301,11 +314,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             npc.TargetClosestIfTargetIsInvalid();
             Player target = Main.player[npc.target];
 
-            // Teleport above the target on the very first frame. This ensures that DoG will always be in a consistent spot before the fight begins.
+            // Teleport to the sides of the target on the very first frame. This ensures that DoG will always be in a consistent spot before the fight begins.
             if (npc.Infernum().ExtraAI[HasTeleportedAboveTargetFlagIndex] == 0f)
             {
                 npc.Center = target.Center - Vector2.UnitX * target.direction * 3200f;
-				//npc.Center = target.Center - Vector2.UnitY * 2000f;
+
                 // Bring segments to the teleport position.
                 for (int i = 0; i < Main.maxNPCs; i++)
                 {
@@ -352,7 +365,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                         NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, segment, 0f, 0f, 0f, 0);
                         previousSegment = segment;
                     }
-                    portalIndex = -1f;
                     npc.Infernum().ExtraAI[HasSpawnedSegmentsIndex] = 1f;
                 }
             }
@@ -369,6 +381,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             {
                 uncoilTimer++;
                 npc.velocity = Vector2.Lerp(npc.velocity, -Vector2.UnitY * 27f, 0.125f);
+
+                GeneralPortalIndex = -1;
+                ChargePortalIndex = -1;
             }
             else if (phaseCycleTimer % (PassiveMovementTimeP1 + AggressiveMovementTimeP1) < AggressiveMovementTimeP1)
             {
@@ -395,9 +410,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                         {
                             Vector2 spawnOffset = (MathHelper.TwoPi * i / 16f).ToRotationVector2() * 1650f + Main.rand.NextVector2Circular(130f, 130f);
                             Vector2 laserShootVelocity = spawnOffset.SafeNormalize(Vector2.UnitY) * -Main.rand.NextFloat(20f, 24f) + Main.rand.NextVector2Circular(2f, 2f);
-                            int laser = Utilities.NewProjectileBetter(target.Center + spawnOffset, laserShootVelocity, ModContent.ProjectileType<DoGDeathInfernum>(), 455, 0f);
-                            if (Main.projectile.IndexInRange(laser))
-                                Main.projectile[laser].MaxUpdates = 3;
+
+                            ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(laser =>
+                            {
+                                laser.MaxUpdates = 3;
+                            });
+                            Utilities.NewProjectileBetter(target.Center + spawnOffset, laserShootVelocity, ModContent.ProjectileType<DoGDeathInfernum>(), DeathLaserDamage, 0f);
                         }
                     }
                 }
@@ -407,7 +425,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             return false;
         }
 
-        public static void HandlePhase2TransitionEffect(NPC npc, ref float portalIndex)
+        public static void HandlePhase2TransitionEffect(NPC npc)
         {
             npc.Calamity().CanHaveBossHealthBar = false;
             npc.velocity = npc.velocity.ClampMagnitude(32f, 60f);
@@ -421,10 +439,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     Vector2 spawnPosition = npc.Center + npc.velocity.SafeNormalize(Vector2.UnitX) * 2150f;
-                    portalIndex = Projectile.NewProjectile(spawnPosition, Vector2.Zero, ModContent.ProjectileType<DoGChargeGate>(), 0, 0f);
 
-                    Main.projectile[(int)portalIndex].localAI[0] = 1f;
-                    Main.projectile[(int)portalIndex].localAI[1] = DoGPhase2IntroPortalGate.Phase2AnimationTime;
+                    ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(portal =>
+                    {
+                        portal.localAI[0] = 1f;
+                        portal.localAI[1] = DoGPhase2IntroPortalGate.Phase2AnimationTime;
+                        portal.ModProjectile<DoGChargeGate>().IsGeneralPortalIndex = true;
+                    });
+                    Utilities.NewProjectileBetter(spawnPosition, Vector2.Zero, ModContent.ProjectileType<DoGChargeGate>(), 0, 0f);
                 }
 
                 int headType = ModContent.NPCType<DoGHead>();
@@ -444,7 +466,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             }
 
             // Enter the portal if it's being touched.
-            if (Main.projectile[(int)portalIndex].Hitbox.Intersects(npc.Hitbox))
+            if (GeneralPortalIndex >= 0 && Main.projectile[GeneralPortalIndex].Hitbox.Intersects(npc.Hitbox))
                 npc.alpha = Utils.Clamp(npc.alpha + 140, 0, 255);
 
             // Vanish if the target died in the middle of the transition.
@@ -497,8 +519,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
 
             Texture2D glowmaskTexture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/DoG/DoGP1HeadGlow");
             spriteBatch.Draw(glowmaskTexture, drawPosition, headFrame, Color.White, npc.rotation, headTextureOrigin, npc.scale, spriteEffects, 0f);
+
             return false;
         }
         #endregion Drawing
+		
+		#region Death Effects
+        public override bool CheckDead(NPC npc)
+        {
+            // StrikeNPC stuff will handle the rest of this. This just exists to ensure that DoG doesn't die early.
+            npc.life = 1;
+            npc.dontTakeDamage = true;
+            npc.active = true;
+            npc.netUpdate = true;
+            return false;
+        }
+        #endregion Death Effects
     }
 }

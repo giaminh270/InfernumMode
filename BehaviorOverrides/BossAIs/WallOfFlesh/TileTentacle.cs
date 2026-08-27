@@ -1,5 +1,8 @@
 using CalamityMod;
 using CalamityMod.DataStructures;
+using InfernumMode.Effects;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -10,8 +13,9 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
 {
-    public class TileTentacle : ModProjectile
+    public class TileTentacle : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
         internal PrimitiveTrailCopy TentacleDrawer;
         internal Vector2 RestingSpot = -Vector2.One;
         internal Vector2[] ControlPoints = new Vector2[15];
@@ -30,6 +34,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
             projectile.ignoreWater = true;
             projectile.hide = true;
             projectile.timeLeft = 150;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -82,8 +87,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
         internal float WidthFunction(float completionRatio)
         {
             float widthCompletion = 1f;
-            widthCompletion *= 1f - (float)Math.Pow(1f - Utils.InverseLerp(0.04f, 0.3f, 1f - completionRatio, true), 2D);
-            widthCompletion *= 1f - (float)Math.Pow(1f - Utils.InverseLerp(0.96f, 0.9f, 1f - completionRatio, true), 2D);
+            widthCompletion *= 1f - (float)Math.Pow(1f - Utils.InverseLerp(0.04f, 0.3f, 1f - completionRatio, true), 2f);
+            widthCompletion *= 1f - (float)Math.Pow(1f - Utils.InverseLerp(0.96f, 0.9f, 1f - completionRatio, true), 2f);
             return MathHelper.Lerp(0f, 9f, widthCompletion) * Utils.InverseLerp(0f, 60f, projectile.timeLeft, true);
         }
 
@@ -101,12 +106,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
             return false;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (TentacleDrawer is null)
-                TentacleDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:WoFTentacleTexture"]);
+                TentacleDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.WoFTentacleVertexShader);
 
-            GameShaders.Misc["Infernum:WoFTentacleTexture"].SetShaderTexture(ModContent.GetTexture("Terraria/Misc/Perlin"));
+            InfernumEffectsRegistry.WoFTentacleVertexShader.UseColor(new Color(108, 23, 23));
+            InfernumEffectsRegistry.WoFTentacleVertexShader.UseSecondaryColor(new Color(184, 78, 113));
+            InfernumEffectsRegistry.WoFTentacleVertexShader.SetShaderTexture(ModContent.GetTexture("Terraria/Misc/Perlin")); 
 
             List<Vector2> points = new List<Vector2>()
             {
@@ -114,14 +123,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
             };
             points.AddRange(ControlPoints);
             points.Add(projectile.Center);
-            TentacleDrawer.Draw(new BezierCurve(points.ToArray()).GetPoints(20), -Main.screenPosition, 35);
+            TentacleDrawer.DrawPixelated(new BezierCurve(points.ToArray()).GetPoints(20), -Main.screenPosition, 35);
             Main.spriteBatch.ExitShaderRegion();
-            return false;
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
         }
 
         public override void DrawBehind(int index, List<int> drawCacheProjsBehindNPCsAndTiles, List<int> drawCacheProjsBehindNPCs, List<int> drawCacheProjsBehindProjectiles, List<int> drawCacheProjsOverWiresUI)

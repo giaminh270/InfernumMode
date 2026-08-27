@@ -10,10 +10,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
 {
     public class BrainIllusion : ModNPC
     {
-        public PrimitiveTrailCopy FireDrawer;
         public Player Target => Main.player[npc.target];
-        public NPC Owner => Main.npc[NPC.crimsonBoss];
-        public float OwnerAttackTime => Owner.ai[1];
+
+        public static NPC Owner => Main.npc[NPC.crimsonBoss];
+
         public ref float ConvergeOffsetAngle => ref npc.ai[1];
 
         public override void SetStaticDefaults()
@@ -54,7 +54,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             // Maintain an original offset angle but inherit the distance
             // from the target that the main boss has, while also fading away rapidly.
             npc.Center = Target.Center + (ConvergeOffsetAngle + Owner.AngleFrom(Target.Center)).ToRotationVector2() * Owner.Distance(Target.Center);
-            npc.Opacity = (float)Math.Pow(Owner.Opacity, 2D);
+            npc.Opacity = (float)Math.Pow(Owner.Opacity, 2f);
         }
 
         public void CopyOwnerAttributes()

@@ -1,0 +1,263 @@
+﻿using CalamityMod.NPCs;
+using CalamityMod.NPCs.ProfanedGuardians;
+using InfernumMode.GlobalInstances;
+using Microsoft.Xna.Framework;
+using System.Collections.Generic;
+using Terraria;
+using Terraria.ModLoader;
+
+namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
+{
+    public static partial class GuardianComboAttackManager
+    {
+        #region Enums
+        public enum GuardiansAttackType
+        {
+            // Initial attacks.
+            SpawnEffects,
+            FlappyBird,
+
+            // All 3 combo attacks.
+            SoloHealer,
+            SoloDefender,
+            HealerAndDefender,
+
+            HealerDeathAnimation,
+
+            // Commander and Defender combo attacks
+            SpearDashAndGroundSlam,
+            CrashRam,
+            FireballBulletHell,
+
+            DefenderDeathAnimation,
+
+            // Commander solo attacks.
+            LargeGeyserAndCharge,
+            DogmaLaserBall,
+            BerdlySpears,
+            SpearSpinThrow,
+            RiftFireCharges,
+
+            CommanderDeathAnimation
+        }
+
+        public enum DefenderShieldStatus
+        {
+            Inactive,
+            ActiveAndAiming,
+            ActiveAndStatic,
+            MarkedForRemoval
+        }
+        #endregion
+
+        #region Attack Cycles
+        public static List<GuardiansAttackType> CommanderAttackCycle => new List<GuardiansAttackType>()
+        {
+            GuardiansAttackType.LargeGeyserAndCharge,
+            GuardiansAttackType.DogmaLaserBall,
+            GuardiansAttackType.SpearSpinThrow,
+            GuardiansAttackType.RiftFireCharges,
+            GuardiansAttackType.BerdlySpears,
+            GuardiansAttackType.DogmaLaserBall,
+            GuardiansAttackType.LargeGeyserAndCharge,
+            GuardiansAttackType.RiftFireCharges,
+            GuardiansAttackType.SpearSpinThrow,
+            GuardiansAttackType.DogmaLaserBall,
+            GuardiansAttackType.BerdlySpears
+        };
+        #endregion
+
+        #region Fields And Properties
+        public static Vector2 CrystalPosition => PoDWorld.ProvidenceArena.TopLeft() * 16f + new Vector2(6740f, 1500f);
+
+        public static Vector2 CenterOfGarden => CrystalPosition + new Vector2(-2370f, -150f);
+
+        public static Rectangle ShardUseisAllowedArea
+        {
+            get
+            {
+                Vector2 proviArenaPos = new Vector2(PoDWorld.ProvidenceArena.X * 16f, PoDWorld.ProvidenceArena.Y * 16f);
+                Vector2 leftPos = proviArenaPos + new Vector2(850f, 1125f);
+                Vector2 rightPos = proviArenaPos + new Vector2(1275f, 1735f);
+                return new Rectangle((int)leftPos.X, (int)leftPos.Y, (int)rightPos.X - (int)leftPos.X, (int)rightPos.Y - (int)leftPos.Y);
+            }
+        }
+
+        private static Vector2 leftHandPosition = Vector2.Zero;
+        private static Vector2 rightHandPosition = Vector2.Zero;
+
+        /// <summary>
+        /// Set this as an offset vector from the commander center.
+        /// </summary>
+        public static Vector2 LeftHandPosition
+        {
+            get => leftHandPosition;
+            set => leftHandPosition = value;
+        }
+
+        /// <summary>
+        /// Set this as an offset vector from the commander center.
+        /// </summary>
+        public static Vector2 RightHandPosition
+        {
+            get => rightHandPosition;
+            set => rightHandPosition = value;
+        }
+
+        public static int CommanderType => ModContent.NPCType<ProfanedGuardianBoss>();
+        public static int DefenderType => ModContent.NPCType<ProfanedGuardianBoss2>();
+        public static int HealerType => ModContent.NPCType<ProfanedGuardianBoss3>();
+        public static int FindCommanderIndex()
+        {
+            if (Main.npc.IndexInRange(CalamityGlobalNPC.doughnutBoss) &&
+                Main.npc[CalamityGlobalNPC.doughnutBoss].active &&
+                Main.npc[CalamityGlobalNPC.doughnutBoss].type == CommanderType)
+                return CalamityGlobalNPC.doughnutBoss;
+
+            for (int i = 0; i < Main.maxNPCs; i++)
+            {
+                NPC candidate = Main.npc[i];
+                if (candidate.active && candidate.type == CommanderType)
+                {
+                    CalamityGlobalNPC.doughnutBoss = i;
+                    return i;
+                }
+            }
+
+            CalamityGlobalNPC.doughnutBoss = -1;
+            return -1;
+        }
+
+        public static void EnsureGuardianIndexes()
+        {
+            int commanderIndex = FindCommanderIndex();
+            if (commanderIndex == -1)
+                return;
+
+            if (!Main.npc.IndexInRange(CalamityGlobalNPC.doughnutBossDefender) ||
+                !Main.npc[CalamityGlobalNPC.doughnutBossDefender].active ||
+                Main.npc[CalamityGlobalNPC.doughnutBossDefender].type != DefenderType)
+            {
+                CalamityGlobalNPC.doughnutBossDefender = -1;
+                for (int i = 0; i < Main.maxNPCs; i++)
+                {
+                    NPC candidate = Main.npc[i];
+                    if (candidate.active && candidate.type == DefenderType)
+                    {
+                        CalamityGlobalNPC.doughnutBossDefender = i;
+                        break;
+                    }
+                }
+            }
+
+            if (!Main.npc.IndexInRange(CalamityGlobalNPC.doughnutBossHealer) ||
+                !Main.npc[CalamityGlobalNPC.doughnutBossHealer].active ||
+                Main.npc[CalamityGlobalNPC.doughnutBossHealer].type != HealerType)
+            {
+                CalamityGlobalNPC.doughnutBossHealer = -1;
+                for (int i = 0; i < Main.maxNPCs; i++)
+                {
+                    NPC candidate = Main.npc[i];
+                    if (candidate.active && candidate.type == HealerType)
+                    {
+                        CalamityGlobalNPC.doughnutBossHealer = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        public static Vector2 CommanderStartingHoverPosition => CrystalPosition + new Vector2(600f, -65f);
+        public static Vector2 DefenderStartingHoverPosition => CrystalPosition + new Vector2(185f, 475f);
+        public static Vector2 HealerStartingHoverPosition => CrystalPosition + new Vector2(200f, -65f);
+
+        // Damage fields.
+        public const int ProfanedRockDamage = 200;
+
+        public const int MagicShotDamage = 220;
+
+        public const int HolyCrossDamage = 250;
+
+        public const int HolySpearDamage = 250;
+
+        public const int LingeringFireDamage = 275;
+
+        public const int CommanderSpearDamage = 300;
+
+        public const int SunExplosionDamage = 300;
+
+        public const int HolyFireBeamDamage = 375;
+
+        public const int LavaPillarDamage = 450;
+
+        public const int HolySpinningFireBeamDamage = 500;
+        #endregion
+
+        #region Indexes
+        public const int DefenderFireSuckupWidthIndex = 10;
+        public const int HealerConnectionsWidthScaleIndex = 11;
+        public const int DefenderShouldGlowIndex = 12;
+        public const int DefenderDrawDashTelegraphIndex = 13;
+        public const int DefenderDashTelegraphOpacityIndex = 14;
+        public const int CommanderMovedToTriplePositionIndex = 15;
+        /// <summary>
+        /// 0 = shield needs to spawn, 1 = shield is spawned and should aim at the player, 2 = shield is spawned and should stop aiming, 3 = shield should die.
+        /// </summary>
+        public const int DefenderShieldStatusIndex = 16;
+        public const int CommanderBlenderShouldFadeOutIndex = 18;
+        public const int CommanderAngerGlowAmountIndex = 19;
+        /// 0 = spear needs to spawn, 1 = spear is spawned and should aim at the player, 2 = spear is spawned and should stop aiming, 3 = spear should die.
+        public const int CommanderSpearStatusIndex = 20;
+        public const int CommanderSpearRotationIndex = 21;
+        /// <summary>
+        /// Handled entirely by the commander. Do not touch
+        /// </summary>
+        public const int CommanderSpearSmearOpacityIndex = 22;
+        /// <summary>
+        /// Reset by the commander every frame.
+        /// </summary>
+        public const int CommanderDrawSpearSmearIndex = 22;
+
+        // Hand stuff
+        public const int LeftHandIndex = 28;
+        public const int RightHandIndex = 29;
+        public const int LeftHandXIndex = 30;
+        public const int LeftHandYIndex = 31;
+        public const int RightHandXIndex = 32;
+        public const int RightHandYIndex = 33;
+
+        public const int DefenderHasBeenYeetedIndex = 34;
+
+        public const int CommanderHasSpawnedBlenderAlreadyIndex = 35;
+
+        /// <summary>
+        /// Set by the dogma fireball once, then reset once read by the commander.
+        /// </summary>
+        public const int CommanderDogmaFireballHasBeenYeetedIndex = 36;
+        /// <summary>
+        /// This does not reset automatically, it must be end up at 0
+        /// </summary>
+        public const int CommanderSpearPositionOffsetIndex = 37;
+
+        public const int CommanderBlenderBackglowOpacityIndex = 38;
+
+        /// <summary>
+        /// Reset by the commander every frame.
+        /// </summary>
+        public const int HandsShouldUseNotDefaultPositionIndex = 39;
+
+        /// <summary>
+        /// Handled entirely by the commander
+        /// </summary>
+        public const int FireBorderInterpolantIndex = 40;
+
+        public const int FireBorderShouldDrawIndex = 41;
+
+        public const int GuardianSkyExtraIntensityIndex = 42;
+
+        public const int CommanderBrightnessWidthFactorIndex = 50;
+
+        public const int CommanderAttackCyclePositionIndex = 51;
+        #endregion
+    }
+}

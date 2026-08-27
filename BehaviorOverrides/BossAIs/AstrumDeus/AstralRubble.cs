@@ -61,14 +61,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             projectile.width = projectile.height = 96;
             projectile.position -= projectile.Size * 0.5f;
 
-            for (int i = 0; i < 1; i++)
+            for (int i = 0; i < 2; i++)
                 Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, ModContent.DustType<AstralOrange>(), 0f, 0f, 50, default, 1f);
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 15; i++)
             {
-                Dust fire = Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, ModContent.DustType<AstralOrange>(), 0f, 0f, 0, default, 0.4f);
+                Dust fire = Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, ModContent.DustType<AstralOrange>(), 0f, 0f, 0, default, 0.8f);
                 fire.noGravity = true;
-                fire.velocity *= 1.5f;
+                fire.velocity *= 3f;
             }
         }
     }

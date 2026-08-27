@@ -34,6 +34,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             NPC head = Main.npc[(int)npc.ai[2]];
             npc.life = head.life;
             npc.lifeMax = head.lifeMax;
+			npc.modNPC.music = head.modNPC.music;
             npc.defense = BodySegmentDefense;
             npc.Calamity().DR = BodySegmentDR;
             if (!head.active || CalamityGlobalNPC.DoGHead < 0)
@@ -88,16 +89,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             // Inherit the phase 2 state from the head.
             npc.Infernum().ExtraAI[InPhase2FlagIndex] = head.Infernum().ExtraAI[InPhase2FlagIndex];
 
-            float worldCheckFluff = 10001f;
+            float worldCheckFluff = 6001f;
             bool headOutOfWorld = head.Center.X < -worldCheckFluff || head.Center.X > Main.maxTilesX * 16f + worldCheckFluff ||
                 head.Center.Y < -worldCheckFluff || head.Center.Y > Main.maxTilesY * 16f + worldCheckFluff;
             bool isTail = npc.type == ModContent.NPCType<DevourerofGodsTail>();
             Player target = Main.player[head.target];
 
             // Handle transitions once the tail enters the transition portal.
-            if (!InPhase2 && head.Infernum().ExtraAI[Phase2PortalProjectileIndexIndex] >= 0f)
+            if (!InPhase2 && (GeneralPortalIndex >= 0f || headOutOfWorld))
             {
-                if (npc.Hitbox.Intersects(Main.projectile[(int)head.Infernum().ExtraAI[Phase2PortalProjectileIndexIndex]].Hitbox) || headOutOfWorld)
+                if (headOutOfWorld || npc.Hitbox.Intersects(Main.projectile[GeneralPortalIndex].Hitbox))
                 {
                     npc.alpha += 140;
                     if (npc.alpha >= 255)
@@ -107,18 +108,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                         if (isTail)
                         {
                             InPhase2 = true;
-                            Main.npc[CalamityGlobalNPC.DoGHead].Infernum().ExtraAI[Phase2TransitionStateIndex] = 0f;
-                            Main.npc[CalamityGlobalNPC.DoGHead].netUpdate = true;
-                        }
-
-                        CalamityWorld.DoGSecondStageCountdown = 305;
-
-                        if (Main.netMode == NetmodeID.Server)
-                        {
-                            var netMessage = InfernumMode.CalamityMod.GetPacket();
-                            netMessage.Write((byte)CalamityModMessageType.DoGCountdownSync);
-                            netMessage.Write(CalamityWorld.DoGSecondStageCountdown);
-                            netMessage.Send();
+                            CurrentPhase2TransitionState = Phase2TransitionState.NotEnteringPhase2;
                         }
                     }
                 }
@@ -129,8 +119,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                 switch ((BodySegmentFadeType)(int)head.Infernum().ExtraAI[BodySegmentFadeTypeIndex])
                 {
                     case BodySegmentFadeType.EnteringPortal:
-                        int portalIndex = (int)head.Infernum().ExtraAI[Phase2PortalProjectileIndexIndex];
-                        if (portalIndex >= 0f && npc.Hitbox.Intersects(Main.projectile[portalIndex].Hitbox))
+                        if (GeneralPortalIndex >= 0f && npc.Hitbox.Intersects(Main.projectile[GeneralPortalIndex].Hitbox))
                             npc.Opacity = MathHelper.Clamp(npc.Opacity - 0.275f, 0f, 1f);
 
                         // Update the surprise portal attack state if the tail has entered the portal.
@@ -182,7 +171,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                 npc.Size = size;
 
             npc.dontTakeDamage = head.dontTakeDamage || npc.Opacity < 0.1f;
-            npc.damage = npc.dontTakeDamage ? 0 : npc.defDamage;
+            npc.damage = npc.dontTakeDamage || head.damage <= 0 ? 0 : npc.defDamage;
+
+            // Always use max HP. This doesn't affect the worm as a whole, but it does prevent problems in the death animation where segments otherwise just disappear when killed.
             npc.life = npc.lifeMax;
 
             Vector2 directionToNextSegment = aheadSegment.Center - npc.Center;
@@ -222,6 +213,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
 
             for (int i = 0; i < npc.buffImmune.Length; i++)
                 npc.buffImmune[i] = true;
+
+            // Most bosses and boss servants are not immune to Kami Flu.
+            if (YanmeisKnifeSlash.CanRecieveCoolEffectsFrom(npc))
+                npc.buffImmune[ModContent.BuffType<KamiDebuff>()] = false;
+
             // Nothing should be immune to Enraged.
             npc.buffImmune[ModContent.BuffType<Enraged>()] = false;
         }
@@ -253,13 +249,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                 Color c2 = Color.Fuchsia;
                 c1.A = 84;
                 c2.A = 92;
-                spriteBatch.Draw(bodyTexture2Antimatter, drawPosition2, null, npc.GetAlpha(c1) * antimatterFade * (1f - backTexturePulse1) * 0.84f, npc.rotation, origin2, npc.scale * (1f + backTexturePulse1 * 0.4f), SpriteEffects.None, 0f);
-                spriteBatch.Draw(bodyTexture2Antimatter, drawPosition2, null, npc.GetAlpha(c2) * antimatterFade * (1f - backTexturePulse2) * 0.6f, npc.rotation, origin2, npc.scale * (1f + backTexturePulse2 * 1.2f), SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(bodyTexture2Antimatter, drawPosition2, null, npc.GetAlpha(c1) * antimatterFade * (1f - backTexturePulse1) * 0.84f, npc.rotation, origin2, npc.scale * (1f + backTexturePulse1 * 0.4f), SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(bodyTexture2Antimatter, drawPosition2, null, npc.GetAlpha(c2) * antimatterFade * (1f - backTexturePulse2) * 0.6f, npc.rotation, origin2, npc.scale * (1f + backTexturePulse2 * 1.2f), SpriteEffects.None, 0f);
 
-                spriteBatch.Draw(bodyTexture2, drawPosition2, null, npc.GetAlpha(lightColor) * (1f - antimatterFade), npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
-                spriteBatch.Draw(glowmaskTexture2, drawPosition2, null, npc.GetAlpha(Color.White) * (1f - antimatterFade), npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
-                spriteBatch.Draw(bodyTexture2Antimatter, drawPosition2, null, npc.GetAlpha(Color.White) * antimatterFade, npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
-                spriteBatch.Draw(glowmaskTexture2Antimatter, drawPosition2, null, npc.GetAlpha(Color.White) * antimatterFade, npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(bodyTexture2, drawPosition2, null, npc.GetAlpha(lightColor) * (1f - antimatterFade), npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(glowmaskTexture2, drawPosition2, null, npc.GetAlpha(Color.White) * (1f - antimatterFade), npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(bodyTexture2Antimatter, drawPosition2, null, npc.GetAlpha(Color.White) * antimatterFade, npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(glowmaskTexture2Antimatter, drawPosition2, null, npc.GetAlpha(Color.White) * antimatterFade, npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
                 return false;
             }
 
@@ -268,8 +264,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             Vector2 drawPosition = npc.Center - Main.screenPosition;
             Vector2 origin = bodyTexture.Size() * 0.5f;
 
-            spriteBatch.Draw(bodyTexture, drawPosition, null, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, SpriteEffects.None, 0f);
-            spriteBatch.Draw(glowmaskTexture, drawPosition, null, npc.GetAlpha(Color.White), npc.rotation, origin, npc.scale, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(bodyTexture, drawPosition, null, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(glowmaskTexture, drawPosition, null, npc.GetAlpha(Color.White), npc.rotation, origin, npc.scale, SpriteEffects.None, 0f);
             return false;
         }
     }
@@ -307,13 +303,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                 Color c2 = Color.Fuchsia;
                 c1.A = 84;
                 c2.A = 92;
-                spriteBatch.Draw(tailTexture2Antimatter, drawPosition2, null, npc.GetAlpha(c1) * antimatterFade * (1f - backTexturePulse1) * 0.84f, npc.rotation, origin2, npc.scale * (1f + backTexturePulse1 * 0.4f), SpriteEffects.None, 0f);
-                spriteBatch.Draw(tailTexture2Antimatter, drawPosition2, null, npc.GetAlpha(c2) * antimatterFade * (1f - backTexturePulse2) * 0.6f, npc.rotation, origin2, npc.scale * (1f + backTexturePulse2 * 1.2f), SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(tailTexture2Antimatter, drawPosition2, null, npc.GetAlpha(c1) * antimatterFade * (1f - backTexturePulse1) * 0.84f, npc.rotation, origin2, npc.scale * (1f + backTexturePulse1 * 0.4f), SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(tailTexture2Antimatter, drawPosition2, null, npc.GetAlpha(c2) * antimatterFade * (1f - backTexturePulse2) * 0.6f, npc.rotation, origin2, npc.scale * (1f + backTexturePulse2 * 1.2f), SpriteEffects.None, 0f);
 
-                spriteBatch.Draw(tailTexture2, drawPosition2, null, npc.GetAlpha(lightColor) * (1f - antimatterFade), npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
-                spriteBatch.Draw(glowmaskTexture2, drawPosition2, null, npc.GetAlpha(Color.White) * (1f - antimatterFade), npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
-                spriteBatch.Draw(tailTexture2Antimatter, drawPosition2, null, npc.GetAlpha(Color.White) * antimatterFade, npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
-                spriteBatch.Draw(glowmaskTexture2Antimatter, drawPosition2, null, npc.GetAlpha(Color.White) * antimatterFade, npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(tailTexture2, drawPosition2, null, npc.GetAlpha(lightColor) * (1f - antimatterFade), npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(glowmaskTexture2, drawPosition2, null, npc.GetAlpha(Color.White) * (1f - antimatterFade), npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(tailTexture2Antimatter, drawPosition2, null, npc.GetAlpha(Color.White) * antimatterFade, npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(glowmaskTexture2Antimatter, drawPosition2, null, npc.GetAlpha(Color.White) * antimatterFade, npc.rotation, origin2, npc.scale, SpriteEffects.None, 0f);
                 return false;
             }
 
@@ -322,8 +318,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             Vector2 drawPosition = npc.Center - Main.screenPosition;
             Vector2 origin = tailTexture.Size() * 0.5f;
 
-            spriteBatch.Draw(tailTexture, drawPosition, null, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, SpriteEffects.None, 0f);
-            spriteBatch.Draw(glowmaskTexture, drawPosition, null, npc.GetAlpha(Color.White), npc.rotation, origin, npc.scale, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(tailTexture, drawPosition, null, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(glowmaskTexture, drawPosition, null, npc.GetAlpha(Color.White), npc.rotation, origin, npc.scale, SpriteEffects.None, 0f);
             return false;
         }
     }

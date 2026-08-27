@@ -1,17 +1,21 @@
 using CalamityMod;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-using Terraria.Graphics.Shaders;
-using static System.Math;
-using static Microsoft.Xna.Framework.MathHelper;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 {
-    public class HomingBrimstoneBurst : ModProjectile
+    public class HomingBrimstoneBurst : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
+		
         public PrimitiveTrailCopy FireDrawer
         {
             get;
@@ -93,14 +97,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 
         public float WidthFunction(float completionRatio)
         {
-            float squeezeInterpolant = (float)Pow(Utils.InverseLerp(0f, 0.27f, completionRatio, true), 0.4f) * Utils.InverseLerp(1f, 0.86f, completionRatio, true);
-            return SmoothStep(3f, projectile.width, squeezeInterpolant) * projectile.Opacity;
+            float squeezeInterpolant = (float)Math.Pow(Utils.InverseLerp(0f, 0.27f, completionRatio, true), 0.4f) * Utils.InverseLerp(1f, 0.86f, completionRatio, true);
+            return MathHelper.SmoothStep(3f, projectile.width, squeezeInterpolant) * projectile.Opacity;
         }
 
         public Color ColorFunction(float completionRatio)
         {
-            Color color = Color.Lerp(Color.Red, Color.White, (float)Pow(completionRatio, 2f));
-            color *= (float)Pow(1f - completionRatio, 2.5f);
+            Color color = Color.Lerp(Color.Red, Color.White, (float)Math.Pow(completionRatio, 2f));
+            color *= (float)Math.Pow(1f - completionRatio, 2.5f);
             return color * projectile.Opacity * 1.5f;
         }
 
@@ -109,11 +113,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
         public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (FireDrawer is null)
-				FireDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:Fire"]);
+				FireDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.FireVertexShader);
 
-            GameShaders.Misc["Infernum:Fire"].UseSaturation(projectile.velocity.Length() / 13f);
-            GameShaders.Misc["Infernum:Fire"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/HarshNoise"));
-            FireDrawer.Draw(projectile.oldPos, projectile.Size * 0.5f - Main.screenPosition, 84);
+            InfernumEffectsRegistry.FireVertexShader.UseSaturation(projectile.velocity.Length() / 13f);
+            InfernumEffectsRegistry.FireVertexShader.SetShaderTexture(InfernumTextureRegistry.HarshNoise);
+            FireDrawer.DrawPixelated(projectile.oldPos, projectile.Size * 0.5f - Main.screenPosition, 84);
         }
     }
 }

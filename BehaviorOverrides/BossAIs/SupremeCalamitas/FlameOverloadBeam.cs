@@ -1,4 +1,9 @@
 using CalamityMod;
+using CalamityMod.NPCs;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -7,12 +12,15 @@ using Terraria;
 using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.ModLoader;
+using static InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas.SupremeCalamitasBehaviorOverride;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
-    public class FlameOverloadBeam : ModProjectile
+    public class FlameOverloadBeam : ModProjectile, IPixelPrimitiveDrawer
     {
-        public PrimitiveTrail RayDrawer = null;
+		public bool DrawBeforeNPCs => false;
+		
+        public PrimitiveTrailCopy RayDrawer;
 
         public NPC Owner => Main.npc[(int)projectile.ai[0]];
 
@@ -26,7 +34,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public override void SetStaticDefaults()
         {
-            DisplayName.SetDefault("Brimstone Flame Overload Ray");;
+            DisplayName.SetDefault("Brimstone Flame Overload Ray");
         }
 
         public override void SetDefaults()
@@ -39,6 +47,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.hide = true;
             projectile.netImportant = true;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -69,7 +78,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
             // Spin.
             float spinInterpolant = Utils.InverseLerp(16f, 150f, Time, true);
-            float angularVelocity = MathHelper.Lerp(0.006f, 0.0174f, (float)Math.Pow(spinInterpolant, 1.75));
+            float angularVelocity = MathHelper.Lerp(0.006f, 0.0174f, (float)Math.Pow(spinInterpolant, 1.75f));
             projectile.velocity = projectile.velocity.RotatedBy(angularVelocity);
 
             // Make the beam cast light along its length. The brightness of the light is reliant on the scale of the beam.
@@ -84,18 +93,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
         {
             float opacity = projectile.Opacity * Utils.InverseLerp(0.97f, 0.9f, completionRatio, true) * 
                 Utils.InverseLerp(0f, MathHelper.Clamp(15f / LaserLength, 0f, 0.5f), completionRatio, true) *
-                (float)Math.Pow(Utils.InverseLerp(60f, 270f, LaserLength, true), 3D);
+                (float)Math.Pow(Utils.InverseLerp(60f, 270f, LaserLength, true), 3f);
+				
             float flameInterpolant = (float)Math.Sin(completionRatio * 3f + Main.GlobalTime * 0.5f + projectile.identity * 0.3156f) * 0.5f + 0.5f;
-            Color c = Color.Lerp(Color.White, Color.Orange, MathHelper.Lerp(0.5f, 0.8f, flameInterpolant)) * opacity;
+            Color flameColor = Color.Orange;
+            if (SupremeCalamitasBehaviorOverride.CurrentPhase == SCalPhase.SCalLament)
+                flameColor = Color.Lerp(flameColor, Color.Blue, 0.6f);
+
+            Color c = Color.Lerp(Color.White, flameColor, MathHelper.Lerp(0.5f, 0.8f, flameInterpolant)) * opacity;
             c.A = 0;
 
             return c;
         }
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (RayDrawer is null)
-                RayDrawer = new PrimitiveTrail(PrimitiveWidthFunction, PrimitiveColorFunction, null, GameShaders.Misc["Infernum:PrismaticRay"]);
+                RayDrawer = new PrimitiveTrailCopy(PrimitiveWidthFunction, PrimitiveColorFunction, specialShader: InfernumEffectsRegistry.PrismaticRayVertexShader);
 
             Vector2 overallOffset = -Main.screenPosition;
             Vector2[] basePoints = new Vector2[24];
@@ -103,18 +118,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 basePoints[i] = projectile.Center + projectile.velocity * i / (basePoints.Length - 1f) * LaserLength;
 
             projectile.scale *= 0.8f;
-            GameShaders.Misc["Infernum:PrismaticRay"].UseImage("Images/Misc/Perlin");
-            Main.instance.GraphicsDevice.Textures[2] = ModContent.GetTexture("InfernumMode/ExtraTextures/PrismaticLaserbeamStreak");
+            InfernumEffectsRegistry.PrismaticRayVertexShader.UseImage("Images/Misc/Perlin");
+            Main.instance.GraphicsDevice.Textures[2] = InfernumTextureRegistry.TrypophobiaNoise;
             projectile.scale /= 0.8f;
 
-            RayDrawer.Draw(basePoints, overallOffset, 42);
+            RayDrawer.DrawPixelated(basePoints, overallOffset, 42);
 
             projectile.scale *= 1.5f;
-            GameShaders.Misc["Infernum:PrismaticRay"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/CultistRayMap"));
-            Main.instance.GraphicsDevice.Textures[2] = ModContent.GetTexture("InfernumMode/ExtraTextures/PrismaticLaserbeamStreak2");
-            RayDrawer.Draw(basePoints, overallOffset, 42);
+            InfernumEffectsRegistry.PrismaticRayVertexShader.SetShaderTexture(InfernumTextureRegistry.CultistRayMap);
+            Main.instance.GraphicsDevice.Textures[2] = InfernumTextureRegistry.TrypophobiaNoise;
+            RayDrawer.DrawPixelated(basePoints, overallOffset, 42);
             projectile.scale /= 1.5f;
-            return false;
         }
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)

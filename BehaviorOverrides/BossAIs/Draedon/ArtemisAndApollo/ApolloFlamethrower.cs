@@ -29,6 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             projectile.friendly = false;
             projectile.hostile = true;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -83,7 +84,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
                 smoke.velocity += flameDirection * 4f;
             }
 
-            Dust smokeDust = Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, 31, 0f, 0f, 0, default, 1f);
+			Dust smokeDust = Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, 31, 0f, 0f, 0, default, 1f);
             smokeDust.fadeIn = 1.5f;
             smokeDust.scale = 0.4f;
             smokeDust.velocity = flameDirection.RotatedBy(Main.rand.NextFloatDirection() * MathHelper.Pi / 8f) * (0.5f + Main.rand.NextFloat() * 2.5f) * 15f;

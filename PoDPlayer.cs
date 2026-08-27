@@ -1,4 +1,5 @@
 using CalamityMod;
+using CalamityMod.Particles;
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.CalPlayer;
 using CalamityMod.Events;
@@ -7,13 +8,20 @@ using CalamityMod.NPCs;
 using CalamityMod.NPCs.OldDuke;
 using CalamityMod.NPCs.Perforator;
 using CalamityMod.NPCs.Polterghast;
+using CalamityMod.NPCs.SupremeCalamitas;
+using CalamityMod.NPCs.Providence;
 using CalamityMod.World;
 using CalamityMod.NPCs.Calamitas;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
 using InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow;
+using InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas;
+using InfernumMode.BehaviorOverrides.BossAIs.Providence;
+using InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians;
 using InfernumMode.Buffs;
 using InfernumMode.Dusts;
 using InfernumMode.MachineLearning;
+using InfernumMode.Sounds;
 using InfernumMode;
 using InfernumMode.Tiles;
 using InfernumMode.Skies;
@@ -31,6 +39,8 @@ using Terraria.Graphics.Effects;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
+using CalamityMod.NPCs.Yharon;
+using InfernumMode.BehaviorOverrides.BossAIs.Yharon;
 
 namespace InfernumMode
 {
@@ -50,7 +60,9 @@ namespace InfernumMode
         public bool ProfanedTempleAnimationHasPlayed;
 
         public bool CreateALotOfHolyCinders;
-
+        public float SulphWaterPoisoningLevel = 0f;
+        public const int SulphSeaWaterSafetyTime = 720;
+		
         public float MadnessInterpolant => MathHelper.Clamp(MadnessTime / 600f, 0f, 1f);
 
         public bool InProfanedArena
@@ -83,6 +95,12 @@ namespace InfernumMode
 
         public Vector2 ScreenFocusPosition;
         public float ScreenFocusInterpolant = 0f;
+		
+		public int ScreenFocusHoldInPlaceTime
+        {
+            get;
+            set;
+        }
 
         internal Point? CornerOne = null;
         internal Point? CornerTwo = null;
@@ -148,6 +166,12 @@ namespace InfernumMode
                 Intensity = intensity;
             }
         }
+		
+        public int HitSoundCountdown
+        {
+            get;
+            set;
+        }		
 		
         internal Dictionary<string, HexStatus> HexStatuses = new Dictionary<string, HexStatus>()
         {
@@ -221,6 +245,43 @@ namespace InfernumMode
 				NPC calShadowNPC = calShadowIndex >= 0 ? Main.npc[calShadowIndex] : null;
 				bool enabled = calShadowNPC != null && calShadowNPC.localAI[1] > 0f;							
 				player.ManageSpecialBiomeVisuals("InfernumMode:CalShadow", enabled);
+				
+				bool useAresSky = false;
+				if (CalamityGlobalNPC.draedonExoMechPrime != -1)
+				{
+					NPC ares = Main.npc[CalamityGlobalNPC.draedonExoMechPrime];
+					if (ares.active && ares.localAI[3] >= 0.01f)
+						useAresSky = true;
+				}
+				player.ManageSpecialBiomeVisuals("InfernumMode:Ares", useAresSky);
+
+				bool useMoonLordSky = !Main.gameMenu && NPC.AnyNPCs(NPCID.MoonLordCore);
+				player.ManageSpecialBiomeVisuals("InfernumMode:MoonLord", useMoonLordSky);
+
+				bool useNightProvidenceSky = !Main.gameMenu && NPC.AnyNPCs(ModContent.NPCType<Providence>()) && ProvidenceBehaviorOverride.IsEnraged;
+				player.ManageSpecialBiomeVisuals("InfernumMode:NightProvidence", useNightProvidenceSky);
+
+				int guardianCommanderIndex = NPC.FindFirstNPC(GuardianComboAttackManager.CommanderType);
+				bool useGuardianCommanderSky = guardianCommanderIndex >= 0 && Main.npc[guardianCommanderIndex].active;
+				player.ManageSpecialBiomeVisuals("InfernumMode:GuardianCommander", useGuardianCommanderSky);
+
+				bool useSCalSky = !Main.gameMenu && NPC.AnyNPCs(ModContent.NPCType<SupremeCalamitas>());
+				player.ManageSpecialBiomeVisuals("InfernumMode:SCal", useSCalSky);
+				if (useSCalSky)
+					SkyManager.Instance["InfernumMode:SCal"].Activate(player.Center);
+				else
+					SkyManager.Instance["InfernumMode:SCal"].Deactivate();
+				
+				
+				int yharonIndex = NPC.FindFirstNPC(ModContent.NPCType<Yharon>());
+				bool transitioningToPhase2 = yharonIndex >= 0 && Main.npc[yharonIndex].ai[0] == (int)YharonBehaviorOverride.YharonAttackType.EnterSecondPhase;
+				bool useYharonSky = (transitioningToPhase2) && InfernumMode.CanUseCustomAIs && !InfernumConfig.Instance.ReducedGraphicsConfig;
+				
+				player.ManageSpecialBiomeVisuals("InfernumMode:Yharon", useYharonSky);
+				if (useYharonSky)
+					SkyManager.Instance["InfernumMode:Yharon"].Activate(player.Center);
+				else
+					SkyManager.Instance["InfernumMode:Yharon"].Deactivate();
             }
         }
         #endregion
@@ -245,7 +306,15 @@ namespace InfernumMode
             {
                 status.Intensity = MathHelper.Clamp(status.Intensity - 0.02f, 0f, 1f);
                 status.IsActive = false;
-            }			
+            }	
+
+			if (ScreenFocusHoldInPlaceTime > 0)
+            {
+                ScreenFocusHoldInPlaceTime--;
+                return;
+            }
+
+            ScreenFocusInterpolant = MathHelper.Clamp(ScreenFocusInterpolant - 0.1f, 0f, 1f);		
         }
         #endregion
 		
@@ -268,6 +337,7 @@ namespace InfernumMode
             DarkFlames = false;
             Madness = false;
             MadnessTime = 0;
+            SulphWaterPoisoningLevel = 0f;
 
             if (PoDWorld.InfernumMode)
                 player.respawnTimer = Utils.Clamp(player.respawnTimer - 1, 0, 3600);
@@ -318,7 +388,9 @@ namespace InfernumMode
 			
             if (Main.myPlayer != player.whoAmI || !ZoneProfaned || !player.ZoneUnderworldHeight)
                 return;
-
+			
+			HitSoundCountdown--;
+			
             bool createALotOfHolyCinders = CreateALotOfHolyCinders;
             float cinderSpawnInterpolant = CalamityPlayer.areThereAnyDamnBosses ? 0.9f : 0.1f;
             int cinderSpawnRate = (int)MathHelper.Lerp(6f, 2f, cinderSpawnInterpolant);
@@ -363,6 +435,45 @@ namespace InfernumMode
             }
         }
         #endregion Update
+		
+		
+		public override void OnHitByNPC(NPC npc, int damage, bool crit)
+        {
+            if (npc.type != ModContent.NPCType<AresEnergyKatana>() || damage <= 0)
+                return;
+
+            // Play hit souds if the countdown has passed.
+            if (HitSoundCountdown <= 0)
+            {
+                Main.PlaySound(InfernumSoundRegistry.AquaticScourgeGoreSound, player.Center);
+                HitSoundCountdown = 30;
+            }
+
+            for (int i = 0; i < 15; i++)
+            {
+                int bloodLifetime = Main.rand.Next(22, 36);
+                float bloodScale = Main.rand.NextFloat(0.6f, 0.8f);
+                Color bloodColor = Color.Lerp(Color.Red, Color.DarkRed, Main.rand.NextFloat());
+                bloodColor = Color.Lerp(bloodColor, new Color(51, 22, 94), Main.rand.NextFloat(0.65f));
+
+                if (Main.rand.NextBool(20))
+                    bloodScale *= 2f;
+
+                Vector2 bloodVelocity = npc.velocity.SafeNormalize(Vector2.UnitY).RotatedByRandom(0.81f) * Main.rand.NextFloat(11f, 30f);
+                bloodVelocity.Y -= 12f;
+                BloodParticle blood = new BloodParticle(player.Center, bloodVelocity, bloodLifetime, bloodScale, bloodColor);
+                GeneralParticleHandler.SpawnParticle(blood);
+            }
+            for (int i = 0; i < 25; i++)
+            {
+                float bloodScale = Main.rand.NextFloat(0.2f, 0.33f);
+                Color bloodColor = Color.Lerp(Color.Red, Color.DarkRed, Main.rand.NextFloat(0.5f, 1f));
+                Vector2 bloodVelocity = npc.velocity.SafeNormalize(Vector2.UnitY).RotatedByRandom(0.9f) * Main.rand.NextFloat(9f, 20.5f);
+                BloodParticle2 blood = new BloodParticle2(player.Center, bloodVelocity, 20, bloodScale, bloodColor);
+                GeneralParticleHandler.SpawnParticle(blood);
+            }
+        }
+		
         #region Pre Hurt
 		public override bool PreHurt(bool pvp, bool quiet, ref int damage, ref int hitDirection, ref bool crit, ref bool customDamage, ref bool playSound, ref bool genGore, ref PlayerDeathReason damageSource)
         {

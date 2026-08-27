@@ -24,6 +24,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DesertScourge
             projectile.tileCollide = false;
             projectile.timeLeft = 360;
             projectile.alpha = 255;
+            projectile.scale = 1.5f;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -40,7 +42,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DesertScourge
                     projectile.Kill();
             }
             else
-                projectile.velocity.Y = (float)Math.Sin(projectile.position.X * MathHelper.TwoPi / 999f) + 1.5f;
+                projectile.velocity.Y = (float)Math.Sin(projectile.position.X * MathHelper.TwoPi / 1776f) + 1.5f;
 
             projectile.rotation = projectile.velocity.ToRotation() + MathHelper.PiOver2;
         }
@@ -54,7 +56,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DesertScourge
             Color backglow = Main.dayTime ? Color.DarkBlue : Color.White;
             for (int i = 0; i < 6; i++)
             {
-                Vector2 drawOffset = (MathHelper.TwoPi * i / 6f).ToRotationVector2() * 4f;
+                Vector2 drawOffset = (MathHelper.TwoPi * i / 6f).ToRotationVector2() * 6f;
                 spriteBatch.Draw(texture, drawPosition + drawOffset, null, projectile.GetAlpha(backglow) * 0.85f, projectile.rotation, origin, projectile.scale, SpriteEffects.None, 0f);
             }
             spriteBatch.Draw(texture, drawPosition, null, projectile.GetAlpha(lightColor), projectile.rotation, origin, projectile.scale, SpriteEffects.None, 0f);

@@ -1,9 +1,10 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.NPCs.ExoMechs.Apollo;
 using CalamityMod.NPCs.ExoMechs.Ares;
 using CalamityMod.NPCs.ExoMechs.Artemis;
 using CalamityMod.NPCs.ExoMechs.Thanatos;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
+using InfernumMode.OverridingSystem;
 using Terraria;
 using Terraria.ModLoader;
 
@@ -69,7 +70,7 @@ namespace InfernumMode
                 npc.type == ModContent.NPCType<AresPlasmaFlamethrower>() ||
                 npc.type == ModContent.NPCType<AresGaussNuke>() ||
                 npc.type == ModContent.NPCType<AresPulseCannon>() ||
-                npc.type == ModContent.NPCType<PhotonRipperNPC>())
+                npc.type == ModContent.NPCType<AresEnergyKatana>())
             {
                 return true;
             }
@@ -82,6 +83,14 @@ namespace InfernumMode
             }
 
             return false;
+        }
+		
+		public static T BehaviorOverride<T>(this NPC npc) where T : NPCBehaviorOverride
+        {
+            if (NPCBehaviorOverride.BehaviorOverrides.TryGetValue(npc.type, out NPCBehaviorOverride b) && b is T t)
+                return t;
+
+            return null;
         }
     }
 }

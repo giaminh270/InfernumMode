@@ -22,9 +22,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             projectile.height = 36;
             projectile.hostile = false;
             projectile.friendly = false;
-            projectile.tileCollide = true;
+            projectile.tileCollide = false;
             projectile.scale = 0.96f;
             projectile.timeLeft = 105;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -90,12 +91,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
 
             Player target = Main.player[Player.FindClosest(projectile.Center, 1, 1)];
             Vector2 lightningVelocity = projectile.SafeDirectionTo(target.Center) * 1.35f;
-            int lightning = Utilities.NewProjectileBetter(projectile.Center, lightningVelocity, ModContent.ProjectileType<RedLightning>(), 250, 0f);
-            if (Main.projectile.IndexInRange(lightning))
-            {
-                Main.projectile[lightning].ai[0] = Main.projectile[lightning].velocity.ToRotation();
-                Main.projectile[lightning].ai[1] = Main.rand.Next(100);
-            }
+            Utilities.NewProjectileBetter(projectile.Center, lightningVelocity, ModContent.ProjectileType<RedLightning>(), 250, 0f, -1, lightningVelocity.ToRotation(), Main.rand.Next(100));
         }
     }
 }

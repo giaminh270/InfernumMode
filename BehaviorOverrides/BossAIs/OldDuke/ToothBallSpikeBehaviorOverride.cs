@@ -20,11 +20,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.OldDuke
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     if (projectile.identity % 2 == 1)
-                        Utilities.NewProjectileBetter(projectile.Center, projectile.velocity, ModContent.ProjectileType<OldDukeTooth>(), 300, 0f);
+                        Utilities.NewProjectileBetter(projectile.Center, projectile.velocity, ModContent.ProjectileType<OldDukeTooth>(), OldDukeBehaviorOverride.HomingToothDamage, 0f);
                     projectile.Kill();
                 }
                 return false;
-            }    
+            }
             return true;
         }
     }

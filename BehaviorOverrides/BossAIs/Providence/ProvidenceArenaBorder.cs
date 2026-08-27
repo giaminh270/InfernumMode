@@ -1,7 +1,9 @@
-using CalamityMod;
+﻿using CalamityMod;
+using InfernumMode.GlobalInstances;
 using InfernumMode.ILEditingStuff;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
@@ -49,7 +51,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
             bottom = bottom * 16f + new Vector2(8f, 52f);
             float distanceToBottom = MathHelper.Distance(top.Y, bottom.Y);
-            float distancePerSegment = MathHelper.Max(texture.Height, 8f) * projectile.scale;
+            float distancePerSegment = Math.Max(texture.Height, 8f) * projectile.scale;
             for (float y = 0f; y < distanceToBottom; y += distancePerSegment)
             {
                 Rectangle frame = texture.Frame();
@@ -68,7 +70,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public override void DrawBehind(int index, List<int> behindNPCsAndTiles, List<int> behindNPCs, List<int> behindProjectiles, List<int> overPlayers)
         {
-            DrawBlackEffectHook.DrawCacheProjsOverSignusBlackening.Add(index);
+            ScreenOverlaysSystem.DrawCacheProjsOverSignusBlackening.Add(index);
         }
 
         public override bool ShouldUpdatePosition() => false;

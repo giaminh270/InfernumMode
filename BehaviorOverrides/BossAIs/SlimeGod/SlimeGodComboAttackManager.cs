@@ -385,11 +385,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                         // However, to prevent weird looking angles, a clamp is performed to ensure the result stays within natural bounds.
                         float horizontalDistance = Vector2.Distance(shootPosition, shootDestination);
                         float idealShootSpeed = (float)Math.Sqrt(horizontalDistance * GroundSlimeGlob.Gravity);
-                        float bloodShootSpeed = MathHelper.Clamp(idealShootSpeed, 7.6f, 20f);
-                        Vector2 bloodShootVelocity = Utilities.GetProjectilePhysicsFiringVelocity(shootPosition, shootDestination, GroundSlimeGlob.Gravity, bloodShootSpeed, out _);
-                        int blood = Utilities.NewProjectileBetter(shootPosition, bloodShootVelocity, ModContent.ProjectileType<GroundSlimeGlob>(), GroundSlimeDamage, 0f);
-                        if (Main.projectile.IndexInRange(blood))
-                            Main.projectile[blood].ai[1] = target.Center.Y;
+                        float slimeShootSpeed = MathHelper.Clamp(idealShootSpeed, 7.6f, 20f);
+                        Vector2 slimeShootVelocity = Utilities.GetProjectilePhysicsFiringVelocity(shootPosition, shootDestination, GroundSlimeGlob.Gravity, slimeShootSpeed, out _);
+                        Utilities.NewProjectileBetter(shootPosition, slimeShootVelocity, ModContent.ProjectileType<GroundSlimeGlob>(), GroundSlimeDamage, 0f, -1, 0f, target.Center.Y);
                     }
 
                     // Shoot accelerating blobs if far away enough to the target.

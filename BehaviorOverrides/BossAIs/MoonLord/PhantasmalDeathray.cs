@@ -1,18 +1,27 @@
-using CalamityMod;
+﻿using CalamityMod;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
 using CalamityMod.Buffs.DamageOverTime;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
+using Terraria.ID;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Terraria;
 using Terraria.Graphics.Shaders;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 {
-    public class PhantasmalDeathray : ModProjectile
+    public class PhantasmalDeathray : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
+		
         internal PrimitiveTrailCopy BeamDrawer;
+
         public int OwnerIndex;
 
         public ref float Time => ref projectile.ai[0];
@@ -36,6 +45,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             projectile.alpha = 255;
             projectile.Calamity().canBreakPlayerDefense = true;
             cooldownSlot = 1;
+        }
+
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(OwnerIndex);
+            writer.Write(InitialRotationalOffset);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            OwnerIndex = reader.ReadInt32();
+            InitialRotationalOffset = reader.ReadSingle();
         }
 
         public override void AI()
@@ -73,8 +94,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             return Collision.CheckAABBvLineCollision(targetHitbox.TopLeft(), targetHitbox.Size(), start, end, width, ref _);
         }
 
-        
-
         public float WidthFunction(float completionRatio)
         {
             float squeezeInterpolant = Utils.InverseLerp(1f, 0.92f, completionRatio, true);
@@ -83,19 +102,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 
         public Color ColorFunction(float completionRatio)
         {
-            Color color = Color.Lerp(Color.Turquoise, Color.Cyan, (float)Math.Pow(completionRatio, 2D));
+            Color color = Color.Lerp(Color.Turquoise, Color.Cyan, (float)Math.Pow(completionRatio, 2f));
             return color * projectile.Opacity * 1.1f;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (BeamDrawer is null)
-                BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:Fire"]);
+                BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.FireVertexShader);
 
             var oldBlendState = Main.instance.GraphicsDevice.BlendState;
             Main.instance.GraphicsDevice.BlendState = BlendState.Additive;
-            GameShaders.Misc["Infernum:Fire"].UseSaturation(1.4f);
-            GameShaders.Misc["Infernum:Fire"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/CultistRayMap"));
+            InfernumEffectsRegistry.FireVertexShader.UseSaturation(1.4f);
+            InfernumEffectsRegistry.FireVertexShader.SetShaderTexture(InfernumTextureRegistry.CultistRayMap);
 
             List<float> originalRotations = new List<float>();
             List<Vector2> points = new List<Vector2>();
@@ -106,12 +127,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             }
 
             if (Time >= 2f)
-			{
+            {
 				int pointCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 10 : 23;
-                BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, pointCount);
-			}
+                BeamDrawer.DrawPixelated(points, projectile.Size * 0.5f - Main.screenPosition, pointCount);
+            }
             Main.instance.GraphicsDevice.BlendState = oldBlendState;
-            return false;
         }
 
         public override void OnHitPlayer(Player target, int damage, bool crit) => target.AddBuff(ModContent.BuffType<Nightwither>(), 300);

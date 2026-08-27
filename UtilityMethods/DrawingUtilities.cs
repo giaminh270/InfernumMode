@@ -1,12 +1,10 @@
-using CalamityMod;
-
+﻿using CalamityMod;
 using InfernumMode.Projectiles;
 using InfernumMode.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Reflection;
-using System.Collections;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.Graphics.Shaders;
@@ -14,8 +12,15 @@ using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.Graphics.Effects;
-using Terraria.Graphics.Shaders;
 using static InfernumMode.Particles.InfernumBaseFusableParticleSet;
+using InfernumMode.ExtraTextures;
+using CalamityMod.Particles;
+using CalamityMod.NPCs.Providence;
+using CalamityMod.Dusts;
+using CalamityMod.Buffs.DamageOverTime;
+using CalamityMod.NPCs;
+using Terraria.DataStructures;
+using InfernumMode.Effects;
 
 namespace InfernumMode
 {
@@ -220,11 +225,11 @@ namespace InfernumMode
             else if (Main.netMode == NetmodeID.Server)
                 NetMessage.BroadcastChatMessage(NetworkText.FromLiteral(text), color ?? Color.White);
         }
-		
-		public static void GetCircleVertices(int sideCount, float radius, Vector2 center, out List<short> triangleIndices, out List<VertexPositionColorTexture> vertices)
+
+        public static void GetCircleVertices(int sideCount, float radius, Vector2 center, out List<short> triangleIndices, out List<VertexPositionColorTexture> vertices)
         {
-			vertices = new List<VertexPositionColorTexture>();
-			triangleIndices = new List<short>();
+            vertices = new List<VertexPositionColorTexture>();
+            triangleIndices = new List<short>();
 
             // Use the law of cosines to determine the side length of the triangles that compose the inscribed shape.
             float sideAngle = MathHelper.TwoPi / sideCount;
@@ -242,10 +247,10 @@ namespace InfernumMode
                 Vector2 leftEdge = leftEdgeInner + radiusOffset + orthogonal * sideLength * -0.5f;
                 Vector2 rightEdge = rightEdgeInner + radiusOffset + orthogonal * sideLength * 0.5f;
 
-				vertices.Add(new VertexPositionColorTexture(new Vector3(leftEdge - Main.screenPosition, 0f), Color.White, new Vector2(completionRatio, 1f)));
-				vertices.Add(new VertexPositionColorTexture(new Vector3(rightEdge - Main.screenPosition, 0f), Color.White, new Vector2(nextCompletionRatio, 1f)));
-				vertices.Add(new VertexPositionColorTexture(new Vector3(rightEdgeInner - Main.screenPosition, 0f), Color.White, new Vector2(nextCompletionRatio, 0f)));
-				vertices.Add(new VertexPositionColorTexture(new Vector3(leftEdgeInner - Main.screenPosition, 0f), Color.White, new Vector2(completionRatio, 0f)));
+                vertices.Add(new VertexPositionColorTexture(new Vector3(leftEdge - Main.screenPosition, 0f), Color.White, new Vector2(completionRatio, 1f)));
+                vertices.Add(new VertexPositionColorTexture(new Vector3(rightEdge - Main.screenPosition, 0f), Color.White, new Vector2(nextCompletionRatio, 1f)));
+                vertices.Add(new VertexPositionColorTexture(new Vector3(rightEdgeInner - Main.screenPosition, 0f), Color.White, new Vector2(nextCompletionRatio, 0f)));
+                vertices.Add(new VertexPositionColorTexture(new Vector3(leftEdgeInner - Main.screenPosition, 0f), Color.White, new Vector2(completionRatio, 0f)));
 
                 triangleIndices.Add((short)(i * 4));
                 triangleIndices.Add((short)(i * 4 + 1));
@@ -255,7 +260,7 @@ namespace InfernumMode
                 triangleIndices.Add((short)(i * 4 + 3));
             }
         }
-		
+
         public static void CreateShockwave(Vector2 shockwavePosition, int rippleCount = 2, int rippleSize = 8, float rippleSpeed = 75f, bool playSound = true, bool useSecondaryVariant = false)
         {
             DeleteAllProjectiles(false, ModContent.ProjectileType<ScreenShakeProj>());
@@ -312,11 +317,11 @@ namespace InfernumMode
         public static void DrawBloomLineTelegraph(Vector2 drawPosition, BloomLineDrawInfo drawInfo, bool resetSpritebatch = true, Vector2? resolution = null)
         {
             // Claim texture and shader data in easy to use local variables.
-            Texture2D invisible = ModContent.GetTexture("InfernumMode/ExtraTextures/Invisible");
-            Effect laserScopeEffect = Filters.Scene["Infernum:PixelatedSightLine"].GetShader().Shader;
+            Texture2D invisible = InfernumTextureRegistry.Invisible;
+            Effect laserScopeEffect = InfernumEffectsRegistry.PixelatedSightLine.GetShader().Shader;
 
             // Prepare all parameters for the shader in anticipation that they will go the GPU for shader effects.
-            laserScopeEffect.Parameters["sampleTexture2"].SetValue(ModContent.GetTexture("InfernumMode/ExtraTextures/CertifiedCrustyNoise"));
+            laserScopeEffect.Parameters["sampleTexture2"].SetValue(ModContent.GetTexture("InfernumMode/ExtraTextures/GreyscaleGradients/CertifiedCrustyNoise"));
             laserScopeEffect.Parameters["noiseOffset"].SetValue(Main.GameUpdateCount * -0.004f);
             laserScopeEffect.Parameters["mainOpacity"].SetValue(drawInfo.Opacity);
             laserScopeEffect.Parameters["Resolution"].SetValue(resolution ?? Vector2.One * 425f);
@@ -338,6 +343,324 @@ namespace InfernumMode
             Main.spriteBatch.Draw(invisible, drawPosition, null, Color.White, 0f, invisible.Size() * 0.5f, drawInfo.Scale, SpriteEffects.None, 0f);
             if (resetSpritebatch)
                 Main.spriteBatch.ExitShaderRegion();
-        }			
+        }
+
+        public static void DrawBloomLine(this SpriteBatch spriteBatch, Vector2 start, Vector2 end, Color color, float width)
+        {
+            // Draw nothing if the start and end are equal, to prevent division by 0 problems.
+            if (start == end)
+                return;
+
+            start -= Main.screenPosition;
+            end -= Main.screenPosition;
+
+            Texture2D line = InfernumTextureRegistry.BloomLine;
+            float rotation = (end - start).ToRotation() + MathHelper.PiOver2;
+            Vector2 scale = new Vector2(width, Vector2.Distance(start, end)) / line.Size();
+            Vector2 origin = new Vector2(line.Width / 2f, line.Height);
+
+            spriteBatch.Draw(line, start, null, color, rotation, origin, scale, SpriteEffects.None, 0f);
+        }
+        private static readonly RasterizerState CutoffRegionRasterizer = new RasterizerState
+        {
+            CullMode = CullMode.None,
+            ScissorTestEnable = true
+        };
+
+        public static void EnforceCutoffRegion(this SpriteBatch spriteBatch, Rectangle cutoffRegion, Matrix perspective, SpriteSortMode sortMode = SpriteSortMode.Deferred, BlendState newBlendState = null)
+        {
+            spriteBatch.End();
+            spriteBatch.Begin(sortMode, newBlendState ?? BlendState.AlphaBlend, Main.DefaultSamplerState, DepthStencilState.None, CutoffRegionRasterizer, null, perspective);
+            spriteBatch.GraphicsDevice.ScissorRectangle = cutoffRegion;
+        }
+
+        public static Matrix GetCustomSkyBackgroundMatrix()
+        {
+            Matrix transformationMatrix = Main.BackgroundViewMatrix.TransformationMatrix;
+            transformationMatrix.Translation -= Main.BackgroundViewMatrix.ZoomMatrix.Translation *
+                new Vector3(1f, Main.BackgroundViewMatrix.Effects.HasFlag(SpriteEffects.FlipVertically) ? (-1f) : 1f, 1f);
+            return transformationMatrix;
+        }
+
+        public static void CreateCinderParticles(this Player target, float lifeRatio, BaseCinderParticle cinderParticle, float maxCinderSpawnRate = 3.5f, float minCinderSpawnRate = 12f, float maxCinderFlySpeed = 12f, float minCinderFlySpeed = 6f)
+        {
+            if (Main.netMode == NetmodeID.Server)
+                return;
+
+            if (InfernumConfig.Instance.ReducedGraphicsConfig)
+                return;
+
+            int cinderSpawnRate = (int)MathHelper.Lerp(maxCinderSpawnRate, minCinderSpawnRate, lifeRatio);
+            float cinderFlySpeed = MathHelper.Lerp(maxCinderFlySpeed, minCinderFlySpeed, lifeRatio);
+
+            for (int i = 0; i < 3; i++)
+            {
+                if (!Main.rand.NextBool(cinderSpawnRate) || Main.gfxQuality < 0.35f)
+                    continue;
+
+                Vector2 cinderSpawnOffset = new Vector2(Main.rand.NextFloatDirection() * 1550f, 650f);
+                Vector2 cinderVelocity = -Vector2.UnitY.RotatedBy(Main.rand.NextFloat(0.23f, 0.98f)) * Main.rand.NextFloat(0.6f, 1.2f) * cinderFlySpeed;
+                if (Main.rand.NextBool())
+                {
+                    cinderSpawnOffset = cinderSpawnOffset.RotatedBy(-MathHelper.PiOver2) * new Vector2(0.9f, 1f);
+                    cinderVelocity = cinderVelocity.RotatedBy(-MathHelper.PiOver2) * new Vector2(1.8f, -1f);
+                }
+
+                if (Main.rand.NextBool(6))
+                    cinderVelocity.X *= -1f;
+
+                cinderParticle.Position = target.Center + cinderSpawnOffset;
+                cinderParticle.Velocity = cinderVelocity;
+                cinderParticle.Color = Color.White;
+                GeneralParticleHandler.SpawnParticle(cinderParticle);
+            }
+        }
+
+        public static void DrawBackglow(this NPC npc, Color backglowColor, float backglowArea, SpriteEffects spriteEffects, Rectangle frame, Vector2 screenPos, Texture2D overrideTexture = null)
+        {
+            Texture2D texture = overrideTexture is null ? Main.npcTexture[npc.type] : overrideTexture;
+            Vector2 drawPosition = npc.Center - screenPos;
+            Vector2 origin = frame.Size() * 0.5f;
+            Color backAfterimageColor = backglowColor * npc.Opacity;
+            for (int i = 0; i < 10; i++)
+            {
+                Vector2 drawOffset = (MathHelper.TwoPi * i / 10f).ToRotationVector2() * backglowArea;
+                Main.spriteBatch.Draw(texture, drawPosition + drawOffset, frame, backAfterimageColor, npc.rotation, origin, npc.scale, spriteEffects, 0f);
+            }
+        }
+
+        public static void CreateFireExplosion(Vector2 topLeft, Vector2 area, Vector2 force)
+        {
+            // Sparks and such
+            for (int i = 0; i < 40; i++)
+            {
+                int idx = Dust.NewDust(topLeft, (int)area.X, (int)area.Y, DustID.Smoke, 0f, 0f, 100, default, 2f);
+                Main.dust[idx].velocity *= 3f;
+                if (Main.rand.NextBool(2))
+                {
+                    Main.dust[idx].scale = 0.5f;
+                    Main.dust[idx].fadeIn = 1f + Main.rand.Next(10) * 0.1f;
+                    Main.dust[idx].velocity += force.RotatedByRandom(0.4f) * Main.rand.NextFloat(0.8f, 1.2f);
+                }
+            }
+            for (int i = 0; i < 70; i++)
+            {
+                int idx = Dust.NewDust(topLeft, (int)area.X, (int)area.Y, DustID.RedTorch, 0f, 0f, 100, default, 3f);
+                Main.dust[idx].noGravity = true;
+                Main.dust[idx].velocity *= 5f;
+                Main.dust[idx].velocity += force.RotatedByRandom(0.4f) * Main.rand.NextFloat(0.8f, 1.2f);
+
+                idx = Dust.NewDust(topLeft, (int)area.X, (int)area.Y, DustID.RedTorch, 0f, 0f, 100, default, 2f);
+                Main.dust[idx].velocity *= 2f;
+                Main.dust[idx].velocity += force.RotatedByRandom(0.4f) * Main.rand.NextFloat(0.8f, 1.2f);
+            }
+
+            // Smoke, which counts as a Gore
+            if (Main.netMode != NetmodeID.Server)
+            {
+                int goreAmt = 3;
+                Vector2 center = topLeft + area * 0.5f;
+                Vector2 source = new Vector2(center.X - 24f, center.Y - 24f);
+                for (int goreIndex = 0; goreIndex < goreAmt; goreIndex++)
+                {
+                    float velocityMult = 0.33f;
+                    if (goreIndex < (goreAmt / 3))
+                        velocityMult = 0.66f;
+                    if (goreIndex >= (2 * goreAmt / 3))
+                        velocityMult = 1f;
+
+                    int type = Main.rand.Next(61, 64);
+                    int smoke = Gore.NewGore(source, default, type, 1f);
+                    Gore gore = Main.gore[smoke];
+                    gore.velocity *= velocityMult;
+                    gore.velocity.X += 1f;
+                    gore.velocity.Y += 1f;
+                    gore.velocity += force.RotatedByRandom(0.4f) * Main.rand.NextFloat(0.8f, 1.2f);
+
+                    type = Main.rand.Next(61, 64);
+                    smoke = Gore.NewGore(source, default, type, 1f);
+                    gore = Main.gore[smoke];
+                    gore.velocity *= velocityMult;
+                    gore.velocity.X -= 1f;
+                    gore.velocity.Y += 1f;
+                    gore.velocity += force.RotatedByRandom(0.4f) * Main.rand.NextFloat(0.8f, 1.2f);
+
+                    type = Main.rand.Next(61, 64);
+                    smoke = Gore.NewGore(source, default, type, 1f);
+                    gore = Main.gore[smoke];
+                    gore.velocity *= velocityMult;
+                    gore.velocity.X += 1f;
+                    gore.velocity.Y -= 1f;
+                    gore.velocity += force.RotatedByRandom(0.4f) * Main.rand.NextFloat(0.8f, 1.2f);
+
+                    type = Main.rand.Next(61, 64);
+                    smoke = Gore.NewGore(source, default, type, 1f);
+                    gore = Main.gore[smoke];
+                    gore.velocity *= velocityMult;
+                    gore.velocity.X -= 1f;
+                    gore.velocity.Y -= 1f;
+                    gore.velocity += force.RotatedByRandom(0.4f) * Main.rand.NextFloat(0.8f, 1.2f);
+                }
+            }
+        }
+
+        public static float FractalBrownianMotion(float x, float y, int seed, int octaves, float gain = 0.5f, float lacunarity = 2f)
+        {
+            float result = 0f;
+            float frequency = 1f;
+            float amplitude = 0.5f;
+            x += seed * 0.00489937f % 10f;
+
+            for (int i = 0; i < octaves; i++)
+            {
+                float noise = NoiseHelper.GetStaticNoise(new Vector2(x, y) * frequency) * 2f - 1f;
+                result += noise * amplitude;
+                amplitude *= gain;
+                frequency *= lacunarity;
+            }
+
+            return result;
+        }
+
+        public static Color GetProjectileColor(int Mode, int Alpha, bool Outline = false)
+        {
+            Color FinalColor = new Color(250, Outline ? 0 : 150, 0, Alpha); //Default to day
+            switch (Mode)
+            {
+                case 1:
+                    FinalColor = new Color(250, 100, Outline ? 200 : 100, Alpha);
+                    break;
+                case 2:
+                    FinalColor = new Color(250, 150, Outline ? 150 : 100, Alpha);
+                    break;
+                case 3: //Same as day
+                    break;
+                case 4:
+                    FinalColor = new Color(Outline ? 200 : 100, 250, 100, Alpha);
+                    break;
+                case 5: //Same as night
+                case -1:
+                    FinalColor = new Color(100, Outline ? 250 : 200, Outline ? 200 : 250, Alpha);
+                    break;
+                case 6:
+                    FinalColor = new Color(Outline ? 100 : 150, Outline ? 150 : 100, 250, Alpha);
+                    break;
+                default:
+                    break;
+            }
+
+            if (Outline)
+                FinalColor *= 0.1f;
+
+            return FinalColor;
+        }
+
+        public static int GetDustID(int Mode)
+        {
+            int DustType = (int)CalamityDusts.ProfanedFire; //Default to day
+            switch (Mode)
+            {
+                case 1:
+                    DustType = DustID.RedTorch;
+                    break;
+                case 2:
+                    DustType = DustID.OrangeTorch;
+                    break;
+                case 3: //Same as day
+                    break;
+                case 4:
+                    DustType = DustID.GreenTorch;
+                    break;
+                case 5: //Same as night
+                case -1:
+                    DustType = (int)CalamityDusts.Nightwither;
+                    break;
+                case 6:
+                    DustType = DustID.PurpleTorch;
+                    break;
+                default:
+                    break;
+            }
+            return DustType;
+        }
+
+        public static void ApplyHitEffects(Player Target, int Mode, int BaseDuration, int NegativeHealValue)
+        {
+            int BuffType = ModContent.BuffType<HolyFlames>(); //Default to day
+            float Multiplier = 1f; //Used to counterbalance Cursed Inferno and Shadowflame
+
+            //Day and Night Providence inflicts 16-80 damage of debuffs depending on attacks
+            //GFB Providence inflicts 24-120 damage (+50%) for half the colors, 26-130 (+62.5%) for another half
+            switch (Mode)
+            {
+                case 1:
+                    BuffType = ModContent.BuffType<BrimstoneFlames>();
+                    break;
+                case 2:
+                    BuffType = ModContent.BuffType<LethalLavaBurn>();
+                    Multiplier = 0.5f;
+                    break;
+                case 3: //Same as day
+                    break;
+                case 4:
+                    BuffType = BuffID.CursedInferno;
+                    Multiplier = 0.75f;
+                    break;
+                case 5: //Same as night
+                case -1:
+                    BuffType = ModContent.BuffType<Nightwither>();
+                    break;
+                case 6:
+                    BuffType = ModContent.BuffType<Shadowflame>();
+                    Multiplier = 0.60f;
+                    break;
+                default:
+                    break;
+            }
+            Target.AddBuff(BuffType, (int)(BaseDuration * Multiplier));
+
+            //A. Specifically inflicts Vaporfied in quirky RGB Mode because it's a colorful debuff
+            //B. Apply the negative healing
+            if (Mode >= 1)
+            {
+                //Obligatory offensive guardian boosting negative heals
+                if (CalamityGlobalNPC.holyBossAttacker != -1)
+                {
+                    if (Main.npc[CalamityGlobalNPC.holyBossAttacker].active)
+                        NegativeHealValue *= 2;
+                }
+
+                Target.HealEffect(-1 * NegativeHealValue, false);
+                Target.statLife -= NegativeHealValue;
+                if (Target.statLife < 0)
+                {
+                    PlayerDeathReason CustomSource = PlayerDeathReason.ByCustomReason(Target.name + " burst into sinless ash.");
+                    Target.KillMe(CustomSource, NegativeHealValue, 0);
+                }
+                NetMessage.SendData(MessageID.SpiritHeal, -1, -1, null, Target.whoAmI, NegativeHealValue);
+
+                Target.AddBuff(ModContent.BuffType<Vaporfied>(), (int)(BaseDuration * Multiplier));
+            }
+        }
+		
+        public static void SwapToRenderTarget(this RenderTarget2D renderTarget, Color? flushColor = null)
+        {
+            // Local variables for convinience.
+            GraphicsDevice graphicsDevice = Main.graphics.GraphicsDevice;
+            SpriteBatch spriteBatch = Main.spriteBatch;
+
+            // If we are in the menu, a server, or any of these are null, return.
+            if (Main.gameMenu || Main.dedServ || renderTarget is null || graphicsDevice is null || spriteBatch is null)
+                return;
+
+            // Otherwise set the render target.
+            graphicsDevice.SetRenderTarget(renderTarget);
+
+            // "Flush" the screen, removing any previous things drawn to it.
+			if (flushColor == null)
+				flushColor = Color.Transparent;
+			
+            graphicsDevice.Clear(flushColor.Value);
+        }		
     }
 }

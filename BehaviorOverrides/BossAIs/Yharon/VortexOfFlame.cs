@@ -11,12 +11,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
     public class VortexOfFlame : ModProjectile
     {
         public const int Lifetime = 600;
+
         public const int AuraCount = 4;
+
         public ref float Timer => ref projectile.ai[0];
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Vortex of Flame");
         }
+
         public override void SetDefaults()
         {
             projectile.width = 408;
@@ -44,7 +48,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
                     for (int i = 0; i < 4; i++)
                     {
                         float offsetAngle = MathHelper.TwoPi * i / 4f;
-                        Utilities.NewProjectileBetter(projectile.Center, projectile.SafeDirectionTo(player.Center).RotatedBy(offsetAngle) * 7f, ProjectileID.CultistBossFireBall, 560, 0f, Main.myPlayer);
+                        Utilities.NewProjectileBetter(projectile.Center, projectile.SafeDirectionTo(player.Center).RotatedBy(offsetAngle) * 7f, ProjectileID.CultistBossFireBall, YharonBehaviorOverride.RegularFireballDamage, 0f, Main.myPlayer);
                     }
                 }
             }
@@ -56,7 +60,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
         {
             if (!Main.dedServ)
             {
-                for (int i = 0; i < 200; i++)
+                for (int i = 0; i < 100; i++)
                 {
                     Dust dust = Dust.NewDustPerfect(projectile.Center + Main.rand.NextVector2Circular(200f, 200f), DustID.Fire);
                     dust.velocity = Main.rand.NextVector2Circular(15f, 15f);
@@ -76,7 +80,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 
         public override bool PreDrawExtras(SpriteBatch spriteBatch)
         {
-            spriteBatch.SetBlendState(BlendState.Additive);
+            Main.spriteBatch.SetBlendState(BlendState.Additive);
 
             Texture2D texture = ModContent.GetTexture(Texture);
             for (int j = 0; j < 16f; j++)
@@ -87,8 +91,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
                 drawColor.A = 127;
                 spriteBatch.Draw(texture, projectile.Center + offset - Main.screenPosition, null, drawColor, projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
             }
-
-            spriteBatch.ResetBlendState();
             return false;
         }
     }

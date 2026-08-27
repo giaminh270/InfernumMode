@@ -1,3 +1,4 @@
+﻿using System;
 using CalamityMod;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -11,7 +12,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Plantera
     public class PlanteraPinkTentacle : ModNPC
     {
         public Player Target => Main.player[npc.target];
+
         public ref float Time => ref npc.ai[0];
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Plantera's Tentacle");
@@ -51,20 +54,26 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Plantera
 
             float attachAngle = npc.ai[0];
             ref float attachOffset = ref npc.ai[1];
-            ref float time = ref npc.ai[2];
+            ref float wiggleSineAngle = ref npc.Infernum().ExtraAI[0];
+
+            wiggleSineAngle += Utilities.Remap(Time, -85, 10f, 0f, MathHelper.Pi / 8.5f + npc.whoAmI * 0.1f);
+            float wingleOffset = (float)Math.Sin(wiggleSineAngle) * 0.016f;
 
             // Reel inward prior to snapping.
-            if (time > 0f && time < 45f)
-                attachOffset = MathHelper.Lerp(attachOffset, 60f, 0.05f);
+            if (Time > 0f && Time < 45f)
+                attachOffset = MathHelper.Lerp(attachOffset, 108f, 0.05f);
 
             // Reach outward swiftly in hopes of hitting a target.
-            if (time > 180f)
+            if (Time > 180f)
+            {
                 attachOffset = MathHelper.Lerp(attachOffset, 3900f, 0.021f);
+                wingleOffset = 0f;
+            }
 
-            if (time == 180f)
+            if (Time == 180f)
                 Main.PlaySound(SoundID.Item74, npc.Center);
 
-            if (time > 220f)
+            if (Time > 220f)
             {
                 npc.scale *= 0.85f;
 
@@ -79,11 +88,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Plantera
                 }
             }
 
-            npc.Center = Main.npc[NPC.plantBoss].Center + attachAngle.ToRotationVector2() * attachOffset;
+            attachAngle += wingleOffset;
+            npc.Center = Main.npc[NPC.plantBoss].Center + attachAngle.ToRotationVector2() * (attachOffset + wingleOffset * 150f);
             npc.rotation = attachAngle + MathHelper.Pi;
             npc.dontTakeDamage = true;
 
-            time++;
+            Time++;
         }
 
         public override void DrawBehind(int index)

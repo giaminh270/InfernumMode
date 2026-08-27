@@ -15,7 +15,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
 
         public NPC ThingToAttachTo => Main.npc.IndexInRange((int)projectile.ai[1]) ? Main.npc[(int)projectile.ai[1]] : null;
 
-        public PrimitiveTrail TelegraphDrawer = null;
+        public PrimitiveTrail TelegraphDrawer;
 
         public const int Lifetime = 60;
 
@@ -35,6 +35,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             projectile.alpha = 255;
             projectile.penetrate = -1;
             projectile.timeLeft = Lifetime;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)

@@ -27,6 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Prime
             projectile.penetrate = -1;
             projectile.Opacity = 0f;
             projectile.timeLeft = 300;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -56,10 +57,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Prime
             if (Main.netMode == NetmodeID.MultiplayerClient)
                 return;
 
-            for (int i = 0; i < 20; i++)
+            for (int i = 0; i < 8; i++)
             {
                 Vector2 cloudShootVelocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(0.2f, 4f);
-                Utilities.NewProjectileBetter(projectile.Center + cloudShootVelocity * 3f, cloudShootVelocity, ModContent.ProjectileType<SmallElectricGasGloud>(), 150, 0f);
+                Utilities.NewProjectileBetter(projectile.Center + cloudShootVelocity * 3f, cloudShootVelocity, ModContent.ProjectileType<SmallElectricGasGloud>(), PrimeHeadBehaviorOverride.TeslaCloudDamage, 0f);
             }
         }
 

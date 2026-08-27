@@ -1,4 +1,4 @@
-using CalamityMod.NPCs;
+﻿using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Apollo;
 using CalamityMod.NPCs.ExoMechs.Ares;
 using CalamityMod.NPCs.ExoMechs.Artemis;
@@ -14,12 +14,11 @@ using System.Linq;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-using DraedonNPC = CalamityMod.NPCs.ExoMechs.Draedon;
+using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo.ApolloBehaviorOverride;
 using AresPlasmaFireballInfernum = InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares.AresPlasmaFireball;
 using AresTeslaOrbInfernum = InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares.AresTeslaOrb;
-using ArtemisLaserInfernum= InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo.ArtemisLaser;
-using ThanatosLaserInfernum = InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos.ThanatosLaser;
-using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo.ApolloBehaviorOverride;
+using ArtemisLaserInfernum = InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo.ArtemisLaser;
+using DraedonNPC = CalamityMod.NPCs.ExoMechs.Draedon;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
 {
@@ -32,20 +31,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
         public const int FinalPhaseTimerIndex = 16;
         public const int DeathAnimationTimerIndex = 19;
         public const int DeathAnimationHasStartedIndex = 22;
-        public const int StartingFinalPhaseAnimationHPIndex = 27;
-
-        // Destroyer variant from non-Destroyer variants, regular mech for Destroyer variants.
-        // For example, Thanatos could have Ares, while Apollo could have Thanatos.
         public const int SecondaryMechNPCTypeIndex = 24;
+        public const int StartingFinalPhaseAnimationHPIndex = 27;
+        public const int InitialMechNPCTypeIndex = 28;
+        public const int CurrentHueIndex = 29;
+        public const int PreviousHueIndex = 30;
+        public const int HueTimerIndex = 31;
 
         public const int Thanatos_AttackDelayIndex = 13;
+        public const int Thanatos_FinalPhaseAttackCounter = 14;
 
         public const int Ares_ProjectileDamageBoostIndex = 8;
+        public const int Ares_EnragedIndex = 13;
+        public const int Ares_BackArmsAreSwappedIndex = 15;
         public const int Ares_LineTelegraphInterpolantIndex = 17;
         public const int Ares_LineTelegraphRotationIndex = 18;
-        public const int Ares_CannonInUseByExowl = 25;
-
-        public const int Athena_EnragedIndex = 8;
+        public const int Ares_PreviousSuperAttackIndex = 32;
+        public const int Ares_BlenderSoundTimerIndex = 33;
+        public const int Ares_BlenderSoundIsLoopingIndex = 34;
 
         public const int Twins_ComplementMechEnrageTimerIndex = 26;
         public const int Twins_SideSwitchDelayIndex = 18;
@@ -169,6 +172,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             }
         }
 
+        // Artemis is intentionally not counted in this list due to primarily deferring to Apollo, the "leader" of the two for management.
+        public static List<int> ExoMechIDs => new List<int>()
+        {
+            ModContent.NPCType<AresBody>(),
+            ModContent.NPCType<Apollo>(),
+            ModContent.NPCType<ThanatosHead>(),
+        };
+
         public static int GetComplementMechType(NPC npc)
         {
             int secondaryMechNPCType = (int)npc.Infernum().ExtraAI[SecondaryMechNPCTypeIndex];
@@ -186,12 +197,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
         public static int GetFinalMechType(NPC npc)
         {
             int secondaryMechNPCType = (int)npc.Infernum().ExtraAI[SecondaryMechNPCTypeIndex];
-            List<int> mechsInUse = new List<int>()
-            {
-                ModContent.NPCType<ThanatosHead>(),
-                ModContent.NPCType<AresBody>(),
-                ModContent.NPCType<Apollo>(),
-            };
+            List<int> mechsInUse = ExoMechIDs;
             mechsInUse.Remove(npc.type);
             mechsInUse.Remove(secondaryMechNPCType);
             return mechsInUse.First();
@@ -209,16 +215,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
 
         public static NPC FindInitialMech()
         {
-            int apolloID = ModContent.NPCType<Apollo>();
-            int thanatosID = ModContent.NPCType<ThanatosHead>();
-            int aresID = ModContent.NPCType<AresBody>();
             NPC initialMech = null;
 
             // Find the initial mech. If it cannot be found, return nothing.
             for (int i = 0; i < Main.maxNPCs; i++)
             {
-                if (Main.npc[i].type != apolloID && Main.npc[i].type != thanatosID && Main.npc[i].type != aresID)
+                if (!ExoMechIDs.Contains(Main.npc[i].type))
                     continue;
+
                 if (!Main.npc[i].active)
                     continue;
 
@@ -240,14 +244,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                 return null;
 
             // Check to see if the initial mech believes that the final mech index is in use by a mech.
-            int apolloID = ModContent.NPCType<Apollo>();
-            int thanatosID = ModContent.NPCType<ThanatosHead>();
-            int athenaID = ModContent.NPCType<ThanatosHead>();
-            int aresID = ModContent.NPCType<AresBody>();
             for (int i = 0; i < Main.maxNPCs; i++)
             {
-                if (Main.npc[i].type != apolloID && Main.npc[i].type != thanatosID && Main.npc[i].type != athenaID && Main.npc[i].type != aresID)
+                if (!ExoMechIDs.Contains(Main.npc[i].type))
                     continue;
+
                 if (!Main.npc[i].active)
                     continue;
 
@@ -263,11 +264,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             int[] projectilesToDelete = new int[]
             {
                 ModContent.ProjectileType<ApolloAcceleratingPlasmaSpark>(),
+                ModContent.ProjectileType<ApolloFallingPlasmaSpark>(),
                 ModContent.ProjectileType<ApolloFlamethrower>(),
                 ModContent.ProjectileType<ApolloPlasmaFireball>(),
                 ModContent.ProjectileType<ApolloRocket>(),
                 ModContent.ProjectileType<ApolloRocketInfernum>(),
-                ModContent.ProjectileType<ApolloTelegraphedPlasmaSpark>(),
                 ModContent.ProjectileType<AresBeamExplosion>(),
                 ModContent.ProjectileType<AresCannonLaser>(),
                 ModContent.ProjectileType<AresGaussNukeProjectile>(),
@@ -293,19 +294,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                 ModContent.ProjectileType<ExolaserBomb>(),
                 ModContent.ProjectileType<ExolaserSpark>(),
                 ModContent.ProjectileType<LightOverloadRay>(),
-                ModContent.ProjectileType<PhotonRipperCrystal>(),
                 ModContent.ProjectileType<PlasmaGas>(),
                 ModContent.ProjectileType<RefractionRotor>(),
                 ModContent.ProjectileType<SmallPlasmaSpark>(),
                 ModContent.ProjectileType<SuperheatedExofireGas>(),
-                ModContent.ProjectileType<ThanatosAresComboLaser>(),
-                ModContent.ProjectileType<ThanatosLaserInfernum>()
+                ModContent.ProjectileType<ThanatosAresComboLaser>()
             };
-            for (int i = 0; i < Main.maxProjectiles; i++)
-            {
-                if (projectilesToDelete.Contains(Main.projectile[i].type))
-                    Main.projectile[i].active = false;
-            }
+            Utilities.DeleteAllProjectiles(true, projectilesToDelete);
         }
 
         public static void SummonComplementMech(NPC npc)
@@ -326,14 +321,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             Vector2 mechSpawnPosition = Main.player[npc.target].Center - Vector2.UnitY * 1500f;
             int complementMechIndex = NPC.NewNPC((int)mechSpawnPosition.X, (int)mechSpawnPosition.Y, complementMechType, 1);
             NPC complementMech = Main.npc[complementMechIndex];
-            npc.Infernum().ExtraAI[ComplementMechIndexIndex] = complementMechIndex;
 
             // Tell the newly summoned mech that it is not the initial mech and that it cannot summon more mechs on its own.
             complementMech.Infernum().ExtraAI[HasSummonedComplementMechIndex] = 1f;
             complementMech.Infernum().ExtraAI[WasNotInitialSummonIndex] = 1f;
+            complementMech.Infernum().ExtraAI[InitialMechNPCTypeIndex] = npc.Infernum().ExtraAI[InitialMechNPCTypeIndex];
+            complementMech.Infernum().ExtraAI[SecondaryMechNPCTypeIndex] = npc.Infernum().ExtraAI[SecondaryMechNPCTypeIndex];
             complementMech.velocity = complementMech.SafeDirectionTo(Main.player[npc.target].Center) * 40f;
             complementMech.Opacity = 0.01f;
             complementMech.netUpdate = true;
+
+            npc.Infernum().ExtraAI[WasNotInitialSummonIndex] = 0f;
+            npc.Infernum().ExtraAI[ComplementMechIndexIndex] = complementMechIndex;
+            npc.netUpdate = true;
         }
 
         public static void SummonFinalMech(NPC npc)
@@ -368,14 +368,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
         {
             get
             {
-                int apolloID = ModContent.NPCType<Apollo>();
-                int thanatosID = ModContent.NPCType<ThanatosHead>();
-                int aresID = ModContent.NPCType<AresBody>();
                 int count = 0;
                 for (int i = 0; i < Main.maxNPCs; i++)
                 {
-                    if (Main.npc[i].type != apolloID && Main.npc[i].type != thanatosID && Main.npc[i].type != aresID)
+                    if (!ExoMechIDs.Contains(Main.npc[i].type))
                         continue;
+
                     if (!Main.npc[i].active || ExoMechAIUtilities.ShouldExoMechVanish(Main.npc[i]))
                         continue;
 
@@ -396,6 +394,68 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                 Main.npc[CalamityGlobalNPC.draedon].localAI[0] = statementType;
                 Main.npc[CalamityGlobalNPC.draedon].ai[0] = DraedonNPC.ExoMechPhaseDialogueTime;
             }
+        }
+
+        public static bool HandleDeathEffects(NPC npc)
+        {
+            bool hasPerformedDeathAnimation = npc.Infernum().ExtraAI[DeathAnimationHasStartedIndex] != 0f;
+            if (npc.realLife >= 0)
+                hasPerformedDeathAnimation = Main.npc[npc.realLife].Infernum().ExtraAI[DeathAnimationHasStartedIndex] != 0f;
+
+            // Execute battle event triggers if the exo mech in question has finished its death animation.
+            if (hasPerformedDeathAnimation)
+            {
+                bool finalMechKilled = FindFinalMech() == npc;
+                if (npc.realLife >= 0)
+                    finalMechKilled = FindFinalMech() == Main.npc[npc.realLife];
+                if (finalMechKilled)
+                    MakeDraedonSayThings(4);
+                else if (TotalMechs - 1 == 1)
+                    MakeDraedonSayThings(5);
+            }
+
+            // Otherwise, trigger the exo mech's death animation.
+            // Once it ends this code will be called again.
+            else
+            {
+                npc.life = npc.lifeMax;
+                npc.dontTakeDamage = true;
+                npc.active = true;
+                if (npc.realLife >= 0)
+                {
+                    Main.npc[npc.realLife].life = Main.npc[npc.realLife].lifeMax;
+                    Main.npc[npc.realLife].dontTakeDamage = true;
+                    Main.npc[npc.realLife].active = true;
+                    Main.npc[npc.realLife].Infernum().ExtraAI[DeathAnimationHasStartedIndex] = 1f;
+                    Main.npc[npc.realLife].netUpdate = true;
+                    Main.npc[npc.realLife].UpdateNPC(npc.realLife);
+                }
+                else
+                {
+                    npc.Infernum().ExtraAI[DeathAnimationHasStartedIndex] = 1f;
+
+                    // If Apollo is the one being checked, ensure that Artemis stays alive.
+                    if (npc.type == ModContent.NPCType<Apollo>())
+                    {
+                        int artemisID = ModContent.NPCType<Artemis>();
+                        for (int i = 0; i < Main.maxNPCs; i++)
+                        {
+                            if (Main.npc[i].type == artemisID && Main.npc[i].realLife == npc.whoAmI)
+                            {
+                                Main.npc[i].life = npc.life;
+                                Main.npc[i].active = true;
+                            }
+                        }
+                    }
+                    npc.UpdateNPC(npc.whoAmI);
+                }
+
+                npc.netUpdate = true;
+                ClearAwayTransitionProjectiles();
+
+                return false;
+            }
+            return true;
         }
     }
 }

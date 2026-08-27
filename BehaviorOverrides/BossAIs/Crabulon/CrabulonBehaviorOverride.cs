@@ -1,17 +1,23 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.NPCs.Crabulon;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.Effects;
 using InfernumMode.Miscellaneous;
+using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.World.Generation;
 using System.Collections.Generic;
 using CrabulonNPC = CalamityMod.NPCs.Crabulon.CrabulonIdle;
+using Microsoft.Xna.Framework.Graphics;
+using Terraria.DataStructures;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
 {
@@ -22,22 +28,61 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
         public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame;
 
         #region Enumerations
-        internal enum CrabulonAttackState
+        public enum CrabulonAttackState
         {
             SpawnWait,
             JumpToTarget,
             WalkToTarget,
-            CreateGroundMushrooms
+            CreateGroundMushrooms,
+            ClawSlamMushroomWaves
         }
         #endregion
 
         #region AI
 
+        public static int MushroomBombDamage => 70;
+
+        public static int SporeCloudDamage => 75;
+
+        public static int MushroomPillarDamage => 80;
+
         public const int MushroomStompBarrageInterval = 3;
+
+        public const int UsingDetachedHandsFlagIndex = 5;
+
+        public const int DetachedHandOffsetXIndex = 6;
+
+        public const int DetachedHandOffsetYIndex = 7;
 
         public const float Phase2LifeRatio = 0.85f;
 
         public const float Phase3LifeRatio = 0.45f;
+
+        public static CrabulonAttackState[] Phase1AttackCycle => new CrabulonAttackState[]
+        {
+            CrabulonAttackState.WalkToTarget,
+            CrabulonAttackState.JumpToTarget
+        };
+
+        public static CrabulonAttackState[] Phase2AttackCycle => new CrabulonAttackState[]
+        {
+            CrabulonAttackState.WalkToTarget,
+            CrabulonAttackState.JumpToTarget,
+            CrabulonAttackState.WalkToTarget,
+            CrabulonAttackState.CreateGroundMushrooms,
+            CrabulonAttackState.JumpToTarget,
+        };
+
+        public static CrabulonAttackState[] Phase3AttackCycle => new CrabulonAttackState[]
+        {
+            CrabulonAttackState.WalkToTarget,
+            CrabulonAttackState.JumpToTarget,
+            CrabulonAttackState.ClawSlamMushroomWaves,
+            CrabulonAttackState.WalkToTarget,
+            CrabulonAttackState.CreateGroundMushrooms,
+            CrabulonAttackState.JumpToTarget,
+            CrabulonAttackState.ClawSlamMushroomWaves,
+        };
 
         public override float[] PhaseLifeRatioThresholds => new float[]
         {
@@ -71,11 +116,25 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
             }
 
             Player target = Main.player[npc.target];
-            
+
             ref float attackType = ref npc.ai[2];
             ref float attackTimer = ref npc.ai[1];
             ref float jumpCount = ref npc.Infernum().ExtraAI[6];
+            ref float currentFrame = ref npc.Infernum().ExtraAI[7];
 
+            // Use a temporary variable to store the current frame. This is necessary to ensure that claw offset calculations are correct server-side, since the server does not have access to
+            // frame information.
+            if (Main.netMode != NetmodeID.Server)
+            {
+                int f = npc.frame.Y / npc.frame.Height;
+                if (currentFrame != f)
+                {
+                    currentFrame = f;
+                    npc.netUpdate = true;
+                }
+            }
+
+            bool usingClaws = false;
             bool enraged = !target.ZoneGlowshroom && npc.Top.Y / 16 < Main.worldSurface && !BossRushEvent.BossRushActive;
             npc.Calamity().CurrentlyEnraged = enraged;
             npc.alpha = Utils.Clamp(npc.alpha - 12, 0, 255);
@@ -83,21 +142,26 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
             switch ((CrabulonAttackState)(int)attackType)
             {
                 case CrabulonAttackState.SpawnWait:
-                    DoAttack_SpawnWait(npc, attackTimer);
+                    DoBehavior_SpawnWait(npc, attackTimer);
                     npc.ai[0] = 1f;
                     break;
                 case CrabulonAttackState.JumpToTarget:
-                    DoAttack_JumpToTarget(npc, target, attackTimer, enraged, ref jumpCount);
+                    DoBehavior_JumpToTarget(npc, target, attackTimer, enraged, ref jumpCount);
                     break;
                 case CrabulonAttackState.WalkToTarget:
-                    DoAttack_WalkToTarget(npc, target, attackTimer, enraged);
+                    DoBehavior_WalkToTarget(npc, target, attackTimer, enraged);
                     npc.ai[0] = 1f;
                     break;
                 case CrabulonAttackState.CreateGroundMushrooms:
-                    DoAttack_CreateGroundMushrooms(npc, target, ref attackTimer, enraged);
+                    DoBehavior_CreateGroundMushrooms(npc, target, ref attackTimer, enraged);
+                    npc.ai[0] = 1f;
+                    break;
+                case CrabulonAttackState.ClawSlamMushroomWaves:
+                    DoBehavior_ClawSlamMushroomWaves(npc, target, ref attackTimer, ref usingClaws, enraged);
                     npc.ai[0] = 1f;
                     break;
             }
+            npc.Infernum().ExtraAI[UsingDetachedHandsFlagIndex] = usingClaws.ToInt();
             attackTimer++;
             return false;
         }
@@ -113,14 +177,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
                 npc.timeLeft = 45;
         }
 
-        internal static void DoAttack_SpawnWait(NPC npc, float attackTimer)
+        internal static void DoBehavior_SpawnWait(NPC npc, float attackTimer)
         {
             if (attackTimer == 0f)
                 npc.alpha = 255;
             npc.damage = 0;
 
             // Idly emit mushroom dust off of Crabulon.
-            Dust spore = Dust.NewDustDirect(npc.position, npc.width, npc.height, 56);
+            Dust spore = Dust.NewDustDirect(npc.position, npc.width, npc.height, DustID.BlueFairy);
             spore.velocity = -Vector2.UnitY * Main.rand.NextFloat(0.4f, 2.7f);
             spore.noGravity = true;
             spore.scale = MathHelper.Lerp(0.75f, 1.45f, Utils.InverseLerp(npc.Top.Y, npc.Bottom.Y, spore.position.Y));
@@ -129,7 +193,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
                 SelectNextAttack(npc);
         }
 
-        internal static void DoAttack_JumpToTarget(NPC npc, Player target, float attackTimer, bool enraged, ref float jumpCount)
+        internal static void DoBehavior_JumpToTarget(NPC npc, Player target, float attackTimer, bool enraged, ref float jumpCount)
         {
             // Rapidly decelerate for the first half second or so prior to the jump.
             if (attackTimer < 30f)
@@ -138,8 +202,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
                 return;
             }
 
-            int sporeCloudCount = 15;
-            float sporeCloudSpeed = 6f;
+            int sporeCloudCount = 22;
+            int pillarMushroomSpawnRate = 28;
+            float sporeCloudSpeed = 9f;
             float lifeRatio = npc.life / (float)npc.lifeMax;
             float jumpSpeed = MathHelper.Lerp(13.5f, 18.75f, 1f - lifeRatio);
             float extraGravity = MathHelper.Lerp(0f, 0.45f, 1f - lifeRatio);
@@ -165,6 +230,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
             {
                 jumpSpeed *= 0.85f;
                 extraGravity = MathHelper.Clamp(extraGravity - 0.1f, 0f, 10f);
+
+                if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % pillarMushroomSpawnRate == pillarMushroomSpawnRate - 1f)
+                    Utilities.NewProjectileBetter(target.Center - Vector2.UnitY * 600f, Vector2.UnitY * 6f, ModContent.ProjectileType<MushBomb>(), MushroomBombDamage, 0f, -1, 0f, target.Bottom.Y);
             }
 
             ref float hasJumpedFlag = ref npc.Infernum().ExtraAI[0];
@@ -205,7 +273,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
                         for (int i = 0; i < 36; i++)
                         {
                             Vector2 dustSpawnPosition = Vector2.Lerp(npc.BottomLeft, npc.BottomRight, i / 36f);
-                            Dust stompMushroomDust = Dust.NewDustDirect(dustSpawnPosition, 4, 4, 56);
+                            Dust stompMushroomDust = Dust.NewDustDirect(dustSpawnPosition, 4, 4, DustID.BlueFairy);
                             stompMushroomDust.velocity = Vector2.UnitY * Main.rand.NextFloatDirection() * npc.velocity.Length() * 0.5f;
                             stompMushroomDust.scale = 1.8f;
                             stompMushroomDust.fadeIn = 1.2f;
@@ -214,7 +282,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
 
                         // Optionally, if below a certain life ratio or enraged, release mushrooms into the air.
                         bool tooManyShrooms = NPC.CountNPCS(ModContent.NPCType<CrabShroom>()) > 10;
-                        if (Main.netMode != NetmodeID.MultiplayerClient && (lifeRatio < Phase2LifeRatio || enraged))
+                        if (Main.netMode != NetmodeID.MultiplayerClient && (lifeRatio < Phase2LifeRatio || enraged) && lifeRatio >= Phase3LifeRatio)
                         {
                             for (int i = 0; i < 2; i++)
                             {
@@ -238,9 +306,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
                             {
                                 Vector2 spawnPosition = npc.Center + Main.rand.NextVector2Circular(npc.width, npc.height) * 0.45f;
                                 Vector2 sporeShootVelocity = Main.rand.NextVector2Unit() * sporeCloudSpeed * Main.rand.NextFloat(1f, 2f);
-                                int cloud = Utilities.NewProjectileBetter(spawnPosition, sporeShootVelocity, ModContent.ProjectileType<SporeCloud>(), 75, 0f);
-                                if (Main.projectile.IndexInRange(cloud))
-                                    Main.projectile[cloud].ai[0] = Main.rand.Next(3);
+                                Utilities.NewProjectileBetter(spawnPosition, sporeShootVelocity, ModContent.ProjectileType<SporeCloud>(), SporeCloudDamage, 0f, -1, Main.rand.Next(3));
                             }
                         }
 
@@ -261,19 +327,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
                 npc.ai[0] = 0f;
         }
 
-        internal static void DoAttack_WalkToTarget(NPC npc, Player target, float attackTimer, bool enraged)
+        internal static void DoBehavior_WalkToTarget(NPC npc, Player target, float attackTimer, bool enraged)
         {
             npc.direction = (target.Center.X > npc.Center.X).ToDirectionInt();
 
             float horizontalDistanceFromTarget = MathHelper.Distance(target.Center.X, npc.Center.X);
-            bool shouldSlowDown = horizontalDistanceFromTarget < 50f;
+            bool shouldSlowDown = horizontalDistanceFromTarget < 50f || Utilities.AnyProjectiles(ModContent.ProjectileType<MushroomPillar>());
             float lifeRatio = npc.life / (float)npc.lifeMax;
             float walkSpeed = MathHelper.Lerp(2.4f, 5.6f, 1f - lifeRatio);
             if (enraged)
                 walkSpeed += 1.5f;
             if (BossRushEvent.BossRushActive)
                 walkSpeed *= 5f;
-
             walkSpeed += horizontalDistanceFromTarget * 0.004f;
             walkSpeed *= npc.SafeDirectionTo(target.Center).X;
 
@@ -286,9 +351,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
                 if (Main.netMode != NetmodeID.MultiplayerClient && canShoot)
                 {
                     Vector2 shootVelocity = npc.SafeDirectionTo(target.Center) * shootPower;
-                    shootVelocity.X += npc.SafeDirectionTo(target.Center).X * shootPower * 0.45f;
-                    shootVelocity.Y -= shootPower * 0.75f;
-                    Utilities.NewProjectileBetter(npc.Center, shootVelocity, ModContent.ProjectileType<MushBomb>(), 70, 0f);
+                    shootVelocity.X += npc.SafeDirectionTo(target.Center).X * shootPower * 0.4f;
+                    shootVelocity.Y -= shootPower * 0.6f;
+                    Utilities.NewProjectileBetter(npc.Center, shootVelocity, ModContent.ProjectileType<MushBomb>(), MushroomBombDamage, 0f);
                 }
             }
 
@@ -305,6 +370,160 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
             npc.noTileCollide = true;
 
             // Check if tile collision ignoral is necessary.
+            PerformGravityCheck(npc, target);
+
+            if (attackTimer >= 132f || npc.collideX || target.Center.Y < npc.Top.Y - 200f || target.Center.Y > npc.Bottom.Y + 80f)
+            {
+                SelectNextAttack(npc);
+                if (target.Center.Y > npc.Bottom.Y + 80f)
+                    npc.ai[2] = (int)CrabulonAttackState.JumpToTarget;
+            }
+        }
+
+        internal static void DoBehavior_CreateGroundMushrooms(NPC npc, Player target, ref float attackTimer, bool enraged)
+        {
+            // Rapidly decelerate for the first second or so prior to the summon.
+            if (attackTimer < 45f)
+            {
+                npc.velocity.X *= 0.9f;
+                return;
+            }
+
+            if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer == 75f)
+            {
+                for (float dx = -1000f; dx < 1000f; dx += enraged ? 250f : 360f)
+                {
+                    Vector2 spawnPosition = target.Bottom + Vector2.UnitX * dx;
+                    WorldUtils.Find(spawnPosition.ToTileCoordinates(), Searches.Chain(new Searches.Down(6000), new GenCondition[]
+                    {
+                        new Conditions.IsSolid(),
+                        new CustomTileConditions.ActiveAndNotActuated(),
+                        new CustomTileConditions.NotPlatform()
+                    }), out Point newBottom);
+                    Utilities.NewProjectileBetter(newBottom.ToWorldCoordinates(8, 0), Vector2.Zero, ModContent.ProjectileType<MushroomPillar>(), MushroomPillarDamage, 0f);
+                }
+
+                // Release spores into the air.
+                for (int i = 0; i < 3; i++)
+                {
+                    int x = (int)(npc.position.X + Main.rand.Next(npc.width - 32));
+                    int y = (int)(npc.position.Y + Main.rand.Next(npc.height - 32));
+                    int fuck = NPC.NewNPC(x, y, ModContent.NPCType<CrabShroom>());
+                    Main.npc[fuck].SetDefaults(ModContent.NPCType<CrabShroom>());
+                    Main.npc[fuck].velocity.X = Main.rand.NextFloat(-5f, 5f);
+                    Main.npc[fuck].velocity.Y = Main.rand.NextFloat(-9f, -6f);
+                    if (Main.netMode == NetmodeID.Server && fuck < 200)
+                        NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, fuck, 0f, 0f, 0f, 0, 0, 0);
+                }
+            }
+
+            if (attackTimer >= 120f)
+                SelectNextAttack(npc);
+        }
+
+        public static void DoBehavior_ClawSlamMushroomWaves(NPC npc, Player target, ref float attackTimer, ref bool usingClaws, bool enraged)
+        {
+            int clawMoveTime = 72;
+            int clawPressTime = 32;
+            int clawSlamTime = 28;
+            int clawSlamWaitTime = 64;
+            int slamCount = 3;
+            Vector2 clawOffset = new Vector2(npc.Infernum().ExtraAI[DetachedHandOffsetXIndex], npc.Infernum().ExtraAI[DetachedHandOffsetYIndex]);
+
+            ref float slamCounter = ref npc.Infernum().ExtraAI[0];
+
+            // Extend the claws outward.
+            if (attackTimer <= clawMoveTime)
+            {
+                float moveInterpolant = (float)Math.Pow(attackTimer / clawMoveTime, 4.81f);
+                Vector2 idealClawOffset = new Vector2(MathHelper.Lerp(0f, 168f, moveInterpolant), MathHelper.Lerp(0f, -92f, moveInterpolant));
+                clawOffset = Vector2.Lerp(clawOffset, idealClawOffset, 0.16f);
+
+                // Walk towards the target.
+                if (slamCounter >= slamCount)
+                {
+                    if (attackTimer >= 10f)
+                        SelectNextAttack(npc);
+                }
+                else
+                {
+                    Vector2 walkDestination = target.Center + Vector2.UnitX * (target.Center.X < npc.Center.X).ToDirectionInt() * 180f;
+                    npc.velocity.X = (npc.velocity.X * 20f + npc.SafeDirectionTo(walkDestination).X * 8f) / 21f;
+                    PerformGravityCheck(npc, target);
+                }
+            }
+
+            // Press the claws together.
+            else if (attackTimer <= clawMoveTime + clawPressTime)
+            {
+                float moveInterpolant = (float)Math.Pow(Utils.InverseLerp(clawMoveTime, clawMoveTime + clawPressTime, attackTimer, true), 2.9f);
+                clawOffset.X = MathHelper.Lerp(168f, 30f, moveInterpolant);
+                clawOffset.Y = MathHelper.Lerp(-92f, -138f, moveInterpolant);
+
+                // Slow down.
+                npc.velocity.X *= 0.85f;
+            }
+
+            // Make the claws slam into the ground.
+            else
+            {
+                float moveInterpolant = (float)Math.Pow(Utils.InverseLerp(clawMoveTime + clawPressTime, clawMoveTime + clawPressTime + clawSlamTime, attackTimer, true), 8.3f);
+                clawOffset.X = MathHelper.Lerp(30f, 42f, moveInterpolant);
+                clawOffset.Y = MathHelper.Lerp(-138f, 56f, moveInterpolant);
+
+                if (attackTimer == clawMoveTime + clawPressTime + clawSlamTime - 15f)
+                    npc.netUpdate = true;
+
+                // Create a slam effect at the position where the claw slammed.
+                if (attackTimer == clawMoveTime + clawPressTime + clawSlamTime)
+                {
+                    Main.PlaySound(SoundID.DD2_MonkStaffGroundImpact, npc.Center);
+                    for (int i = -1; i <= 1; i += 2)
+                    {
+                        Vector2 clawCenter = npc.Center + GetBaseClawOffset(npc, i == 1) + clawOffset * new Vector2(-i, 1f);
+                        if (Main.netMode != NetmodeID.MultiplayerClient)
+                            Utilities.NewProjectileBetter(clawCenter, Vector2.UnitX * i * -6f, ProjectileID.DD2OgreSmash, 0, 0f);
+
+                        if (target.WithinRange(clawCenter, 100f))
+                            target.Hurt(PlayerDeathReason.ByNPC(npc.whoAmI), npc.damage, i);
+
+                        // Release a bunch of falling crab shrooms into the air from both arms.
+                        if (Main.netMode != NetmodeID.MultiplayerClient)
+                        {
+                            for (int j = 0; j < (enraged ? 28 : 16); j++)
+                            {
+                                float pointToCrabulonInterpolant = Utils.InverseLerp(5f, 0f, j, true);
+                                Vector2 shroomVelocity = new Vector2(-i * (j * 0.85f + 1f), -8f - (float)Math.Sqrt(j) * 0.5f) + Main.rand.NextVector2Circular(0.2f, 0.2f);
+                                shroomVelocity.X = MathHelper.Lerp(shroomVelocity.X, (npc.Center - clawCenter).SafeNormalize(Vector2.Zero).X * 4f, pointToCrabulonInterpolant);
+
+                                // Make mushrooms go higher up if the target is quite a bit above Crabulon.
+                                if (target.Center.Y < npc.Center.Y - 400f)
+                                    shroomVelocity.Y *= 1.5f;
+
+                                Utilities.NewProjectileBetter(clawCenter, shroomVelocity, ModContent.ProjectileType<MushBomb>(), MushroomBombDamage, 0f, -1, 0f, npc.Bottom.Y);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Use the claw animation.
+            usingClaws = true;
+
+            // Save the new claw offset value.
+            npc.Infernum().ExtraAI[DetachedHandOffsetXIndex] = clawOffset.X;
+            npc.Infernum().ExtraAI[DetachedHandOffsetYIndex] = clawOffset.Y;
+
+            if (attackTimer >= clawMoveTime + clawPressTime + clawSlamTime + clawSlamWaitTime)
+            {
+                attackTimer = 0f;
+                slamCounter++;
+                npc.netUpdate = true;
+            }
+        }
+
+        public static void PerformGravityCheck(NPC npc, Player target)
+        {
             int horizontalCheckArea = 80;
             int verticalCheckArea = 20;
             Vector2 checkPosition = new Vector2(npc.Center.X - horizontalCheckArea * 0.5f, npc.Bottom.Y - verticalCheckArea);
@@ -336,54 +555,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
                 else
                     npc.velocity.Y += 0.5f;
             }
-
-            if (attackTimer >= 180f || npc.collideX || target.Center.Y < npc.Top.Y - 200f || target.Center.Y > npc.Bottom.Y + 80f)
-            {
-                SelectNextAttack(npc);
-                if (target.Center.Y > npc.Bottom.Y + 80f)
-                    npc.ai[2] = (int)CrabulonAttackState.JumpToTarget;
-            }
-        }
-
-        internal static void DoAttack_CreateGroundMushrooms(NPC npc, Player target, ref float attackTimer, bool enraged)
-        {
-            // Rapidly decelerate for the first second or so prior to the summon.
-            if (attackTimer < 45f)
-            {
-                npc.velocity.X *= 0.9f;
-                return;
-            }
-
-            if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer == 75f)
-            {
-                for (float dx = -1000f; dx < 1000f; dx += enraged ? 250f : 360f)
-                {
-                    Vector2 spawnPosition = target.Bottom + Vector2.UnitX * dx;
-                    WorldUtils.Find(spawnPosition.ToTileCoordinates(), Searches.Chain(new Searches.Down(6000), new GenCondition[]
-                    {
-                        new Conditions.IsSolid(),
-                        new CustomTileConditions.ActiveAndNotActuated(),
-                        new CustomTileConditions.NotPlatform()
-                    }), out Point newBottom);
-                    Utilities.NewProjectileBetter(newBottom.ToWorldCoordinates(8, 0), Vector2.Zero, ModContent.ProjectileType<MushroomPillar>(), 80, 0f);
-                }
-
-                // Release spores into the air.
-                for (int i = 0; i < 3; i++)
-                {
-                    int x = (int)(npc.position.X + Main.rand.Next(npc.width - 32));
-                    int y = (int)(npc.position.Y + Main.rand.Next(npc.height - 32));
-                    int fuck = NPC.NewNPC(x, y, ModContent.NPCType<CrabShroom>());
-                    Main.npc[fuck].SetDefaults(ModContent.NPCType<CrabShroom>());
-                    Main.npc[fuck].velocity.X = Main.rand.NextFloat(-5f, 5f);
-                    Main.npc[fuck].velocity.Y = Main.rand.NextFloat(-9f, -6f);
-                    if (Main.netMode == NetmodeID.Server && fuck < 200)
-                        NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, fuck, 0f, 0f, 0f, 0, 0, 0);
-                }
-            }
-
-            if (attackTimer >= 120f)
-                SelectNextAttack(npc);
         }
         #endregion Specific Attacks
 
@@ -393,31 +564,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
         {
             npc.TargetClosest();
 
+            CrabulonAttackState newAttackState;
             float lifeRatio = npc.life / (float)npc.lifeMax;
-            CrabulonAttackState currentAttackState = (CrabulonAttackState)(int)npc.ai[2];
-            CrabulonAttackState newAttackState = CrabulonAttackState.JumpToTarget;
-            switch (currentAttackState)
-            {
-                case CrabulonAttackState.SpawnWait:
-                    newAttackState = CrabulonAttackState.WalkToTarget;
-                    break;
-                case CrabulonAttackState.WalkToTarget:
-                    newAttackState = CrabulonAttackState.JumpToTarget;
-                    if (lifeRatio < Phase2LifeRatio && Main.rand.NextFloat() < 0.45f)
-                        newAttackState = CrabulonAttackState.CreateGroundMushrooms;
-                    break;
-                case CrabulonAttackState.CreateGroundMushrooms:
-                    newAttackState = CrabulonAttackState.WalkToTarget;
-                    break;
-                case CrabulonAttackState.JumpToTarget:
-                    newAttackState = CrabulonAttackState.WalkToTarget;
-                    break;
-            }
+
+            npc.ai[3]++;
+            if (lifeRatio < Phase3LifeRatio)
+                newAttackState = Phase3AttackCycle[(int)npc.ai[3] % Phase3AttackCycle.Length];
+            else if (lifeRatio < Phase2LifeRatio)
+                newAttackState = Phase2AttackCycle[(int)npc.ai[3] % Phase2AttackCycle.Length];
+            else
+                newAttackState = Phase1AttackCycle[(int)npc.ai[3] % Phase1AttackCycle.Length];
 
             npc.ai[2] = (int)newAttackState;
             npc.ai[1] = 0f;
             for (int i = 0; i < 5; i++)
                 npc.Infernum().ExtraAI[i] = 0f;
+            npc.netSpam = 0;
             npc.netUpdate = true;
         }
         #endregion AI Utility Methods
@@ -477,12 +639,145 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Crabulon
                 if (stomping == 1f)
                     stomping = 0f;
 
-                npc.frameCounter += 0.15f;
+                npc.frameCounter += Math.Abs(npc.velocity.X) * 0.05f;
+                if (Math.Abs(npc.velocity.X) < 0.1f)
+                    npc.frameCounter = 0D;
+
                 npc.frameCounter %= Main.npcFrameCount[npc.type];
                 int frame = (int)npc.frameCounter;
                 npc.frame.Y = frame * frameHeight;
             }
         }
-        #endregion Frames
+
+        public static Color ClawArmColorFunction(NPC npc, float completionRatio)
+        {
+            Color endColors = new Color(116, 108, 166);
+            Color middleColor = new Color(90, 167, 209);
+            Color baseColor = Color.Lerp(endColors, middleColor, (float)Math.Abs(Math.Sin(completionRatio * MathHelper.Pi * 0.7f)));
+            return baseColor * Utils.InverseLerp(0f, 0.07f, completionRatio, true) * npc.Opacity;
+        }
+
+        public static float ClawArmWidthFunction(float _) => 18f;
+
+        public static Vector2 GetBaseClawOffset(NPC npc, bool right)
+        {
+            int frame = (int)npc.Infernum().ExtraAI[7];
+            Vector2 defaultArmOffset = new Vector2(130f, 6f) * npc.scale;
+            Vector2 frameBasedOffset = Vector2.Zero;
+
+            if (frame == 1)
+                frameBasedOffset.X += npc.scale * 2f;
+            if (frame == 2)
+                frameBasedOffset.X += npc.scale * -2f;
+            if (frame == 4)
+                frameBasedOffset.X += npc.scale * 2f;
+            return defaultArmOffset * new Vector2(-right.ToDirectionInt(), 1f) + frameBasedOffset;
+        }
+
+        public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor)
+        {
+            Texture2D glow = ModContent.GetTexture("CalamityMod/NPCs/Crabulon/CrabulonIdleGlow");
+            Texture2D texture = ModContent.GetTexture("CalamityMod/NPCs/Crabulon/CrabulonIdleAlt");
+            Texture2D textureGlow = ModContent.GetTexture("CalamityMod/NPCs/Crabulon/CrabulonIdleAltGlow");
+            Texture2D textureAttack = ModContent.GetTexture("CalamityMod/NPCs/Crabulon/CrabulonAttack");
+            Texture2D textureAttackGlow = ModContent.GetTexture("CalamityMod/NPCs/Crabulon/CrabulonAttackGlow");
+            Texture2D textureArmless = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Crabulon/CrabulonArmless");
+            Texture2D textureArmlessGlow = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Crabulon/CrabulonArmlessGlow");
+
+            Texture2D leftArm = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Crabulon/CrabulonClawLeft");
+            Texture2D leftArmGlow = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Crabulon/CrabulonClawLeftGlow");
+            Texture2D rightArm = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Crabulon/CrabulonClawRight");
+            Texture2D rightArmGlow = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Crabulon/CrabulonClawRightGlow");
+
+            Vector2 origin = npc.frame.Size() * 0.5f;
+            Vector2 drawPosition = npc.Center - Main.screenPosition;
+            Color glowColor = Color.Lerp(Color.White, Color.Cyan, 0.5f) * npc.Opacity;
+            SpriteEffects direction = npc.spriteDirection == 1 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+
+            // Jumping.
+            if (npc.ai[0] > 1f)
+            {
+                if (npc.velocity.Y == 0f && npc.ai[1] >= 0f && npc.ai[0] == 2f)
+                {
+                    spriteBatch.Draw(Main.npcTexture[npc.type], drawPosition, npc.frame, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, direction, 0f);
+                    spriteBatch.Draw(glow, drawPosition, npc.frame, glowColor, npc.rotation, origin, npc.scale, direction, 0f);
+                }
+                else
+                {
+                    spriteBatch.Draw(textureAttack, drawPosition, npc.frame, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, direction, 0f);
+                    spriteBatch.Draw(textureAttackGlow, drawPosition, npc.frame, glowColor, npc.rotation, origin, npc.scale, direction, 0f);
+                }
+            }
+
+            // Detached arms.
+            else if (npc.Infernum().ExtraAI[UsingDetachedHandsFlagIndex] == 1f)
+            {
+                // Initialize the claw drawer.
+                if (npc.Infernum().OptionalPrimitiveDrawer == null)
+				    npc.Infernum().OptionalPrimitiveDrawer = new PrimitiveTrailCopy(ClawArmWidthFunction, c => ClawArmColorFunction(npc, c), null, true, InfernumEffectsRegistry.WoFTentacleVertexShader);
+
+                InfernumEffectsRegistry.WoFTentacleVertexShader.UseColor(new Color(70, 90, 166));
+                InfernumEffectsRegistry.WoFTentacleVertexShader.UseSecondaryColor(new Color(113, 255, 233));
+                InfernumEffectsRegistry.WoFTentacleVertexShader.SetShaderTexture(ModContent.GetTexture("Terraria/Misc/Perlin"));
+
+                Main.spriteBatch.EnterShaderRegion();
+                spriteBatch.Draw(textureArmless, drawPosition, npc.frame, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, direction, 0f);
+                spriteBatch.Draw(textureArmlessGlow, drawPosition, npc.frame, glowColor, npc.rotation, origin, npc.scale, direction, 0f);
+
+                // Draw the left arm.
+                Vector2 clawDrawPosition = drawPosition + new Vector2(npc.Infernum().ExtraAI[DetachedHandOffsetXIndex] + npc.scale * 0f, npc.Infernum().ExtraAI[DetachedHandOffsetYIndex]) + GetBaseClawOffset(npc, false);
+                float leftClawRotation = (clawDrawPosition - drawPosition).ToRotation() - 0.33f;
+
+                drawPosition.X += npc.scale * 84f;
+                npc.Infernum().OptionalPrimitiveDrawer.Draw(new List<Vector2>()
+                {
+                    drawPosition,
+                    Vector2.Lerp(drawPosition, clawDrawPosition, 0.25f),
+                    Vector2.Lerp(drawPosition, clawDrawPosition, 0.5f),
+                    Vector2.Lerp(drawPosition, clawDrawPosition, 0.75f),
+                    clawDrawPosition
+                }, Vector2.Zero, 50);
+                drawPosition.X -= npc.scale * 84f;
+
+                spriteBatch.Draw(leftArm, clawDrawPosition, null, npc.GetAlpha(lightColor), npc.rotation + leftClawRotation, leftArm.Size() * 0.5f, npc.scale, 0, 0f);
+                spriteBatch.Draw(leftArmGlow, clawDrawPosition, null, glowColor, npc.rotation + leftClawRotation, leftArm.Size() * 0.5f, npc.scale, 0, 0f);
+
+                // Draw the right arm.
+                clawDrawPosition = drawPosition + new Vector2(-npc.Infernum().ExtraAI[DetachedHandOffsetXIndex], npc.Infernum().ExtraAI[DetachedHandOffsetYIndex]) + GetBaseClawOffset(npc, true);
+                float rightClawRotation = (clawDrawPosition - drawPosition).ToRotation() + MathHelper.Pi + 0.33f;
+
+                drawPosition.X -= npc.scale * 84f;
+                npc.Infernum().OptionalPrimitiveDrawer.Draw(new List<Vector2>()
+                {
+                    drawPosition,
+                    Vector2.Lerp(drawPosition, clawDrawPosition, 0.25f),
+                    Vector2.Lerp(drawPosition, clawDrawPosition, 0.5f),
+                    Vector2.Lerp(drawPosition, clawDrawPosition, 0.75f),
+                    clawDrawPosition
+                }, Vector2.Zero, 50);
+                drawPosition.X += npc.scale * 84f;
+
+                spriteBatch.Draw(rightArm, clawDrawPosition, null, npc.GetAlpha(lightColor), npc.rotation + rightClawRotation, rightArm.Size() * 0.5f, npc.scale, 0, 0f);
+                spriteBatch.Draw(rightArmGlow, clawDrawPosition, null, glowColor, npc.rotation + rightClawRotation, rightArm.Size() * 0.5f, npc.scale, 0, 0f);
+                Main.spriteBatch.ExitShaderRegion();
+            }
+
+            // Walking.
+            else if (npc.ai[0] == 1f)
+            {
+                spriteBatch.Draw(texture, drawPosition, npc.frame, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, direction, 0f);
+                spriteBatch.Draw(textureGlow, drawPosition, npc.frame, glowColor, npc.rotation, origin, npc.scale, direction, 0f);
+            }
+
+            // Standing still.
+            else
+            {
+                spriteBatch.Draw(Main.npcTexture[npc.type], drawPosition, npc.frame, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, direction, 0f);
+                spriteBatch.Draw(glow, drawPosition, npc.frame, glowColor, npc.rotation, origin, npc.scale, direction, 0f);
+            }
+            return false;
+        }
+        #endregion Frames and Drawcode
+
     }
 }

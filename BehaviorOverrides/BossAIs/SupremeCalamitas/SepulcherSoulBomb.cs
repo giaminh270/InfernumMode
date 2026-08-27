@@ -2,6 +2,7 @@ using CalamityMod;
 using CalamityMod.NPCs.SupremeCalamitas;
 using CalamityMod.Particles;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -21,7 +22,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
         public PrimitiveTrailCopy FireDrawer;
 
         public ref float Time => ref projectile.ai[0];
-        
+
         public ref float Radius => ref projectile.ai[1];
 
         public const int Lifetime = 360;
@@ -43,6 +44,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.scale = 1f;
             projectile.hide = true;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer) => writer.Write(ExplodeCountdown);
@@ -65,12 +67,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
                 if (ExplodeCountdown <= 0)
                 {
-                	Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/WyrmElectricCharge"), projectile.Center);
+                    Main.PlaySound(InfernumSoundRegistry.WyrmChargeSound, projectile.Center);
 
                     int dartRingCount = 3;
                     int dartsPerRing = 15;
 
-                    // Explode into a spread of darts, fire bursts, and souls.
+                    // Create a particle effect explosion.
                     for (int i = 0; i < 75; i++)
                     {
                         SquishyLightParticle fire = new SquishyLightParticle(projectile.Center, Main.rand.NextVector2Unit() * Main.rand.NextFloat(6f, 20f), 1f, Color.Orange, 64, 1.4f, 2.7f);
@@ -79,18 +81,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        // Create darts.
-                        for (int i = 0; i < dartRingCount; i++)
+                        // Create darts if Sepulcher exists.
+                        if (NPC.AnyNPCs(ModContent.NPCType<SCalWormHead>()))
                         {
-                            float dartSpeed = MathHelper.Lerp(8f, 3f, i / (float)(dartRingCount - 1f));
-                            for (int j = 0; j < dartsPerRing; j++)
+                            for (int i = 0; i < dartRingCount; i++)
                             {
-                                Vector2 dartVelocity = (MathHelper.TwoPi * j / dartsPerRing).ToRotationVector2() * dartSpeed;
-                                if (i % 2 == 0)
-                                    dartVelocity = dartVelocity.RotatedBy(MathHelper.Pi / dartsPerRing);
-                                Utilities.NewProjectileBetter(projectile.Center, dartVelocity, ModContent.ProjectileType<BrimstoneBarrage>(), 500, 0f);
+                            	float dartSpeed = MathHelper.Lerp(8f, 3f, i / (float)(dartRingCount - 1f));
+                                for (int j = 0; j < dartsPerRing; j++)
+                                {
+                                	Vector2 dartVelocity = (MathHelper.TwoPi * j / dartsPerRing).ToRotationVector2() * dartSpeed;
+                                    if (i % 2 == 0)
+                                    	dartVelocity = dartVelocity.RotatedBy(MathHelper.Pi / dartsPerRing);
+                                    Utilities.NewProjectileBetter(projectile.Center, dartVelocity, ModContent.ProjectileType<BrimstoneBarrage>(), SupremeCalamitasBehaviorOverride.BrimstoneDartDamage, 0f);
+                                }
+                                dartsPerRing += 4;
                             }
-                            dartsPerRing += 4;
                         }
                         projectile.Kill();
                     }

@@ -11,7 +11,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
     public class AstralPlasmaSpark : ModProjectile
     {
         public bool Cyan => projectile.ai[0] == 1f;
-        public ref float Time => ref projectile.ai[0];
+
+        public ref float Time => ref projectile.ai[1];
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Astral Plasma Spark");
@@ -29,7 +31,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             projectile.tileCollide = false;
             projectile.Opacity = 0f;
             projectile.penetrate = -1;
-            projectile.timeLeft = 360;
+            projectile.timeLeft = 300;
             cooldownSlot = 1;
         }
 
@@ -46,22 +48,25 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             // Weakly home in on the target before accelerating.
             if (Time < 135f)
             {
-                float flySpeed = BossRushEvent.BossRushActive ? 19.5f : 14f;
+                float flySpeed = BossRushEvent.BossRushActive ? 11f : 9f;
                 Player target = Main.player[Player.FindClosest(projectile.Center, 1, 1)];
                 if (!projectile.WithinRange(target.Center, 200f))
                     projectile.velocity = (projectile.velocity * 39f + projectile.SafeDirectionTo(target.Center) * flySpeed) / 40f;
             }
-            else if (projectile.velocity.Length() < 23.5f)
+            else if (projectile.velocity.Length() < 14.5f)
                 projectile.velocity *= 1.015f;
 
             Time++;
         }
+
+        public override bool CanDamage() => projectile.Opacity > 0.8f;
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             Texture2D texture = ModContent.GetTexture(Texture);
             if (Cyan)
                 texture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/AstrumDeus/AstralPlasmaSparkCyan");
+
             Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type], 1, texture);
             return false;
         }

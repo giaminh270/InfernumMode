@@ -12,9 +12,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 {
     public class AresTeslaOrb : ModProjectile
     {
-        public ref float Identity => ref projectile.ai[0];
         public PrimitiveTrail LightningDrawer;
+
         public PrimitiveTrail LightningBackgroundDrawer;
+
+        public ref float Identity => ref projectile.ai[0];
+
+        public static float DetatchmentDistance => 900f;
 
         public override void SetStaticDefaults()
         {
@@ -76,7 +80,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             if (CalamityGlobalNPC.draedonExoMechPrime < 0 || !Main.npc[CalamityGlobalNPC.draedonExoMechPrime].active)
                 return null;
 
-            float detachDistance = 1420f;
+            float detachDistance = DetatchmentDistance;
             for (int i = 0; i < Main.maxProjectiles; i++)
             {
                 if (Main.projectile[i].type != projectile.type || Main.projectile[i].ai[0] != Identity + 1f || !Main.projectile[i].active)
@@ -96,8 +100,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             List<Vector2> points = new List<Vector2>();
 
             // Determine the base points based on a linear path from the start the end end point.
-            for (int i = 0; i <= 75; i++)
-                points.Add(Vector2.Lerp(start, end, i / 73.5f));
+            int pointCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 30 : 75;
+            for (int i = 0; i <= pointCount; i++)
+                points.Add(Vector2.Lerp(start, end, i / (pointCount - 1.5f)));
 
             // Then, add continuous randomness to the positions of various points.
             for (int i = 0; i < points.Count; i++)
@@ -117,7 +122,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 Vector2 offsetDirection = (noise * MathHelper.Pi * 0.7f).ToRotationVector2();
 
                 // Then, determine the factor of the offset. This is based on the initial direction (but squashed) and the muffle factor from above.
-                Vector2 offset = offsetDirection * (float)Math.Pow(offsetDirection.Y, 2D) * offsetMuffleFactor * 15f;
+                Vector2 offset = offsetDirection * (float)Math.Pow(offsetDirection.Y, 2f) * offsetMuffleFactor * 15f;
 
                 points[i] += offset;
             }
@@ -193,11 +198,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 Vector2 sparkVelocity = (MathHelper.TwoPi * i / 4f).ToRotationVector2() * 5.6f;
                 Utilities.NewProjectileBetter(projectile.Center, sparkVelocity, ModContent.ProjectileType<AresTeslaSpark>(), DraedonBehaviorOverride.NormalShotDamage, 0f);
             }
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
         }
     }
 }

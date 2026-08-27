@@ -1,3 +1,4 @@
+using InfernumMode.ExtraTextures;
 using InfernumMode.BaseEntities;
 using Microsoft.Xna.Framework;
 using System;
@@ -10,8 +11,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
     public class DoGSpawnBoom : BaseWaveExplosionProjectile
     {
         public override int Lifetime => 180;
-        public override float MaxRadius => 4300f;
+
+        public override float MaxRadius => 2300f;
+
         public override float RadiusExpandRateInterpolant => 0.15f;
+
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/Gleam";
+
+        public override Texture2D ExplosionNoiseTexture => InfernumTextureRegistry.CracksNoise;
+
         public override float DetermineScreenShakePower(float lifetimeCompletionRatio, float distanceFromPlayer)
         {
             float baseShakePower = MathHelper.Lerp(3f, 16f, (float)Math.Sin(MathHelper.Pi * lifetimeCompletionRatio));

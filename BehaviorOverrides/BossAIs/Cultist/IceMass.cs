@@ -29,6 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             projectile.Opacity = 0f;
             projectile.extraUpdates = 1;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -41,15 +42,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             Time++;
         }
 
-        
-
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             // Draw telegraph lines.
             // The amount of these will create a somewhat geometric pattern.
             if (Time > 60f && Time < 170f)
             {
-				float lineWidth = Utils.InverseLerp(60f, 90f, Time, true) * Utils.InverseLerp(170f, 140f, Time, true) * 2.5f + 0.2f;
+				float lineWidth = Utils.InverseLerp(45f, 75f, Time, true) * Utils.InverseLerp(0f, 30f, projectile.timeLeft, true) * 2.5f + 0.2f;
 
                 if (lineWidth > 1f)
                     lineWidth += (float)Math.Sin(Main.GlobalTime * 5f) * 0.15f;
@@ -75,7 +74,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 for (float speed = 6f; speed <= 21f; speed += 3.3f)
                 {
                     Vector2 iceVelocity = (MathHelper.TwoPi * (i + 0.5f) / ShardBurstCount).ToRotationVector2() * speed * (BossRushEvent.BossRushActive ? 1.6f : 1f);
-                    Utilities.NewProjectileBetter(projectile.Center, iceVelocity, ModContent.ProjectileType<IceShard>(), 185, 0f);
+                    Utilities.NewProjectileBetter(projectile.Center, iceVelocity, ModContent.ProjectileType<IceShard>(), CultistBehaviorOverride.IceShardDamage, 0f);
                 }
             }
         }

@@ -24,6 +24,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             projectile.penetrate = -1;
             projectile.timeLeft = 40;
             projectile.scale = 1f;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -53,13 +54,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             Vector2 scale = projectile.Size / texture.Size();
             Color color = Color.Lerp(Color.Turquoise, Color.White, projectile.scale) * projectile.scale;
 
-            spriteBatch.Draw(texture, drawPosition, null, color, 0f, texture.Size() * 0.5f, scale * (float)Math.Pow(projectile.scale, 1.5), 0, 0f);
+            spriteBatch.Draw(texture, drawPosition, null, color, 0f, texture.Size() * 0.5f, scale * (float)Math.Pow(projectile.scale, 1.5f), 0, 0f);
             for (int i = 0; i < 2; i++)
             {
                 float rotation = MathHelper.Lerp(-MathHelper.PiOver4, MathHelper.PiOver4, i);
                 spriteBatch.Draw(texture, drawPosition, null, color, rotation, texture.Size() * 0.5f, scale * new Vector2(0.1f, 1f) * 1.45f, 0, 0f);
             }
-            spriteBatch.ResetBlendState();
+            Main.spriteBatch.ResetBlendState();
 
             return false;
         }

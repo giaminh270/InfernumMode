@@ -1,4 +1,4 @@
-using CalamityMod.Events;
+﻿using CalamityMod.Events;
 using CalamityMod.Dusts;
 using CalamityMod.NPCs;
 using InfernumMode.BehaviorOverrides.BossAIs.MoonLord;
@@ -11,6 +11,7 @@ using CalamityMod;
 using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.ModLoader;
+using InfernumMode.Effects;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
 {
@@ -95,9 +96,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             if (TrailDrawer is null)
-                TrailDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:TwinsFlameTrail"]);
+                TrailDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.TwinsFlameTrailVertexShader);
 
-            GameShaders.Misc["Infernum:TwinsFlameTrail"].UseImage("Images/Misc/Perlin");
+            InfernumEffectsRegistry.TwinsFlameTrailVertexShader.UseImage("Images/Misc/Perlin");
 			TrailDrawer.Draw(projectile.oldPos, projectile.Size * 0.5f - Main.screenPosition, 39);
             return false;
         }

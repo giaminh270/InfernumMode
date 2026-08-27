@@ -21,6 +21,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             projectile.ignoreWater = true;
             projectile.timeLeft = 85;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -60,12 +61,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
             float aimDirection = (MathHelper.WrapAngle(projectile.AngleTo(Target.Center) - projectile.velocity.ToRotation()) > 0f).ToDirectionInt();
             Vector2 beamDirection = projectile.velocity.SafeNormalize(Vector2.UnitY);
-
-            int beam = Utilities.NewProjectileBetter(projectile.Center, beamDirection, ModContent.ProjectileType<FireBeam>(), 235, 0f);
-            if (Main.projectile.IndexInRange(beam))
-                Main.projectile[beam].ai[1] = aimDirection * 0.0254f;
+            Utilities.NewProjectileBetter(projectile.Center, beamDirection, ModContent.ProjectileType<FireBeam>(), CultistBehaviorOverride.FireBeamDamage, 0f, -1, 0f, aimDirection * 0.0277f);
         }
-
-        
     }
 }

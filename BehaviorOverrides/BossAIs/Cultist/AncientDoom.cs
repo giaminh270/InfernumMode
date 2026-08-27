@@ -14,7 +14,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
     public class AncientDoom : ModProjectile
     {
         public ref float Time => ref projectile.ai[0];
+
         public Player Target => Main.player[(int)projectile.ai[1]];
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Doomer");
@@ -31,6 +33,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             projectile.timeLeft = 90;
             projectile.Opacity = 0f;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -71,12 +74,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             // Make line telegraphs.
             if (projectile.timeLeft < 36f)
             {
+                float widthInterpolant = Utils.InverseLerp(0f, 36f, projectile.timeLeft, true);
+                float lineWidth = CalamityUtils.Convert01To010(widthInterpolant) * 2f;
                 for (int i = 0; i < 9; i++)
                 {
                     Vector2 beamDirection = (MathHelper.TwoPi * i / 9f).ToRotationVector2();
                     if (projectile.localAI[1] == 1f)
                         beamDirection = beamDirection.RotatedBy(MathHelper.TwoPi / 18f);
-                    spriteBatch.DrawLineBetter(projectile.Center, projectile.Center + beamDirection * DoomBeam.LaserLength, Color.Purple, (float)Math.Sin(MathHelper.Pi * Utils.InverseLerp(0f, 36f, projectile.timeLeft, true)) * 2f);
+
+                    spriteBatch.DrawLineBetter(projectile.Center, projectile.Center + beamDirection * DoomBeam.LaserLength, Color.Purple, lineWidth);
                 }
             }
 
@@ -106,15 +112,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 if (BossRushEvent.BossRushActive)
                     doomVelocity *= 1.5f;
 
-                Utilities.NewProjectileBetter(projectile.Center, doomVelocity, ModContent.ProjectileType<DarkPulse>(), 170, 0f);
-                Utilities.NewProjectileBetter(projectile.Center, doomVelocity * 0.25f, ModContent.ProjectileType<DarkPulse>(), 170, 0f);
+                Utilities.NewProjectileBetter(projectile.Center, doomVelocity, ModContent.ProjectileType<DarkPulse>(), CultistBehaviorOverride.DarkPulseDamage, 0f);
+                Utilities.NewProjectileBetter(projectile.Center, doomVelocity * 0.25f, ModContent.ProjectileType<DarkPulse>(), CultistBehaviorOverride.DarkPulseDamage, 0f);
             }
             for (int i = 0; i < 9; i++)
             {
                 Vector2 beamDirection = (MathHelper.TwoPi * i / 9f).ToRotationVector2();
                 if (projectile.localAI[1] == 1f)
                     beamDirection = beamDirection.RotatedBy(MathHelper.TwoPi / 18f);
-                Utilities.NewProjectileBetter(projectile.Center, beamDirection, ModContent.ProjectileType<DoomBeam>(), 240, 0f);
+                Utilities.NewProjectileBetter(projectile.Center, beamDirection, ModContent.ProjectileType<DoomBeam>(), CultistBehaviorOverride.DoomBeamDamage, 0f);
             }
         }
     }

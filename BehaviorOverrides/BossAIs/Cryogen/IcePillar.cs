@@ -1,5 +1,7 @@
 using CalamityMod;
+using CalamityMod.Particles;
 using InfernumMode.Miscellaneous;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -13,10 +15,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
 {
     public class IcePillar : ModProjectile
     {
+        public float CurrentHeight;
+
         public ref float MaxPillarHeight => ref projectile.ai[0];
+
         public ref float Time => ref projectile.ai[1];
-        public float CurrentHeight = 0f;
+
         public const float StartingHeight = 30f;
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Ice Pillar");
 
         public override void SetDefaults()
@@ -26,7 +32,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             projectile.ignoreWater = true;
             projectile.tileCollide = false;
             projectile.penetrate = -1;
-            projectile.timeLeft = 480;
+            projectile.timeLeft = 360;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)
@@ -45,7 +52,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
         {
             Time++;
 
-            projectile.extraUpdates = Time < 60f ? 0 : 1;
+            projectile.MaxUpdates = Time < 60f ? 1 : 2;
 
             // Fade in at the beginning of the projectile's life.
             if (Time < 60f)
@@ -88,7 +95,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             projectile.Bottom = newBottom.ToWorldCoordinates(8, isHalfTile ? 8 : 0);
 
             Player target = Main.player[Player.FindClosest(projectile.Center, 1, 1)];
-            MaxPillarHeight = MathHelper.Max(0f, projectile.Top.Y - target.Top.Y) + StartingHeight + 100f + Math.Abs(target.velocity.Y * 15f);
+            MaxPillarHeight = (float)Math.Max(0f, projectile.Top.Y - target.Top.Y) + StartingHeight + 100f + Math.Abs(target.velocity.Y * 15f);
 
             CurrentHeight = StartingHeight;
 
@@ -104,10 +111,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             Vector2 aimDirection = Vector2.UnitY.RotatedBy(projectile.rotation);
             if (Time < 60f)
             {
-                float telegraphLineWidth = (float)Math.Sin(Time / 60f * MathHelper.Pi) * 5f;
-                if (telegraphLineWidth > 3f)
-                    telegraphLineWidth = 3f;
-                spriteBatch.DrawLineBetter(projectile.Top + aimDirection * 10f, projectile.Top + aimDirection * -MaxPillarHeight, Color.LightCyan, telegraphLineWidth);
+                float telegraphOpacity = (float)Math.Pow(CalamityUtils.Convert01To010(Time / 60f), 0.6f);
+                float telegraphLineWidth = telegraphOpacity * 6f;
+                if (telegraphLineWidth > 5f)
+                    telegraphLineWidth = 5f;
+                Main.spriteBatch.DrawLineBetter(projectile.Top + aimDirection * 10f, projectile.Top + aimDirection * -MaxPillarHeight, Color.LightCyan * telegraphOpacity, telegraphLineWidth);
             }
 
             float tipBottom = 0f;
@@ -132,28 +140,52 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             }
         }
 
-        
-
-        public override bool CanDamage() => Time >= 70f;
+        public override bool CanDamage()/* tModPorter Suggestion: Return null instead of false */ => Time >= 70f;
 
         public override void Kill(int timeLeft)
         {
-            Main.PlaySound(SoundID.Item51, projectile.Center);
+            // Play a break sound.
+            Main.PlaySound(InfernumSoundRegistry.ProvidenceCrystalPillarShatterSound.WithPitchVariance(0.4f), projectile.Center);
 
-            int spikeCount = (int)MathHelper.Lerp(1f, 4f, Utils.InverseLerp(100f, 960f, CurrentHeight, true));
+            // Emit a bunch of ice cloud particles and shatter particles.
             Vector2 aimDirection = Vector2.UnitY.RotatedBy(projectile.rotation);
+            for (float offset = 0f; offset < CurrentHeight; offset += Main.rand.NextFloat(4f, 11f))
+            {
+                Vector2 crystalShardSpawnPosition = projectile.Center - aimDirection * offset + Main.rand.NextVector2Circular(6f, 6f);
+                Vector2 shardVelocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(3.6f, 13.6f);
+
+                Dust shard = Dust.NewDustPerfect(crystalShardSpawnPosition, 68, shardVelocity);
+                shard.noGravity = Main.rand.NextBool();
+                shard.scale = Main.rand.NextFloat(0.9f, 1.4f);
+                shard.velocity.Y -= 5f;
+
+                // Create ice mist.
+                if (Main.rand.NextBool())
+                {
+                    MediumMistParticle mist = new MediumMistParticle(crystalShardSpawnPosition + Main.rand.NextVector2Circular(12f, 12f), Vector2.Zero, new Color(172, 238, 255), new Color(145, 170, 188), Main.rand.NextFloat(0.5f, 1.5f), 245 - Main.rand.Next(50), 0.02f)
+                    {
+                        Velocity = Main.rand.NextVector2Circular(7.5f, 7.5f)
+                    };
+                    GeneralParticleHandler.SpawnParticle(mist);
+                }
+            }
+
+            // Release some ice spikes that redirect and accelerate towards the target.
+            int spikeCount = (int)MathHelper.Lerp(1f, 4f, Utils.InverseLerp(100f, 960f, CurrentHeight, true));
             for (int i = 0; i < spikeCount; i++)
             {
                 Vector2 icicleSpawnPosition = projectile.Bottom - aimDirection * CurrentHeight * i / spikeCount;
                 icicleSpawnPosition -= aimDirection * Main.rand.NextFloatDirection() * 20f + Main.rand.NextVector2Circular(8f, 8f);
                 Vector2 icicleShootVelocity = Main.rand.NextVector2Unit() * 4f;
-                Utilities.NewProjectileBetter(icicleSpawnPosition, icicleShootVelocity, ModContent.ProjectileType<AimedIcicleSpike>(), 145, 0f);
+
+                Utilities.NewProjectileBetter(icicleSpawnPosition, icicleShootVelocity, ModContent.ProjectileType<AimedIcicleSpike>(), CryogenBehaviorOverride.IcicleSpikeDamage, 0f);
             }
         }
 
         public override Color? GetAlpha(Color lightColor)
         {
-            return Main.dayTime ? new Color(50, 50, 255, 255 - projectile.alpha) : new Color(255, 255, 255, projectile.alpha);
+            Color color = Main.dayTime ? new Color(50, 50, 255, 255 - projectile.alpha) : new Color(255, 255, 255, projectile.alpha);
+            return color * Utils.InverseLerp(15f, 75f, Time, true);
         }
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)

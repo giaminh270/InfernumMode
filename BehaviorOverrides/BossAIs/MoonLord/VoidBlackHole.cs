@@ -1,4 +1,5 @@
 using CalamityMod;
+using InfernumMode.ExtraTextures;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -13,7 +14,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
         public ref float Timer => ref projectile.ai[0];
         public ref float Owner => ref projectile.ai[1];
         public Player Target => Main.player[projectile.owner];
-        public override string Texture => "InfernumMode/ExtraTextures/WhiteHole";
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/WhiteHole";
 
         public override void SetStaticDefaults() => DisplayName.SetDefault("Void");
 
@@ -26,6 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             projectile.penetrate = -1;
             projectile.timeLeft = 900000;
             projectile.scale = 1f;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -54,7 +56,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                     Vector2 fireballShootVelocity = (fireballSpawnPosition - projectile.Center).SafeNormalize(Vector2.UnitY);
                     fireballShootVelocity = Vector2.Lerp(fireballShootVelocity, (Target.Center - fireballSpawnPosition).SafeNormalize(Vector2.UnitY), 0.35f);
                     fireballShootVelocity = fireballShootVelocity.SafeNormalize(Vector2.UnitY) * 13.5f;
-                    Utilities.NewProjectileBetter(fireballSpawnPosition, fireballShootVelocity, ModContent.ProjectileType<LunarFireball>(), 220, 0f);
+                    Utilities.NewProjectileBetter(fireballSpawnPosition, fireballShootVelocity, ModContent.ProjectileType<LunarFireball>(), MoonLordCoreBehaviorOverride.LunarFireballDamage, 0f);
                 }
             }
 
@@ -63,10 +65,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             if (Timer >= 135f && Timer % asteroidReleaseRate == asteroidReleaseRate - 1f)
             {
                 Vector2 asteroidSpawnPosition = Target.Center + Main.rand.NextVector2CircularEdge(700f, 700f);
-                Vector2 asteroidShootVelocity = (core.Center - asteroidSpawnPosition).SafeNormalize(Vector2.UnitY) * 11f;
-                int asteroid = Utilities.NewProjectileBetter(asteroidSpawnPosition, asteroidShootVelocity, ModContent.ProjectileType<LunarAsteroid>(), 220, 0f);
-                if (Main.projectile.IndexInRange(asteroid))
-                    Main.projectile[asteroid].ai[0] = core.whoAmI;
+                Vector2 asteroidShootVelocity = (core.Center - asteroidSpawnPosition).SafeNormalize(Vector2.UnitY) * 9.25f;
+                Utilities.NewProjectileBetter(asteroidSpawnPosition, asteroidShootVelocity, ModContent.ProjectileType<LunarAsteroid>(), MoonLordCoreBehaviorOverride.LunarAsteroidDamage, 0f, -1, core.whoAmI);
             }
 
             // Explode into a bunch of bolts after enough time has passed.
@@ -87,6 +87,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
         }
 
         public override bool CanDamage() => Timer >= 150f;
+
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
         {
             return CalamityUtils.CircularHitboxCollision(projectile.Center, projectile.scale * 80f, targetHitbox);
@@ -95,10 +96,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             Texture2D blackHoleTexture = Main.projectileTexture[projectile.type];
-            Texture2D noiseTexture = ModContent.GetTexture("CalamityMod/ExtraTextures/VoronoiShapes");
+            Texture2D noiseTexture = InfernumTextureRegistry.VoronoiShapes;
             Vector2 drawPosition = projectile.Center - Main.screenPosition;
             Vector2 origin = noiseTexture.Size() * 0.5f;
-            spriteBatch.EnterShaderRegion();
+            Main.spriteBatch.EnterShaderRegion();
 
             Vector2 diskScale = projectile.scale * new Vector2(1.3f, 0.85f);
             GameShaders.Misc["CalamityMod:DoGPortal"].UseOpacity(projectile.Opacity);
@@ -106,21 +107,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             GameShaders.Misc["CalamityMod:DoGPortal"].UseSecondaryColor(Color.Green);
             GameShaders.Misc["CalamityMod:DoGPortal"].Apply();
 
-            spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin, diskScale, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin, diskScale, SpriteEffects.None, 0f);
             GameShaders.Misc["CalamityMod:DoGPortal"].UseOpacity(projectile.Opacity);
             GameShaders.Misc["CalamityMod:DoGPortal"].UseColor(Color.Turquoise);
             GameShaders.Misc["CalamityMod:DoGPortal"].UseSecondaryColor(Color.MediumTurquoise);
             GameShaders.Misc["CalamityMod:DoGPortal"].Apply();
 
             for (int i = 0; i < 2; i++)
-                spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin, diskScale, SpriteEffects.None, 0f);
-            spriteBatch.ExitShaderRegion();
+                Main.spriteBatch.Draw(noiseTexture, drawPosition, null, Color.White, 0f, origin, diskScale, SpriteEffects.None, 0f);
+            Main.spriteBatch.ExitShaderRegion();
 
             Vector2 blackHoleScale = projectile.Size / blackHoleTexture.Size() * projectile.scale;
             for (int i = 0; i < 3; i++)
-                spriteBatch.Draw(blackHoleTexture, drawPosition, null, Color.White, 0f, blackHoleTexture.Size() * 0.5f, blackHoleScale * 1.01f, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(blackHoleTexture, drawPosition, null, Color.White, 0f, blackHoleTexture.Size() * 0.5f, blackHoleScale * 1.01f, SpriteEffects.None, 0f);
             for (int i = 0; i < 3; i++)
-                spriteBatch.Draw(blackHoleTexture, drawPosition, null, Color.Black, 0f, blackHoleTexture.Size() * 0.5f, blackHoleScale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(blackHoleTexture, drawPosition, null, Color.Black, 0f, blackHoleTexture.Size() * 0.5f, blackHoleScale, SpriteEffects.None, 0f);
             return false;
         }
     }

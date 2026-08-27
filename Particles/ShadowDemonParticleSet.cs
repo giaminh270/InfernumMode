@@ -28,6 +28,20 @@ namespace InfernumMode.Particles
         };
         public override FusableParticle SpawnParticle(Vector2 center, float sizeStrength)
         {
+            // Memory safety: hard cap particle count on tML 1.3 to avoid OOM during long fights.
+            const int MaxParticles = 250;
+            try
+            {
+                if (InfernumConfig.Instance != null && InfernumConfig.Instance.ReducedGraphicsConfig)
+                {
+                    if (Particles.Count >= 120)
+                        Particles.RemoveRange(0, Particles.Count - 100);
+                }
+                else if (Particles.Count >= MaxParticles)
+                    Particles.RemoveRange(0, Particles.Count - (MaxParticles - 20));
+            }
+            catch { }
+
             Particles.Add(new FusableParticle(center, sizeStrength));
             return Particles.Last();
         }

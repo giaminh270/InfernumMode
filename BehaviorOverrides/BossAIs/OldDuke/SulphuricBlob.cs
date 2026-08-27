@@ -23,7 +23,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.OldDuke
             projectile.hostile = true;
             projectile.ignoreWater = true;
             projectile.tileCollide = true;
-            projectile.timeLeft = 80;
+            projectile.timeLeft = 56;
             cooldownSlot = 1;
         }
 
@@ -49,8 +49,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.OldDuke
 
             for (int i = 0; i < 6; i++)
             {
-                Vector2 shootVelocity = (MathHelper.TwoPi * i / 6f).ToRotationVector2() * 10f;
-                Utilities.NewProjectileBetter(projectile.Center, shootVelocity, ModContent.ProjectileType<HomingAcid>(), 275, 0f);
+                Vector2 shootVelocity = (MathHelper.TwoPi * i / 6f).ToRotationVector2() * 18f;
+                Utilities.NewProjectileBetter(projectile.Center, shootVelocity, ModContent.ProjectileType<HomingAcid>(), OldDukeBehaviorOverride.HomingAcidDamage, 0f);
             }
         }
 

@@ -10,6 +10,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
     public class RedirectingLostSoulProj : ModProjectile
     {
+        public ref float MovementSpeedFactor => ref projectile.ai[1];
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Burning Soul");
@@ -27,6 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.penetrate = -1;
             projectile.Opacity = 0f;
             projectile.timeLeft = 230;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -57,8 +60,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 if (projectile.hostile && Main.player.IndexInRange(targetIndex))
                 {
                     idealVelocity = projectile.SafeDirectionTo(Main.player[targetIndex].Center) * 41f;
-                    if (projectile.localAI[0] > 0f)
-                        idealVelocity *= projectile.localAI[0];
+                    if (MovementSpeedFactor > 0f)
+                        idealVelocity *= MovementSpeedFactor;
                 }
 
                 float amount = MathHelper.Lerp(0.056f, 0.12f, Utils.InverseLerp(stopMovingTime, 30f, projectile.timeLeft, true));

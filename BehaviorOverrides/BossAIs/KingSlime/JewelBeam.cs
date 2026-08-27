@@ -1,4 +1,5 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ModLoader;
 
@@ -6,21 +7,29 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
 {
     public class JewelBeam : ModProjectile
     {
-        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
-
-        public override void SetStaticDefaults() => DisplayName.SetDefault("Beam");
+        public override void SetStaticDefaults()
+        {
+            DisplayName.SetDefault("Beam");
+            Main.projFrames[projectile.type] = 4;
+        }
 
         public override void SetDefaults()
         {
-            projectile.width = projectile.height = 8;
+            projectile.width = projectile.height = 12;
             projectile.hostile = true;
             projectile.ignoreWater = true;
             projectile.penetrate = -1;
             projectile.timeLeft = 360;
+            cooldownSlot = 1;
         }
 
         public override void AI()
         {
+            // Decide frames.
+            projectile.frameCounter++;
+            projectile.frame = projectile.frameCounter / 5 % Main.projFrames[projectile.type];
+            projectile.rotation = projectile.velocity.ToRotation() + MathHelper.PiOver2;
+
             if (Main.dedServ)
                 return;
 
@@ -43,15 +52,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
             Dust gleamingRed = Dust.NewDustPerfect(projectile.Center, 182);
             gleamingRed.velocity = Vector2.Zero;
             gleamingRed.noGravity = true;
-            gleamingRed.scale = 1.05f;
+            gleamingRed.scale = 0.5f;
 
             for (int direction = -1; direction <= 1; direction += 2)
             {
                 gleamingRed = Dust.NewDustPerfect(projectile.Center, 182);
                 gleamingRed.velocity = -projectile.velocity.SafeNormalize(Vector2.UnitY).RotatedBy(MathHelper.Pi + direction * 0.53f).RotatedByRandom(0.06f) * Main.rand.NextFloat(0.9f, 1.1f) * 3f;
                 gleamingRed.noGravity = true;
-                gleamingRed.scale = Main.rand.NextFloat(1.3f, 1.45f);
+                gleamingRed.scale = Main.rand.NextFloat(0.8f, 0.96f);
             }
+        }
+
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        {
+            projectile.DrawProjectileWithBackglowTemp(Color.White, lightColor, 2f);
+            return false;
         }
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -17,6 +18,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             projectile.tileCollide = false;
             projectile.ignoreWater = true;
             projectile.timeLeft = 180;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -35,9 +37,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
 
             for (int i = 0; i < 5; i++)
             {
-                Vector2 spikeVelocity = -Vector2.UnitY.RotatedBy(MathHelper.Lerp(-0.43f, 0.43f, i / 4f)) * 15f;
-                Utilities.NewProjectileBetter(projectile.Center, spikeVelocity, ModContent.ProjectileType<IceRain2>(), 120, 0f);
+                Vector2 spikeVelocity = -Vector2.UnitY.RotatedBy(MathHelper.Lerp(-0.43f, 0.43f, i / 4f)) * 12f;
+                Utilities.NewProjectileBetter(projectile.Center, spikeVelocity, ModContent.ProjectileType<IceRain2>(), CryogenBehaviorOverride.IceRainDamage, 0f);
             }
+        }
+
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        {
+            Texture2D texture = Main.projectileTexture[projectile.type];
+
+            // Draw backglow effects.
+            for (int i = 0; i < 12; i++)
+            {
+                Vector2 afterimageOffset = (MathHelper.TwoPi * i / 12f).ToRotationVector2() * 4f;
+                Color afterimageColor = new Color(46, 188, 234, 0f) * 0.3f;
+                Main.spriteBatch.Draw(texture, projectile.Center - Main.screenPosition + afterimageOffset, null, projectile.GetAlpha(afterimageColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
+            }
+            Main.spriteBatch.Draw(texture, projectile.Center - Main.screenPosition, null, Color.White, projectile.rotation, texture.Size() * 0.5f, 1, 0, 0);
+            return false;
         }
 
         public override bool CanDamage() => projectile.alpha < 20;

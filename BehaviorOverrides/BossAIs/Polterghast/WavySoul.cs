@@ -27,6 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             projectile.tileCollide = false;
             projectile.ignoreWater = true;
             projectile.timeLeft = 200;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -69,7 +70,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             if (projectile.whoAmI % 2 == 0)
                 texture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Polterghast/SoulLargeCyan");
 
-            Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type], 2, texture);
+            PolterghastPerformanceUtils.DrawSoul(projectile, lightColor, texture);
             return false;
         }
 

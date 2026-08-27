@@ -82,21 +82,20 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
         {
 			Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SCalSounds/BrimstoneGigablastImpact"), projectile.Center);
 
-            float spread = MathHelper.PiOver2 * 0.12f;
-            double startAngle = Math.Atan2(projectile.velocity.X, projectile.velocity.Y) - spread / 2;
-            double deltaAngle = spread / 30f;
-            double offsetAngle;
             if (projectile.owner == Main.myPlayer)
             {
-                for (int i = 0; i < 36; i++)
+                int barrageCount = 45;
+                if (projectile.ai[1] >= 2f)
+                    barrageCount = (int)projectile.ai[1];
+
+                for (int i = 0; i < barrageCount; i++)
                 {
-                    offsetAngle = startAngle + deltaAngle * (i + i * i) / 2f + 32f * i;
-                    Projectile.NewProjectile(projectile.Center.X, projectile.Center.Y, (float)(Math.Sin(offsetAngle) * 5f), (float)(Math.Cos(offsetAngle) * 5f), ModContent.ProjectileType<BrimstoneBarrage>(), projectile.damage, projectile.knockBack, projectile.owner, 0f, 1f);
-                    Projectile.NewProjectile(projectile.Center.X, projectile.Center.Y, (float)(-Math.Sin(offsetAngle) * 5f), (float)(-Math.Cos(offsetAngle) * 5f), ModContent.ProjectileType<BrimstoneBarrage>(), projectile.damage, projectile.knockBack, projectile.owner, 0f, 1f);
+                    Vector2 dartVelocity = (MathHelper.TwoPi * i / barrageCount + projectile.AngleTo(Main.player[projectile.owner].Center)).ToRotationVector2() * 5f;
+                    Projectile.NewProjectile(projectile.Center, dartVelocity, ModContent.ProjectileType<BrimstoneBarrage>(), projectile.damage, projectile.knockBack, projectile.owner, 0f, 1f);
                 }
             }
 
-            for (int j = 0; j < 1; j++)
+            for (int j = 0; j < 2; j++)
             {
                 Dust.NewDust(projectile.position, projectile.width, projectile.height, (int)CalamityDusts.Brimstone, 0f, 0f, 50, default, 1f);
             }
@@ -109,11 +108,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 Main.dust[redFire].velocity *= 2f;
                 Main.dust[redFire].noGravity = true;
             }
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
         }
     }
 }

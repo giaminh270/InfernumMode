@@ -2,7 +2,6 @@ using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.Perforator;
-using InfernumMode.BehaviorOverrides.BossAIs.Perforators;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using System;
@@ -10,7 +9,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
+namespace InfernumMode.BehaviorOverrides.BossAIs.Perforators
 {
     public class MediumPerforatorHeadBehaviorOverride : NPCBehaviorOverride
     {
@@ -74,7 +73,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     Vector2 toothBallShootVelocity = npc.SafeDirectionTo(target.Center) * toothBallShootSpeed;
-                    Utilities.NewProjectileBetter(npc.Center, toothBallShootVelocity, ModContent.ProjectileType<ToothBall>(), 80, 0f);
+                    Utilities.NewProjectileBetter(npc.Center, toothBallShootVelocity, ModContent.ProjectileType<ToothBall>(), PerforatorHiveBehaviorOverride.ToothBallDamage, 0f);
                 }
             }
             attackTimer++;

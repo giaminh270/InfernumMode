@@ -1,4 +1,7 @@
 using InfernumMode.Schematics;
+using InfernumMode.Effects;
+using InfernumMode.Graphics.Primitives;
+using InfernumMode.Graphics.Interfaces;
 using CalamityMod.Events;
 using CalamityMod.CalPlayer;
 using CalamityMod.Waters;
@@ -7,7 +10,9 @@ using CalamityMod.NPCs.ExoMechs;
 using CalamityMod.NPCs.ExoMechs.Apollo;
 using CalamityMod.NPCs.ExoMechs.Ares;
 using CalamityMod.NPCs.ExoMechs.Thanatos;
+using CalamityMod.NPCs.ProfanedGuardians;
 using CalamityMod.NPCs.Providence;
+using CalamityMod.NPCs.SupremeCalamitas;
 using CalamityMod.Particles;
 using InfernumMode.Balancing;
 using InfernumMode.BehaviorOverrides.BossAIs.Cryogen;
@@ -43,6 +48,9 @@ using InfernumMode.Particles;
 using CalamityMod.World;
 
 using static CalamityMod.CalamityMod;
+using InfernumMode.TrackedMusic;
+using InfernumMode.UI;
+using InfernumMode.BehaviorOverrides.BossAIs.AquaticScourge;
 
 namespace InfernumMode
 {
@@ -59,6 +67,7 @@ namespace InfernumMode
         internal static Mod CalamityMod = null;
 
         internal static Mod FargosMutantMod;
+        internal static Mod YABHBMod;
 		
         internal static bool CanUseCustomAIs => (!BossRushEvent.BossRushActive || BossRushApplies) && PoDWorld.InfernumMode;
 
@@ -98,9 +107,11 @@ namespace InfernumMode
             Instance = this;
             CalamityMod = ModLoader.GetMod("CalamityMod");
             FargosMutantMod = ModLoader.GetMod("Fargowiltas");
+            YABHBMod = ModLoader.GetMod("FKBossHealthBar");
 			
 			InfernumFusableParticleManager.LoadParticleRenderSets();
-			Main.OnPreDraw += PrepareRenderTargets;		
+			if (!Main.dedServ)			
+				Main.OnPreDraw += PrepareRenderTargets;		
 			
 
 
@@ -124,152 +135,22 @@ namespace InfernumMode
             if (Main.netMode != NetmodeID.Server)
             {
                 AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/Cryogen/CryogenMapIcon", -1);
+				
                 AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/SupremeCalamitas/SepulcherMapIcon", -1);
 				
                 // Calamitas' Shadow.
                 AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CalShadowMapIcon", -1);
                 AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CataclysmMapIcon", -1);
-                AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CatastropheMapIcon", -1);				
+                AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CatastropheMapIcon", -1);	
 
-				Ref<Effect> screenShakeShader = new Ref<Effect>(GetEffect("Effects/ScreenShakeShader"));
-				Filters.Scene["InfernumMode:ScreenShake"] = new Filter(new ScreenShaderData(screenShakeShader, "DyePass"), EffectPriority.VeryHigh);
+				AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/DoG/DoGP1HeadMapIcon", -1);
+                AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/DoG/DoGP1TailMapIcon", -1);
+                AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/DoG/DoGP2HeadMapIcon", -1);
+                AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/DoG/DoGP2BodyMapIcon", -1);
+                AddBossHeadTexture("InfernumMode/BehaviorOverrides/BossAIs/DoG/DoGP2TailMapIcon", -1);				
 
-				screenShakeShader = new Ref<Effect>(GetEffect("Effects/ScreenShockwaveShader2"));
-				Filters.Scene["InfernumMode:ScreenShake2"] = new Filter(new ScreenShaderData(screenShakeShader, "DyePass"));	
-				
-				Ref<Effect> fireballShader = new Ref<Effect>(GetEffect("Effects/FireballShader"));
-				Filters.Scene["Infernum:FireballShader"] = new Filter(new ScreenShaderData(fireballShader, "FirePass"), EffectPriority.VeryHigh);	
-				
-                Ref<Effect> madnessShader = new Ref<Effect>(GetEffect("Effects/Madness"));
-                Filters.Scene["InfernumMode:Madness"] = new Filter(new MadnessScreenShaderData(madnessShader, "DyePass"), EffectPriority.VeryHigh);
-                SkyManager.Instance["InfernumMode:Madness"] = new MadnessSky();				
-
-                Ref<Effect> aewPsychicEnergyShader = new Ref<Effect>(GetEffect("Effects/AEWPsychicDistortionShader"));
-                GameShaders.Misc["Infernum:AEWPsychicEnergy"] = new MiscShaderData(aewPsychicEnergyShader, "DistortionPass");
-				
-                Ref<Effect> BaseFusableParticleEdgeShader = new Ref<Effect>(GetEffect("Effects/ParticleFusion/InfernumBaseFusableParticleEdgeShader"));
-                GameShaders.Misc["Infernum:BaseFusableParticleEdge"] = new MiscShaderData(BaseFusableParticleEdgeShader, "ParticlePass");
-				
-				Ref<Effect> AdditiveFusableParticleEdgeShader = new Ref<Effect>(GetEffect("Effects/ParticleFusion/InfernumBaseFusableParticleEdgeShader"));
-                GameShaders.Misc["Infernum:AdditiveFusableParticleEdge"] = new MiscShaderData(AdditiveFusableParticleEdgeShader, "ParticlePass");
-
-                Ref<Effect> gradientShader = new Ref<Effect>(GetEffect("Effects/GradientWingShader"));
-                GameShaders.Misc["Infernum:GradientWingShader"] = new MiscShaderData(gradientShader, "GradientPass");
-
-                Ref<Effect> cyclicHueShader = new Ref<Effect>(GetEffect("Effects/CyclicHueShader"));
-                GameShaders.Misc["Infernum:CyclicHueShader"] = new MiscShaderData(cyclicHueShader, "OutlineShader");
-
-                Ref<Effect> pristineArmorShader = new Ref<Effect>(GetEffect("Effects/PristineArmorShader"));
-                GameShaders.Misc["Infernum:PristineArmorShader"] = new MiscShaderData(pristineArmorShader, "PristinePass");
-
-                Ref<Effect> dukeTornadoShader = new Ref<Effect>(GetEffect("Effects/DukeTornado"));
-                GameShaders.Misc["Infernum:DukeTornado"] = new MiscShaderData(dukeTornadoShader, "TrailPass");
-
-                Ref<Effect> tentacleFleshShader = new Ref<Effect>(GetEffect("Effects/TentacleTexture"));
-                GameShaders.Misc["Infernum:WoFTentacleTexture"] = new MiscShaderData(tentacleFleshShader, "TrailPass");
-
-                Ref<Effect> bloodGeyserShader = new Ref<Effect>(GetEffect("Effects/BloodGeyser"));
-                GameShaders.Misc["Infernum:WoFGeyserTexture"] = new MiscShaderData(bloodGeyserShader, "TrailPass");
-
-                Ref<Effect> shadowflameShader = new Ref<Effect>(GetEffect("Effects/Shadowflame"));
-                GameShaders.Misc["Infernum:Fire"] = new MiscShaderData(shadowflameShader, "TrailPass");
-
-                Ref<Effect> brainPsychicShader = new Ref<Effect>(GetEffect("Effects/BrainPsychicShader"));
-                GameShaders.Misc["Infernum:BrainPsychic"] = new MiscShaderData(brainPsychicShader, "TrailPass");
-
-                Ref<Effect> cultistDeathAnimationShader = new Ref<Effect>(GetEffect("Effects/CultistDeathAnimation"));
-                GameShaders.Misc["Infernum:CultistDeath"] = new MiscShaderData(cultistDeathAnimationShader, "DeathPass");
-
-                Ref<Effect> flameTrailShader = new Ref<Effect>(GetEffect("Effects/TwinsFlameTail"));
-                GameShaders.Misc["Infernum:TwinsFlameTrail"] = new MiscShaderData(flameTrailShader, "TrailPass");
-
-                Ref<Effect> aresLightningArcShader = new Ref<Effect>(GetEffect("Effects/AresLightningArcShader"));
-                GameShaders.Misc["Infernum:AresLightningArc"] = new MiscShaderData(aresLightningArcShader, "TrailPass");
-
-                Ref<Effect> ghostlyShader = new Ref<Effect>(GetEffect("Effects/EidolicWailRingShader"));
-                GameShaders.Misc["Infernum:PolterghastEctoplasm"] = new MiscShaderData(ghostlyShader, "BurstPass");
-
-                ghostlyShader = new Ref<Effect>(GetEffect("Effects/NecroplasmicRoarShader"));
-                GameShaders.Misc["Infernum:NecroplasmicRoar"] = new MiscShaderData(ghostlyShader, "BurstPass");
-
-                Ref<Effect> backgroundShader = new Ref<Effect>(GetEffect("Effects/MoonLordBGDistortionShader"));
-                GameShaders.Misc["Infernum:MoonLordBGDistortion"] = new MiscShaderData(backgroundShader, "DistortionPass");
-
-                Ref<Effect> introShader = new Ref<Effect>(GetEffect("Effects/MechIntroLetterShader"));
-                GameShaders.Misc["Infernum:MechsIntro"] = new MiscShaderData(introShader, "LetterPass");
-
-                introShader = new Ref<Effect>(GetEffect("Effects/SCalIntroLetterShader"));
-                GameShaders.Misc["Infernum:SCalIntro"] = new MiscShaderData(introShader, "LetterPass");
-
-                Ref<Effect> rayShader = new Ref<Effect>(GetEffect("Effects/PrismaticRayShader"));
-                GameShaders.Misc["Infernum:PrismaticRay"] = new MiscShaderData(rayShader, "TrailPass");
-
-                Ref<Effect> darkFlamePillarShader = new Ref<Effect>(GetEffect("Effects/DarkFlamePillarShader"));
-                GameShaders.Misc["Infernum:DarkFlamePillar"] = new MiscShaderData(darkFlamePillarShader, "TrailPass");
-
-                Ref<Effect> artemisLaserShader = new Ref<Effect>(GetEffect("Effects/ArtemisLaserShader"));
-                GameShaders.Misc["Infernum:ArtemisLaser"] = new MiscShaderData(artemisLaserShader, "TrailPass");
-
-                Ref<Effect> realityTearShader = new Ref<Effect>(GetEffect("Effects/RealityTearShader"));
-                GameShaders.Misc["Infernum:RealityTear"] = new MiscShaderData(realityTearShader, "TrailPass");
-
-                realityTearShader = new Ref<Effect>(GetEffect("Effects/RealityTear2Shader"));
-                GameShaders.Misc["Infernum:RealityTear2"] = new MiscShaderData(realityTearShader, "TrailPass");
-
-                Ref<Effect> hologramShader = new Ref<Effect>(GetEffect("Effects/HologramShader"));
-                GameShaders.Misc["Infernum:Hologram"] = new MiscShaderData(hologramShader, "HologramPass");
-
-                Ref<Effect> matrixShader = new Ref<Effect>(GetEffect("Effects/LocalLinearTransformationShader"));
-                GameShaders.Misc["Infernum:LinearTransformation"] = new MiscShaderData(matrixShader, "TransformationPass");
-
-				Ref<Effect> cutoutShader = new Ref<Effect>(GetEffect("Effects/CircleCutoutShader"));
-                GameShaders.Misc["Infernum:CircleCutout"] = new MiscShaderData(cutoutShader, "CutoutPass");
-
-				cutoutShader = new Ref<Effect>(GetEffect("Effects/CircleCutoutShader2"));
-                GameShaders.Misc["Infernum:CircleCutout2"] = new MiscShaderData(cutoutShader, "CutoutPass");
-
-				Ref<Effect> streakShader = new Ref<Effect>(GetEffect("Effects/SideStreakTrail"));
-                GameShaders.Misc["Infernum:SideStreak"] = new MiscShaderData(streakShader, "TrailPass");
-
-				Ref<Effect> yharonBurnShader = new Ref<Effect>(GetEffect("Effects/YharonBurnShader"));
-                GameShaders.Misc["Infernum:YharonBurn"] = new MiscShaderData(yharonBurnShader, "BurnPass");
-				
-				Ref<Effect> lightningArcShader = new Ref<Effect>(GetEffect("Effects/HeavenlyGaleLightningShader"));
-				GameShaders.Misc["Infernum:LightningArc"] = new MiscShaderData(lightningArcShader, "TrailPass");				
-
-                // Screen shaders.
-
-                Filters.Scene["InfernumMode:HiveMind"] = new Filter(new HiveMindScreenShaderData("FilterMiniTower").UseColor(HiveMindSkyColor).UseOpacity(0.6f), EffectPriority.VeryHigh);
-                SkyManager.Instance["InfernumMode:HiveMind"] = new HiveMindSky();
-
-                Filters.Scene["InfernumMode:Perforators"] = new Filter(new PerforatorScreenShaderData("FilterMiniTower").UseColor(new Color(255, 60, 30)).UseOpacity(0.445f), EffectPriority.VeryHigh);
-                SkyManager.Instance["InfernumMode:Perforators"] = new PerforatorSky();
-
-                Filters.Scene["InfernumMode:Dragonfolly"] = new Filter(new DragonfollyScreenShaderData("FilterMiniTower").UseColor(Color.Red).UseOpacity(0.6f), EffectPriority.VeryHigh);
-                SkyManager.Instance["InfernumMode:Dragonfolly"] = new DragonfollySky();
-
-                Filters.Scene["InfernumMode:Deus"] = new Filter(new DeusScreenShaderData("FilterMiniTower").UseColor(Color.Lerp(Color.Purple, Color.Black, 0.75f)).UseOpacity(0.24f), EffectPriority.VeryHigh);
-                SkyManager.Instance["InfernumMode:Deus"] = new DeusSky();
-
-                Filters.Scene["InfernumMode:NightProvidence"] = new Filter(new NightProvidenceShaderData("FilterMiniTower").UseOpacity(0.67f), EffectPriority.VeryHigh);
-                SkyManager.Instance["InfernumMode:NightProvidence"] = new NightProvidenceSky();
-
-                Filters.Scene["InfernumMode:OldDuke"] = new Filter(new OldDukeScreenShaderData("FilterMiniTower").UseOpacity(0.6f), EffectPriority.VeryHigh);
-                SkyManager.Instance["InfernumMode:OldDuke"] = new OldDukeSky();
-
-                Filters.Scene["InfernumMode:DoG"] = new Filter(new PerforatorScreenShaderData("FilterMiniTower").UseColor(0.4f, 0.1f, 1.0f).UseOpacity(0.5f), EffectPriority.VeryHigh);
-                SkyManager.Instance["InfernumMode:DoG"] = new DoGSkyInfernum();
-							
-
-                Ref<Effect> scalScreenShader = new Ref<Effect>(GetEffect("Effects/SCalFireBGShader"));
-                Filters.Scene["InfernumMode:SCal"] = new Filter(new SCalScreenShaderData(scalScreenShader, "DyePass").UseColor(0.3f, 0f, 0f).UseOpacity(0.5f), EffectPriority.VeryHigh);
-                SkyManager.Instance["InfernumMode:SCal"] = new SCalSkyInfernum();
-				
-				Ref<Effect> pixelatedSightShader = new Ref<Effect>(GetEffect("Effects/PixelatedSightLine"));
-				Filters.Scene["Infernum:PixelatedSightLine"] = new Filter(new ScreenShaderData(pixelatedSightShader, "SightLinePass"), EffectPriority.High);
-
-				Filters.Scene["InfernumMode:CalShadow"] = new Filter(new CalShadowScreenShaderData("FilterMiniTower").UseOpacity(0f), EffectPriority.VeryHigh);
-				SkyManager.Instance["InfernumMode:CalShadow"] = new CalShadowSky();				
+				InfernumEffectsRegistry.LoadEffects();	
+				ScreenEffectSystem.Load();				
 
             }
 
@@ -279,6 +160,8 @@ namespace InfernumMode
             if (Main.netMode != NetmodeID.Server)
                 GeneralParticleHandler.LoadModParticleInstances(this);
             InfernumSchematicManager.Load();
+			
+			On.Terraria.Graphics.Effects.FilterManager.EndCapture += EndCaptureManager;
 
 			if (CustomLavaStyles is null)
 				CustomLavaStyles = new List<CustomLavaStyle>();
@@ -297,6 +180,13 @@ namespace InfernumMode
         internal static IDictionary<int, int> SoundLoaderMusicToItem => (IDictionary<int, int>)typeof(SoundLoader).GetField("musicToItem", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
         internal static IDictionary<int, int> SoundLoaderItemToMusic => (IDictionary<int, int>)typeof(SoundLoader).GetField("itemToMusic", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
         internal static IDictionary<int, IDictionary<int, int>> SoundLoaderTileToMusic => (IDictionary<int, IDictionary<int, int>>)typeof(SoundLoader).GetField("tileToMusic", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
+		
+		
+		public override void PostSetupContent()
+		{
+			TrackedMusicManager.Initialize();
+		}
+		
 		
         public override void UpdateMusic(ref int music, ref MusicPriority priority)
         {
@@ -359,7 +249,7 @@ namespace InfernumMode
 					if (DoGPhase2HeadBehaviorOverride.InPhase2)
 					{
 						music = (CalamityMod as CalamityMod.CalamityMod).GetMusicFromMusicMod("DevourerOfGodsP2") ?? MusicID.LunarBoss;
-                        priority = MusicPriority.BossMedium;
+                        priority = MusicPriority.BossHigh;
 					}
 
 					bool areExoMechsAround = NPC.AnyNPCs(ModContent.NPCType<AresBody>()) ||
@@ -375,6 +265,27 @@ namespace InfernumMode
 							music = Instance.GetSoundSlot(SoundType.Music, "Sounds/Music/ExoMechBosses");
 						priority = MusicPriority.BossHigh;
 					}
+					
+					bool areGuardiansAround = NPC.AnyNPCs(ModContent.NPCType<ProfanedGuardianBoss>()) ||
+						NPC.AnyNPCs(ModContent.NPCType<ProfanedGuardianBoss2>()) ||
+						NPC.AnyNPCs(ModContent.NPCType<ProfanedGuardianBoss3>());
+						
+					if (areGuardiansAround)
+					{
+						music = (CalamityMod as CalamityMod.CalamityMod).GetMusicFromMusicMod("Guardians") ?? MusicID.LunarBoss;
+                        priority = MusicPriority.BossHigh;
+					}
+                    int providenceIndex = NPC.FindFirstNPC(ModContent.NPCType<Providence>());
+                    if (providenceIndex >= 0 && CanUseCustomAIs)
+                    {
+                        NPC providence = Main.npc[providenceIndex];
+                        bool providencePhase2 = providence.life < providence.lifeMax * ProvidenceBehaviorOverride.Phase2LifeRatio;
+
+                        music = providencePhase2
+                            ? (CalamityMod as CalamityMod.CalamityMod).GetMusicFromMusicMod("Providence") ?? MusicID.LunarBoss
+                            : (CalamityMod as CalamityMod.CalamityMod).GetMusicFromMusicMod("Guardians") ?? MusicID.Boss1;
+                        priority = MusicPriority.BossHigh;
+                    }
 
 					if (DraedonThemeTimer > 0f)
 					{
@@ -398,6 +309,29 @@ namespace InfernumMode
             BossRushChanges.HandleTeleports();
             if (!NPC.AnyNPCs(ModContent.NPCType<Draedon>()))
                 CalamityGlobalNPC.draedon = -1;
+            ScreenEffectSystem.Update();
+
+			// ---- TrackedMusic ----
+			if (Main.netMode != NetmodeID.Server)
+			{
+				if (Main.gameMenu)
+				{
+					TrackedMusicManager.OnEnterMainMenu();
+				}
+				else
+				{
+					TrackedMusicManager.Update();
+
+					int cur = Main.curMusic;
+					if (cur >= 0 && cur < Main.musicFade.Length)
+					{
+						float fade = Main.musicFade[cur];
+						TrackedMusicManager.OnMusicSlotActive(cur, ref fade);
+						Main.musicFade[cur] = fade;
+					}
+				}
+			}
+			
         }
         
         public override void HandlePacket(BinaryReader reader, int whoAmI) => NetcodeHandler.ReceivePacket(this, reader, whoAmI);
@@ -416,6 +350,12 @@ namespace InfernumMode
                     IntroScreenManager.Draw();
                     return true;
                 }, InterfaceScaleType.None));
+				
+				layers.Insert(mouseIndex, new LegacyGameInterfaceLayer("Guardians Plaque UI", () =>
+                {
+                    GuardiansPlaqueUIManager.Draw(Main.spriteBatch);
+                    return true;
+                }, InterfaceScaleType.UI));
             }
         }
 		
@@ -443,6 +383,11 @@ namespace InfernumMode
 			return true;
 		}
 
+		private void EndCaptureManager(On.Terraria.Graphics.Effects.FilterManager.orig_EndCapture orig, FilterManager self)
+        {
+            orig(self);
+        }
+		
         public override void PreUpdateEntities()
         {
             InfernumMode.BlackFade = MathHelper.Clamp(InfernumMode.BlackFade - 0.025f, 0f, 1f);
@@ -503,10 +448,12 @@ namespace InfernumMode
 			InfernumFusableParticleManager.UnloadParticleRenderSets();
 			Main.OnPreDraw -= PrepareRenderTargets;	
             InfernumSchematicManager.Unload();		
-			PrimitiveTrailCopy.Dispose();
             Primitive3DStrip.Dispose();
 			ProjectileSpawnManagementSystem.Unload();			
-		
+			ScreenEffectSystem.Unload();
+			PrimitiveTrailCopy.Dispose();	
+			On.Terraria.Graphics.Effects.FilterManager.EndCapture -= EndCaptureManager;
+			On.Terraria.GameContent.Liquid.LiquidRenderer.InternalDraw += WaterClearingBubble.PrepareWater;
         }
 		
         #region Fusable Particle Updating

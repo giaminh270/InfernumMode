@@ -1,7 +1,7 @@
-using CalamityMod.Buffs.DamageOverTime;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using System;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -25,6 +25,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             projectile.penetrate = -1;
             projectile.Opacity = 0f;
             projectile.timeLeft = 300;
+            
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -45,6 +47,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             Color rainbowColor = Main.hslToRgb(projectile.identity / 7f % 1f, 1f, 0.5f);
             if (ProvidenceBehaviorOverride.IsEnraged)
                 rainbowColor = Color.Lerp(Color.Cyan, Color.Green, projectile.identity / 7f % 0.6f);
+
             lightColor = Color.Lerp(lightColor, rainbowColor, 0.9f);
             lightColor.A = 0;
             Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type]);
@@ -57,14 +60,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             return false;
         }
 
-        public override void OnHitPlayer(Player target, int damage, bool crit)
-        {
-            if (!ProvidenceBehaviorOverride.IsEnraged)
-                target.AddBuff(ModContent.BuffType<HolyFlames>(), 120);
-            else
-                target.AddBuff(ModContent.BuffType<Nightwither>(), 60);
-        }
-
-        public override bool CanDamage() => projectile.alpha < 20;
+        public override bool CanDamage()/* tModPorter Suggestion: Return null instead of false */ => projectile.alpha < 20;
     }
 }

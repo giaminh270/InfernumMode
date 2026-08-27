@@ -1,6 +1,8 @@
 ﻿using CalamityMod;
 using CalamityMod.NPCs;
-using InfernumMode;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -14,8 +16,10 @@ using static InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow.CalamitasSha
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 {
-    public class DarkMagicFlame : ModProjectile
+    public class DarkMagicFlame : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
+		
         public string HexType;
 
         public string HexType2;
@@ -143,8 +147,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 				TrailDrawer = new PrimitiveTrailCopy(FlameTrailWidthFunction, FlameTrailColorFunction, null, true, GameShaders.Misc["CalamityMod:ImpFlameTrail"]);
 
             // Prepare the flame trail shader with its map texture.
-            GameShaders.Misc["CalamityMod:ImpFlameTrail"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/StreakMagma"));                  
-            TrailDrawer.Draw(projectile.oldPos, projectile.Size * 0.5f - Main.screenPosition, 30);
+            GameShaders.Misc["CalamityMod:ImpFlameTrail"].SetShaderTexture(InfernumTextureRegistry.StreakMagma);
+            TrailDrawer.DrawPixelated(projectile.oldPos, projectile.Size * 0.5f - Main.screenPosition, 30);
         }
     }
 }

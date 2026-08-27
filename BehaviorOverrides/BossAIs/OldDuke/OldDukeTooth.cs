@@ -52,7 +52,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.OldDuke
             Color backAfterimageColor = projectile.GetAlpha(new Color(255, 255, 255, 0) * 0.5f);
             for (int i = 0; i < 8; i++)
             {
-                Vector2 drawOffset = (MathHelper.TwoPi * i / 8f).ToRotationVector2() * 4f;
+                Vector2 drawOffset = (MathHelper.TwoPi * i / 8f).ToRotationVector2() * 6f;
                 Main.spriteBatch.Draw(texture, drawPosition + drawOffset, null, backAfterimageColor, projectile.rotation, origin, projectile.scale, 0, 0f);
             }
             Main.spriteBatch.Draw(texture, drawPosition, null, Color.White * projectile.Opacity, projectile.rotation, origin, projectile.scale, 0, 0f);

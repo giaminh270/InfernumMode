@@ -3,13 +3,16 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using Terraria;
+using Terraria.GameContent;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 {
     public class AresPulseBlast : ModProjectile
     {
-        public bool ShouldExplodeDiagonally => projectile.ai[0] == 1f;
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/BigGreyscaleCircle";
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Exopulse Energy Burst");
@@ -40,7 +43,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
         public override void AI()
         {
-            projectile.velocity *= 1.065f;
+            projectile.velocity *= 1.049f;
             projectile.rotation = projectile.velocity.ToRotation();
             projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.1f, 0f, 1f);
         }
@@ -75,7 +78,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
         public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
         {
-            
+
         }
     }
 }

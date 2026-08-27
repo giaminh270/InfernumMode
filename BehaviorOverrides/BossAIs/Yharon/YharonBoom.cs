@@ -25,7 +25,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             set => projectile.ai[1] = value;
         }
         public bool ShouldDeleteProjectiles => projectile.localAI[1] != 0f;
+
         public const int Lifetime = 120;
+
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/Gleam";
 
         public static readonly int[] YharonProjectiles = new int[]
         {
@@ -56,6 +59,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             projectile.usesLocalNPCImmunity = true;
             projectile.localNPCHitCooldown = 10;
             projectile.scale = 0.001f;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -87,7 +91,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            spriteBatch.EnterShaderRegion();
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.LinearWrap, DepthStencilState.None, Main.instance.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
 
             float pulseCompletionRatio = Utils.InverseLerp(Lifetime, 0f, projectile.timeLeft, true);
             Vector2 scale = new Vector2(1.5f, 1f);
@@ -103,9 +108,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             Color pulseColor = Color.Lerp(Color.Yellow, Color.Red, MathHelper.Clamp(pulseCompletionRatio * 1.75f, 0f, 1f));
             GameShaders.Misc["ForceField"].UseColor(pulseColor);
             GameShaders.Misc["ForceField"].Apply(drawData);
-            drawData.Draw(spriteBatch);
+            drawData.Draw(Main.spriteBatch);
 
-            spriteBatch.ExitShaderRegion();
+            Main.spriteBatch.ExitShaderRegion();
             return false;
         }
     }

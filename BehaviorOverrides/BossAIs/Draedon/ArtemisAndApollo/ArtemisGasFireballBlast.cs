@@ -1,4 +1,5 @@
 using CalamityMod;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
@@ -57,7 +58,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             // Create a burst of dust on the first frame.
             if (projectile.localAI[0] == 0f)
             {
-                for (int i = 0; i < 20; i++)
+                for (int i = 0; i < 40; i++)
                 {
                     Vector2 dustVelocity = projectile.velocity.SafeNormalize(Vector2.Zero).RotatedByRandom(0.35f) * Main.rand.NextFloat(1.8f, 3f);
                     int randomDustType = Main.rand.NextBool() ? 130 : 133;
@@ -76,7 +77,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
                     fire.color = Color.Green * 0.5f;
                 }
 
-                for (int i = 0; i < 5; i++)
+                for (int i = 0; i < 20; i++)
                 {
                     Vector2 dustVelocity = projectile.velocity.SafeNormalize(Vector2.Zero).RotatedByRandom(0.35f) * Main.rand.NextFloat(1.8f, 3f);
                     int randomDustType = Main.rand.NextBool() ? 130 : 133;
@@ -119,15 +120,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             projectile.Center = projectile.position;
             projectile.Damage();
 
-            Main.PlaySound(SoundID.Item93, projectile.Center);
+            Main.PlaySound(InfernumSoundRegistry.ExoPlasmaExplosion, projectile.Center);
 
             // Release fire gas.
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
                 int type = ModContent.ProjectileType<SuperheatedExofireGas>();
-                for (int i = 0; i < 30; i++)
+                for (int i = 0; i < 18; i++)
                 {
-                    Vector2 fireVelocity = Main.rand.NextVector2Circular(15f, 15f);
+                    Vector2 fireVelocity = Main.rand.NextVector2Circular(12f, 12f);
                     Projectile.NewProjectile(projectile.Center, fireVelocity, type, projectile.damage, 0f, Main.myPlayer);
                 }
             }

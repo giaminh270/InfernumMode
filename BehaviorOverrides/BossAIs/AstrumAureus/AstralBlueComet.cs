@@ -27,6 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumAureus
             projectile.alpha = 100;
             projectile.penetrate = -1;
             projectile.timeLeft = 420;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -66,8 +67,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumAureus
         }
 
         public override Color? GetAlpha(Color lightColor) => new Color(255, 255, 255, projectile.alpha);
-
-        public override void OnHitPlayer(Player target, int damage, bool crit) => target.AddBuff(ModContent.BuffType<AstralInfectionDebuff>(), 180);
+		
+		public override void OnHitPlayer(Player target, int damage, bool crit) => target.AddBuff(ModContent.BuffType<AstralInfectionDebuff>(), 180);
 
         public override void Kill(int timeLeft)
         {
@@ -84,7 +85,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumAureus
                 astralFire.noGravity = true;
                 astralFire.velocity *= 3f;
 
-                astralFire = Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, 173, 0f, 0f, 50, default, 1f);
+                astralFire = Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, ModContent.DustType<AstralBlue>(), 0f, 0f, 50, default, 1f);
                 astralFire.velocity *= 2f;
                 astralFire.noGravity = true;
             }

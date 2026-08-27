@@ -1,4 +1,7 @@
 using CalamityMod;
+using InfernumMode.Effects;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -9,8 +12,9 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
 {
-    public class TidalWave : ModProjectile
+    public class TidalWave : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
         internal PrimitiveTrailCopy TornadoDrawer;
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
         public ref float Time => ref projectile.ai[0];
@@ -33,6 +37,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
             projectile.alpha = 255;
             projectile.timeLeft = 360;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -74,21 +79,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
             return false;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (TornadoDrawer is null)
-                TornadoDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, OffsetFunction, false, GameShaders.Misc["Infernum:DukeTornado"]);
+                TornadoDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, OffsetFunction, false, InfernumEffectsRegistry.DukeTornadoVertexShader);
 
-            GameShaders.Misc["Infernum:DukeTornado"].SetShaderTexture(ModContent.GetTexture("Terraria/Misc/Perlin"));
+            InfernumEffectsRegistry.DukeTornadoVertexShader.SetShaderTexture(ModContent.GetTexture("Terraria/Misc/Perlin"));
 
             for (int i = 0; i < 3; i++)
-                TornadoDrawer.Draw(projectile.oldPos, Vector2.UnitY * WaveHeight * 0.5f - Main.screenPosition, 35, 0f);
-            return false;
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
+                TornadoDrawer.DrawPixelated(projectile.oldPos, Vector2.UnitY * WaveHeight * 0.5f - Main.screenPosition, 35, 0f);
         }
     }
 }

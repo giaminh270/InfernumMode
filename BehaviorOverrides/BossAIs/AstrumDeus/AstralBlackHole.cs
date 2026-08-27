@@ -1,10 +1,12 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.Items.Weapons.DraedonsArsenal;
 using CalamityMod.NPCs.AstrumDeus;
 using CalamityMod.Particles;
 using InfernumMode.BehaviorOverrides.BossAIs.Cultist;
+using InfernumMode.ExtraTextures;
 using InfernumMode.Particles;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -20,9 +22,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
         public const int LaserCount = 6;
 
         public ref float Timer => ref projectile.ai[0];
+
         public ref float Owner => ref projectile.ai[1];
+
         public Player Target => Main.player[projectile.owner];
-        public override string Texture => "InfernumMode/ExtraTextures/WhiteHole";
+
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/WhiteHole";
 
         public override void SetStaticDefaults() => DisplayName.SetDefault("Astral Black Hole");
 
@@ -62,14 +67,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             // Create the lasers.
             if (Timer == 90f)
             {
-				Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(Terraria.ModLoader.SoundType.Item, "Sounds/Item/TeslaCannonFire"), projectile.Center);
+				Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/TeslaCannonFire"), projectile.Center);
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     for (int i = 0; i < LaserCount; i++)
                     {
                         Vector2 laserDirection = -Vector2.UnitY.RotatedBy(MathHelper.TwoPi * i / LaserCount);
-                        Utilities.NewProjectileBetter(projectile.Center, laserDirection, ModContent.ProjectileType<DarkGodLaser>(), 300, 0f);
+                        Utilities.NewProjectileBetter(projectile.Center, laserDirection, ModContent.ProjectileType<DarkGodLaser>(), AstrumDeusHeadBehaviorOverride.BlackHoleLaserDamage, 0f);
                     }
                 }
             }
@@ -82,7 +87,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 {
                     Player target = Main.player[Player.FindClosest(projectile.Center, 1, 1)];
                     Vector2 flyVelocity = projectile.SafeDirectionTo(target.Center) * (BossRushEvent.BossRushActive ? 28f : 19.5f);
-                    Utilities.NewProjectileBetter(projectile.Center + flyVelocity * 10f, flyVelocity, ModContent.ProjectileType<DarkBoltLarge>(), 200, 0f);
+                    Utilities.NewProjectileBetter(projectile.Center + flyVelocity * 10f, flyVelocity, ModContent.ProjectileType<DarkBoltLarge>(), AstrumDeusHeadBehaviorOverride.DarkBoltDamage, 0f);
                 }
             }
         }
@@ -97,7 +102,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             Texture2D blackHoleTexture = Main.projectileTexture[projectile.type];
-            Texture2D noiseTexture = ModContent.GetTexture("CalamityMod/ExtraTextures/VoronoiShapes");
+            Texture2D noiseTexture = InfernumTextureRegistry.VoronoiShapes;
             Vector2 drawPosition = projectile.Center - Main.screenPosition;
             Vector2 origin = noiseTexture.Size() * 0.5f;
 
@@ -140,7 +145,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
         {
             Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<DarkStar>());
 
-			Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/WyrmElectricCharge"), projectile.Center);
+            Main.PlaySound(InfernumSoundRegistry.WyrmChargeSound, projectile.Center);
             Color[] explosionColors = new Color[]
             {
                 new Color(250, 90, 74, 127),

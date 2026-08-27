@@ -3,6 +3,8 @@ using Microsoft.Xna.Framework;
 using System;
 using Terraria;
 using Terraria.Utilities;
+using static System.Math;
+using static Microsoft.Xna.Framework.MathHelper;
 
 namespace InfernumMode
 {
@@ -266,10 +268,62 @@ namespace InfernumMode
         {
             return MathHelper.Lerp(toMin, toMax, Utils.InverseLerp(fromMin, fromMax, fromValue, clamped));
         }
-		
-		public static float AperiodicSin(float x, float dx = 0f, float a = MathHelper.Pi, float b = MathHelper.E)
+
+        public static float AperiodicSin(float x, float dx = 0f, float a = MathHelper.Pi, float b = MathHelper.E)
         {
             return (float)(Math.Sin(x * a + dx) + Math.Sin(x * b + dx)) * 0.5f;
         }
+
+        public static Vector2 QuadraticBezier(Vector2 a, Vector2 b, Vector2 c, float interpolant)
+        {
+            Vector2 firstTerm = (float)Math.Pow(1f - interpolant, 2f) * a;
+            Vector2 secondTerm = (2f - interpolant * 2f) * interpolant * b;
+            Vector2 thirdTerm = (float)Math.Pow(interpolant, 2f) * c;
+            return firstTerm + secondTerm + thirdTerm;
+        }
+
+        public static float PolyInOutEasing(float amount, int degree) => amount < 0.5f ? (float)Math.Pow(2, degree - 1) * (float)Math.Pow(amount, degree) : 1f - (float)Math.Pow(-2 * amount + 2, degree) / 2f;
+
+        public static float SineInOutEasing(float amount, int degree) => -((float)Math.Cos(amount * MathHelper.Pi) - 1) / 2f;
+
+        public static float ExpInEasing(float amount, int degree) => amount == 0f ? 0f : (float)Math.Pow(2, 10f * amount - 10f);
+
+        public static float EaseInOutCubic(float value)
+        {
+            return value < 0.5f ?
+                4f * value * value * value * value :
+                1f - (float)Pow(-2f * value + 2f, 3f) / 2f;
+        }
+
+        public static float LinearEasing(float amount, int degree) => amount;
+
+        public static float SineInEasing(float amount, int degree) => 1f - (float)Math.Cos(amount * MathHelper.Pi / 2f);
+
+        public static float EaseInBounce(float value) => 1f - EaseOutBounce(1f - value);
+
+        public static float EaseOutBounce(float value)
+        {
+            float n1 = 7.5625f;
+            float d1 = 2.75f;
+
+            if (value < 1f / d1)
+            {
+                return n1 * value * value;
+            }
+            else if (value < 2f / d1)
+            {
+                return n1 * (value -= 1.5f / d1) * value + 0.75f;
+            }
+            else if (value < 2.5f / d1)
+            {
+                return n1 * (value -= 2.25f / d1) * value + 0.9375f;
+            }
+            else
+            {
+                return n1 * (value -= 2.625f / d1) * value + 0.984375f;
+            }
+        }
+		
+		public static int DirectionalSign(this float x) => (x > 0f).ToDirectionInt();
     }
 }

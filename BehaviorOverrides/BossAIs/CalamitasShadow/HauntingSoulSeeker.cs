@@ -88,8 +88,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            //projectile.DrawBackglow(Color.IndianRed, 12f);
-            //projectile.DrawProjectileWithBackglowTemp(Color.Yellow, Color.White * 0.5f, 5f);
+            projectile.DrawBackglow(Color.IndianRed, 12f);
+            projectile.DrawProjectileWithBackglowTemp(Color.Yellow * 0.4f, Color.White * 0.5f, 5f);
             return false;
         }
     }

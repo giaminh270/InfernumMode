@@ -2,6 +2,7 @@ using CalamityMod;
 using CalamityMod.Buffs.StatDebuffs;
 using CalamityMod.Events;
 using CalamityMod.NPCs;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -13,6 +14,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Signus
     public class CosmicMine : ModProjectile
     {
         public ref float Time => ref projectile.ai[0];
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Cosmic Mine");
@@ -31,6 +33,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Signus
             projectile.extraUpdates = BossRushEvent.BossRushActive ? 1 : 0;
             cooldownSlot = 1;
         }
+
         public override void AI()
         {
             if (CalamityGlobalNPC.signus == -1)
@@ -58,18 +61,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Signus
 
         public override void Kill(int timeLeft)
         {
-            Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastImpact"), projectile.Center);
+            Main.PlaySound(InfernumSoundRegistry.SignusKunaiExplosionSound, projectile.Center);
 
             for (int i = 0; i < 50; i++)
             {
                 Vector2 shootVelocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(18f, 85f);
-                Utilities.NewProjectileBetter(projectile.Center + shootVelocity * 3f, shootVelocity, ModContent.ProjectileType<CosmicKunai>(), 250, 0f);
+                Utilities.NewProjectileBetter(projectile.Center + shootVelocity * 3f, shootVelocity, ModContent.ProjectileType<CosmicKunai>(), SignusBehaviorOverride.KunaiDamage, 0f);
             }
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            target.Calamity().lastProjectileHit = projectile;
         }
     }
 }

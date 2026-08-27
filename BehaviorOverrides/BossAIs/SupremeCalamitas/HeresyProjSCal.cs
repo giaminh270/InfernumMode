@@ -75,10 +75,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             glowColor.A = 0;
 
             // Draw an ominous glowing backimage of the book after a bit of time.
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 8; i++)
             {
                 drawPosition = projectile.Center + (MathHelper.TwoPi * i / 8f + Main.GlobalTime * 4f).ToRotationVector2() * glowOutwardness - Main.screenPosition;
-                spriteBatch.Draw(bookTexture, drawPosition, frame, projectile.GetAlpha(glowColor), projectile.rotation, origin, projectile.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(bookTexture, drawPosition, frame, projectile.GetAlpha(glowColor), projectile.rotation, origin, projectile.scale, 0, 0);
             }
 
             drawPosition = projectile.Center - Main.screenPosition;

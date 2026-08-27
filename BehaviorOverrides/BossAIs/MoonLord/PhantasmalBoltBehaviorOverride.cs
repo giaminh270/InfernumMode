@@ -1,5 +1,6 @@
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
+using System;
 using Terraria;
 using Terraria.ID;
 
@@ -8,6 +9,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
     public class PhantasmalBoltBehaviorOverride : ProjectileBehaviorOverride
     {
         public override int ProjectileOverrideType => ProjectileID.PhantasmalBolt;
+
         public override ProjectileOverrideContext ContentToOverride => ProjectileOverrideContext.ProjectileAI;
 
         public override bool PreAI(Projectile projectile)
@@ -25,7 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             projectile.alpha = Utils.Clamp(projectile.alpha - 40, 0, 255);
             projectile.rotation = projectile.velocity.ToRotation() + MathHelper.PiOver2;
             projectile.velocity = Vector2.Clamp(projectile.velocity, new Vector2(-10f), new Vector2(10f));
-            projectile.timeLeft = (int)MathHelper.Min(250 * projectile.MaxUpdates, projectile.timeLeft);
+            projectile.timeLeft = (int)Math.Min(250 * projectile.MaxUpdates, projectile.timeLeft);
 
             if (!NPC.AnyNPCs(NPCID.MoonLordCore))
             {
@@ -33,18 +35,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                 return false;
             }
             NPC core = Main.npc[NPC.FindFirstNPC(NPCID.MoonLordCore)];
-            projectile.tileCollide = projectile.Hitbox.Intersects(core.Infernum().Arena);
+            Rectangle collisionArea = core.Infernum().Arena;
+            collisionArea.Inflate(-600, -600);
 
-            if (InfernumConfig.Instance.ReducedGraphicsConfig)
-                return false;
-			
-            Dust electrivity = Dust.NewDustDirect(projectile.Center, 0, 0, 229, 0f, 0f, 100, default, 1f);
-            electrivity.noLight = true;
-            electrivity.noGravity = true;
-            electrivity.velocity = projectile.velocity;
-            electrivity.position -= Vector2.One * 4f;
-            electrivity.scale = 0.8f;
+            // Determine whether the bolt should collide with tiles.
+            projectile.tileCollide = projectile.Hitbox.Intersects(collisionArea);
 
+            // Determine frames.
             projectile.frameCounter++;
             if (projectile.frameCounter >= 9)
             {
@@ -53,6 +50,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                 if (projectile.frame >= 5)
                     projectile.frame = 0;
             }
+
+            if (InfernumConfig.Instance.ReducedGraphicsConfig)
+                return false;
+
+            Dust electricity = Dust.NewDustDirect(projectile.Center, 0, 0, DustID.Vortex, 0f, 0f, 100, default, 1f);
+            electricity.noLight = true;
+            electricity.noGravity = true;
+            electricity.velocity = projectile.velocity;
+            electricity.position -= Vector2.One * 4f;
+            electricity.scale = 0.8f;
             return false;
         }
     }

@@ -28,6 +28,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.timeLeft = 1200;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)
@@ -52,7 +53,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                     Time++;
                     if (Time > 10f)
                     {
-                        // Dust pulse effect
+                        // Dust pulse effect.
                         PulsationFactor = (float)Math.Abs(Math.Cos(MathHelper.ToRadians(Time * 2f)));
                         EmitDust();
                     }
@@ -82,13 +83,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
 
         public override void Kill(int timeLeft)
         {
-            Main.PlaySound(SoundID.DD2_BetsyFireballImpact, (int)projectile.position.X, (int)projectile.position.Y);
+            Main.PlaySound(SoundID.DD2_BetsyFireballImpact, projectile.Center);
 
             if (projectile.owner != Main.myPlayer)
                 return;
 
             Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<LightningCloud>(), 0, 0f);
-
         }
     }
 }

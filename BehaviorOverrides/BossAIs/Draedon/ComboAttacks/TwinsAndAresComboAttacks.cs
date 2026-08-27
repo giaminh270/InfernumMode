@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Items.Weapons.DraedonsArsenal;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Apollo;
@@ -6,16 +6,17 @@ using CalamityMod.NPCs.ExoMechs.Ares;
 using CalamityMod.NPCs.ExoMechs.Artemis;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo;
+using InfernumMode.GlobalInstances;
 using Microsoft.Xna.Framework;
 using System;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-using ArtemisLaserInfernum = InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo.ArtemisLaser;
-using DraedonNPC = CalamityMod.NPCs.ExoMechs.Draedon;
+using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares.AresBodyBehaviorOverride;
 using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.DraedonBehaviorOverride;
 using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.ExoMechManagement;
-using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares.AresBodyBehaviorOverride;
+using ArtemisLaserInfernum = InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo.ArtemisLaser;
+using DraedonNPC = CalamityMod.NPCs.ExoMechs.Draedon;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
 {
@@ -159,9 +160,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                             npc.velocity.Y = CalamityUtils.Convert01To010(generalAttackTimer / artemisChargeTime) * 13.5f;
                             npc.rotation = npc.velocity.ToRotation() + MathHelper.PiOver2;
 
+                            if (!deathraysHaveBeenFired)
+                            {
+                                attackSubstate = 0f;
+                                generalAttackTimer = 0f;
+                            }
+
                             if (generalAttackTimer % artemisLaserReleaseRate == artemisLaserReleaseRate - 1f && !npc.WithinRange(target.Center, 270f))
                             {
-                                Main.PlaySound(InfernumMode.CalamityMod.GetSoundSlot(SoundType.Item, "Sounds/Item/LaserCannon"), npc.Center);
+                                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/LaserCannon"), npc.Center);
 
                                 if (Main.netMode != NetmodeID.MultiplayerClient)
                                 {
@@ -170,13 +177,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                                     {
                                         Vector2 aimDestination = npc.Center + (MathHelper.TwoPi * i / artemisLaserBurstCount + offsetAngle).ToRotationVector2() * 1500f;
                                         Vector2 laserShootVelocity = npc.SafeDirectionTo(aimDestination) * 7.25f;
-                                        int laser = Utilities.NewProjectileBetter(npc.Center, laserShootVelocity, ModContent.ProjectileType<ArtemisLaserInfernum>(), 500, 0f);
-                                        if (Main.projectile.IndexInRange(laser))
+
+                                        ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(laser =>
                                         {
-                                            Main.projectile[laser].ModProjectile<ArtemisLaserInfernum>().InitialDestination = aimDestination + laserShootVelocity.SafeNormalize(Vector2.UnitY) * 1600f;
-                                            Main.projectile[laser].ai[1] = npc.whoAmI;
-                                            Main.projectile[laser].netUpdate = true;
-                                        }
+                                            laser.ModProjectile<ArtemisLaserInfernum>().InitialDestination = aimDestination + laserShootVelocity.SafeNormalize(Vector2.UnitY) * 1600f;
+                                        });
+                                        Utilities.NewProjectileBetter(npc.Center, laserShootVelocity, ModContent.ProjectileType<ArtemisLaserInfernum>(), 500, 0f, -1, 0f, npc.whoAmI);
                                     }
                                 }
                             }
@@ -252,10 +258,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                             npc.velocity = npc.velocity.MoveTowards(Vector2.Zero, 0.8f);
                             npc.rotation = npc.rotation.AngleTowards(npc.AngleTo(target.Center) + MathHelper.PiOver2, 0.4f);
 
+                            if (!deathraysHaveBeenFired)
+                            {
+                                attackSubstate = 0f;
+                                generalAttackTimer = 0f;
+                            }
+
                             // Charge once sufficiently slowed down.
                             if (npc.velocity.Length() < 1.25f)
                             {
-                                Main.PlaySound(InfernumMode.CalamityMod.GetSoundSlot(SoundType.Item, "Sounds/Item/ELRFire"), target.Center);
+                                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/ELRFire"), target.Center);
                                 for (int i = 0; i < 36; i++)
                                 {
                                     Dust laser = Dust.NewDustPerfect(npc.Center, 182);
@@ -277,6 +289,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                             if (npc.velocity.Length() > apolloChargeSpeed * 0.6f)
                                 npc.velocity *= 0.98f;
 
+                            if (!deathraysHaveBeenFired)
+                            {
+                                attackSubstate = 0f;
+                                generalAttackTimer = 0f;
+                            }
+
                             if (generalAttackTimer < 50f)
                             {
                                 float angularTurnSpeed = MathHelper.Pi / 300f;
@@ -297,7 +315,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                                 npc.velocity.Y = MathHelper.Clamp(npc.velocity.Y - 2f, -42f, 42f);
 
                                 // Release rockets.
-                                if (adjustedTimer % 15f == 14f && !npc.WithinRange(target.Center, 250f))
+                                if (adjustedTimer % 15f == 14f && !npc.WithinRange(target.Center, 456f))
                                 {
                                     Main.PlaySound(SoundID.Item36, target.Center);
 
@@ -306,9 +324,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                                         int type = ModContent.ProjectileType<ApolloRocketInfernum>();
                                         Vector2 rocketVelocity = npc.velocity.SafeNormalize(Vector2.UnitY) * 12.5f;
                                         Vector2 rocketSpawnPosition = npc.Center + npc.velocity.SafeNormalize(Vector2.Zero) * 70f;
-                                        int rocket = Utilities.NewProjectileBetter(rocketSpawnPosition, rocketVelocity, type, NormalShotDamage, 0f, Main.myPlayer, 0f, target.Center.Y);
-                                        if (Main.projectile.IndexInRange(rocket))
-                                            Main.projectile[rocket].tileCollide = false;
+                                        Utilities.NewProjectileBetter(rocketSpawnPosition, rocketVelocity, type, NormalShotDamage, 0f, Main.myPlayer, 0f, target.Center.Y);
                                     }
                                 }
 
@@ -420,18 +436,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                     {
                         for (int i = 0; i < aresLaserbeamCount; i++)
                         {
-                            int beam = Projectile.NewProjectile(npc.Center, Vector2.Zero, type, 0, 0f, 255, npc.whoAmI);
-                            float offsetAngle = MathHelper.PiOver2 + MathHelper.TwoPi * i / aresLaserbeamCount;
-
                             // Determine the initial offset angle of telegraph. It will be smoothened to give a "stretch" effect.
-                            if (Main.projectile.IndexInRange(beam))
+                            float squishedRatio = (float)Math.Pow(CalamityUtils.Convert01To010(b / 7f), 2f);
+                            float smoothenedRatio = MathHelper.SmoothStep(0f, 1f, squishedRatio);
+                            float offsetAngle = MathHelper.PiOver2 + MathHelper.TwoPi * i / aresLaserbeamCount;
+                            float telegraphStartingAngle = MathHelper.Lerp(-0.55f, 0.55f, smoothenedRatio) + offsetAngle;
+
+                            ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(telegraphBeam =>
                             {
-                                float squishedRatio = (float)Math.Pow((float)Math.Sin(MathHelper.Pi * b / 7f), 2D);
-                                float smoothenedRatio = MathHelper.SmoothStep(0f, 1f, squishedRatio);
-                                Main.projectile[beam].ai[0] = npc.whoAmI;
-                                Main.projectile[beam].localAI[0] = offsetAngle;
-                                Main.projectile[beam].ai[1] = MathHelper.Lerp(-0.55f, 0.55f, smoothenedRatio) + Main.projectile[beam].localAI[0];
-                            }
+                                telegraphBeam.localAI[0] = offsetAngle;
+                            });
+                            Projectile.NewProjectile(npc.Center, Vector2.Zero, type, 0, 0f, Main.myPlayer, npc.whoAmI, telegraphStartingAngle);
                         }
                     }
                 }
@@ -439,19 +454,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                 // Release the laserbeams.
                 if (wrappedAttackTimer == redirectTime + chargeupTime + laserTelegraphTime)
                 {
-                    Main.PlaySound(InfernumMode.CalamityMod.GetSoundSlot(SoundType.Item, "Sounds/Item/TeslaCannonFire"), target.Center);
+                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/TeslaCannonFire"), target.Center);
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
                         laserDirection = Main.rand.NextBool().ToDirectionInt();
 
                         int type = ModContent.ProjectileType<AresSpinningRedDeathray>();
                         for (int i = 0; i < aresLaserbeamCount; i++)
-                        {
-                            int beam = Utilities.NewProjectileBetter(npc.Center, Vector2.UnitY.RotatedBy(MathHelper.TwoPi * i / aresLaserbeamCount), type, PowerfulShotDamage, 0f);
-                            if (Main.projectile.IndexInRange(beam))
-                                Main.projectile[beam].ai[1] = npc.whoAmI;
-                        }
-                        
+                            Utilities.NewProjectileBetter(npc.Center, Vector2.UnitY.RotatedBy(MathHelper.TwoPi * i / aresLaserbeamCount), type, PowerfulShotDamage, 0f, -1, 0f, npc.whoAmI);
+
                         npc.netUpdate = true;
                     }
                 }
@@ -472,6 +483,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
 
                         EnrageTimer = 1500f;
                     }
+
+                    target.Infernum().CurrentScreenShakePower = 2f;
                 }
 
                 // Decide rotation.
@@ -485,7 +498,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                     DoLaughEffect(npc, target);
             }
 
-            return attackTimer >= (redirectTime + chargeupTime + laserTelegraphTime + laserSpinTime) * laserBurstCount;
+            bool doneAttacking = attackTimer >= (redirectTime + chargeupTime + laserTelegraphTime + laserSpinTime) * laserBurstCount;
+            if (doneAttacking)
+                ClearAwayTransitionProjectiles();
+
+            return doneAttacking;
         }
 
         public static bool DoBehavior_AresTwins_CircleAttack(NPC npc, Player target, ref float attackTimer, ref float frame)
@@ -555,30 +572,27 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                     {
                         if (npc.type == ModContent.NPCType<Apollo>())
                         {
-                            Main.PlaySound(InfernumMode.CalamityMod.GetSoundSlot(SoundType.Item, "Sounds/Item/PlasmaCasterFire"), npc.Center);
+                            Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/PlasmaCasterFire"), npc.Center);
 
                             if (Main.netMode != NetmodeID.MultiplayerClient)
                             {
                                 Vector2 plasmaShootVelocity = aimDirection * normalShotShootSpeed;
-                                int plasma = Utilities.NewProjectileBetter(npc.Center + aimDirection * 70f, plasmaShootVelocity, ModContent.ProjectileType<ApolloPlasmaFireball>(), NormalShotDamage, 0f);
-                                if (Main.projectile.IndexInRange(plasma))
-                                    Main.projectile[plasma].ai[0] = Main.rand.NextBool().ToDirectionInt();
+                                Utilities.NewProjectileBetter(npc.Center + aimDirection * 70f, plasmaShootVelocity, ModContent.ProjectileType<ApolloPlasmaFireball>(), NormalShotDamage, 0f, -1, Main.rand.NextBool().ToDirectionInt());
                             }
                         }
                         else
                         {
-                            Main.PlaySound(InfernumMode.CalamityMod.GetSoundSlot(SoundType.Item, "Sounds/Item/LaserCannon"), npc.Center);
+                            Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/LaserCannon"), npc.Center);
 
                             if (Main.netMode != NetmodeID.MultiplayerClient)
                             {
                                 Vector2 laserShootVelocity = aimDirection * normalShotShootSpeed;
-                                int laser = Utilities.NewProjectileBetter(npc.Center + aimDirection * 70f, laserShootVelocity, ModContent.ProjectileType<ArtemisLaserInfernum>(), NormalShotDamage, 0f);
-                                if (Main.projectile.IndexInRange(laser))
+
+                                ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(laser =>
                                 {
-                                    Main.projectile[laser].ModProjectile<ArtemisLaserInfernum>().InitialDestination = aimDestination;
-                                    Main.projectile[laser].ai[1] = npc.whoAmI;
-                                    Main.projectile[laser].netUpdate = true;
-                                }
+                                    laser.ModProjectile<ArtemisLaserInfernum>().InitialDestination = aimDestination;
+                                });
+                                Utilities.NewProjectileBetter(npc.Center + aimDirection * 70f, laserShootVelocity, ModContent.ProjectileType<ArtemisLaserInfernum>(), NormalShotDamage, 0f, -1, 0f, npc.whoAmI);
                             }
                         }
 
@@ -592,7 +606,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                         frame += 60f;
                 }
             }
-            return attackTimer > attackDelay + normalTwinsAttackTime;
+            bool doneAttacking = attackTimer > attackDelay + normalTwinsAttackTime;
+            if (doneAttacking)
+                ClearAwayTransitionProjectiles();
+            return doneAttacking;
         }
     }
 }

@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Items.Weapons.DraedonsArsenal;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -8,6 +8,8 @@ using Terraria;
 using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
+using InfernumMode.Sounds;
+using System;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
 {
@@ -87,9 +89,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
                 // Explode and die after the explosion delay is passed.
                 if (ExistTimer > BuildTime + ExplodeDelay)
                 {
-                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/LargeMechGaussRifle"), npc.Center);
+                    Target.Infernum().CurrentScreenShakePower = 12f;
+                    ScreenEffectSystem.SetBlurEffect(npc.Center, 0.4f, 32);
+
+                    Main.PlaySound(InfernumSoundRegistry.PBGNukeExplosionSound, npc.Center);
                     if (Main.netMode != NetmodeID.MultiplayerClient)
-                        Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<PlagueNuclearExplosion>(), 750, 0f);
+                        Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<PlagueNuclearExplosion>(), PlaguebringerGoliathBehaviorOverride.NuclearExplosionDamage, 0f);
 
                     npc.life = 0;
                     npc.checkDead();
@@ -118,12 +123,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
 
                 float distanceToAveragePosition = npc.Distance(averageBuilderPosition);
 
-                Vector2 idealVelocity = npc.SafeDirectionTo(averageBuilderPosition) * MathHelper.Min(distanceToAveragePosition, 16f);
+                Vector2 idealVelocity = npc.SafeDirectionTo(averageBuilderPosition) * (float)Math.Min(distanceToAveragePosition, 16f);
                 npc.velocity = (npc.velocity * 3f + idealVelocity) / 4f;
                 npc.velocity = npc.velocity.MoveTowards(idealVelocity, 1.5f);
 
                 // Rotate towards the player.
-                float idealRotation = npc.AngleTo(Target.Center + Target.velocity * 25f) - MathHelper.PiOver2;
+                float idealRotation = npc.AngleTo(Target.Center + Target.velocity * 25f) + MathHelper.PiOver2;
                 npc.rotation = npc.rotation.AngleLerp(idealRotation, 0.05f).AngleTowards(idealRotation, 0.025f);
             }
 

@@ -1,4 +1,8 @@
 using CalamityMod;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -9,8 +13,9 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
 {
-    public class FireBeamWoF : ModProjectile
+    public class FireBeamWoF : ModProjectile, IPixelPrimitiveDrawer
     {
+	    public bool DrawBeforeNPCs => false;
         internal PrimitiveTrailCopy BeamDrawer;
         public ref float Time => ref projectile.ai[0];
         public NPC Owner => Main.npc[(int)projectile.ai[1]];
@@ -20,7 +25,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
 
         public override void SetDefaults()
         {
-            projectile.width = projectile.height = 14;
+            projectile.width = projectile.height = 30;
             projectile.hostile = true;
             projectile.ignoreWater = true;
             projectile.tileCollide = false;
@@ -40,7 +45,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
             if (projectile.scale > 1f)
                 projectile.scale = 1f;
 
-            projectile.Center = Owner.Center;
+            projectile.Center = Owner.Center + projectile.velocity * 30f;
 
             // And create bright light.
             Lighting.AddLight(projectile.Center, Color.Orange.ToVector3() * 1.4f);
@@ -81,26 +86,30 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
 
         public float WidthFunction(float completionRatio)
         {
-            float squeezeInterpolant = Utils.InverseLerp(0f, 0.05f, completionRatio, true) * Utils.InverseLerp(1f, 0.95f, completionRatio, true);
-            return MathHelper.SmoothStep(2f, projectile.width, squeezeInterpolant) * MathHelper.Clamp(projectile.scale, 0.01f, 1f);
+            return projectile.width * projectile.scale * 2f;
         }
 
         public override bool ShouldUpdatePosition() => false;
 
         public Color ColorFunction(float completionRatio)
         {
-            Color color = Color.Lerp(Color.Orange, Color.DarkRed, (float)Math.Pow(completionRatio, 2D));
-            color = Color.Lerp(color, Color.Red, 0.65f);
-            return color * projectile.Opacity;
+            Color color = Color.Lerp(Color.Red, Color.Orange, 0.65f);
+            return color * projectile.Opacity * (float)Math.Pow(Utils.InverseLerp(0f, 0.1f, completionRatio, true), 3f);
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (BeamDrawer is null)
-                BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:Fire"]);
+                BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.GenericLaserVertexShader);
 
-            GameShaders.Misc["Infernum:Fire"].UseSaturation(1.4f);
-            GameShaders.Misc["Infernum:Fire"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/CultistRayMap"));
+            Color middleColor = Color.Lerp(Color.White, Color.Orange, 0.6f);
+            Color middleColor2 = Color.Lerp(Color.Red, Color.DarkRed, 0.5f);
+            Color finalColor = Color.Lerp(middleColor, middleColor2, Time / 120);
+
+            InfernumEffectsRegistry.GenericLaserVertexShader.UseColor(Color.OrangeRed);
+            InfernumEffectsRegistry.GenericLaserVertexShader.SetShaderTexture(InfernumTextureRegistry.StreakFire);
 
             List<float> originalRotations = new List<float>();
             List<Vector2> points = new List<Vector2>();
@@ -110,10 +119,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
                 originalRotations.Add(MathHelper.PiOver2);
             }
 
-            BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, 60);
+            BeamDrawer.DrawPixelated(points, -Main.screenPosition, 32);
             Main.spriteBatch.ExitShaderRegion();
-
-            return false;
         }
 
         public override bool CanDamage() => Time >= 8f;

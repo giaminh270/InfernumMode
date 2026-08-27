@@ -1,5 +1,8 @@
 using CalamityMod;
 using CalamityMod.Events;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.GlobalInstances;
 using InfernumMode.Miscellaneous;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
@@ -153,6 +156,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
         #endregion
 
         #region AI
+
+        public static int ChargeTyphoonDamage => 190;
+
+        public static int SmallWaveDamage => 190;
+
+        public static int TornadoDamage => 250;
+
+        public static int TidalWaveDamage => 275;
+
         public override bool PreAI(NPC npc)
         {
             npc.TargetClosestIfTargetIsInvalid();
@@ -193,9 +205,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
             ref float hasEyes01Flag = ref npc.Infernum().ExtraAI[9];
             ref float attackDelay = ref npc.Infernum().ExtraAI[10];
             ref float eyeGlowmaskOpacity = ref npc.Infernum().ExtraAI[11];
+            ref float hasEnteredPhase4 = ref npc.Infernum().ExtraAI[12];
 
             bool enraged = target.position.Y < 300f || target.position.Y > Main.worldSurface * 16.0 ||
-                           target.position.X > 6000f && target.position.X < (Main.maxTilesX * 16 - 6000);
+                           target.position.X > 6000f && target.position.X < Main.maxTilesX * 16 - 6000;
 
             if (BossRushEvent.BossRushActive)
                 enraged = false;
@@ -228,7 +241,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
             frameDrawType = (int)DukeFrameDrawingType.FinFlapping;
 
             // Phase transitions.
-            if ((phaseTransitionPhase == 0f && inPhase2) || (phaseTransitionPhase == 1f && inPhase3))
+            if (phaseTransitionPhase == 0f && inPhase2 || phaseTransitionPhase == 1f && inPhase3)
             {
                 npc.damage = 0;
                 npc.dontTakeDamage = true;
@@ -253,9 +266,23 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
                 if (phaseTransitionTime >= 120f)
                 {
                     phaseTransitionPhase++;
-                    aiStateIndex = 0f;
+                    aiStateIndex = -1f;
                     phaseTransitionTime = 0f;
                 }
+                return false;
+            }
+
+            if (hasEnteredPhase4 == 0f && inPhase4)
+            {
+                aiStateIndex = -1f;
+                SelectNextAttack(npc);
+                hasEnteredPhase4 = 1f;
+                npc.netUpdate = true;
+
+                // Clear leftover projectiles.
+                for (int i = 0; i < 3; i++)
+                    Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<ChargeTyphoon>(), ModContent.ProjectileType<SmallWave>(), ModContent.ProjectileType<TidalWave>(), ModContent.ProjectileType<Tornado>(), ModContent.ProjectileType<TyphoonBlade>());
+
                 return false;
             }
 
@@ -711,7 +738,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
                         WorldUtils.Find(new Point(x, y), Searches.Chain(new Searches.Down(Main.maxTilesY - 10), new CustomTileConditions.IsWaterOrSolid()), out Point result);
                         Vector2 spawnPosition = result.ToWorldCoordinates();
                         Vector2 tornadoVelocity = Vector2.UnitX * (target.Center.X > spawnPosition.X).ToDirectionInt() * 4f;
-                        int tornado = Utilities.NewProjectileBetter(spawnPosition, tornadoVelocity, ModContent.ProjectileType<Tornado>(), 200, 0f);
+                        int tornado = Utilities.NewProjectileBetter(spawnPosition, tornadoVelocity, ModContent.ProjectileType<Tornado>(), TornadoDamage, 0f);
                         Main.projectile[tornado].Bottom = spawnPosition;
                     }
                 }
@@ -728,7 +755,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
                     Vector2 spawnPosition = result.ToWorldCoordinates();
                     int summoner = Utilities.NewProjectileBetter(spawnPosition, Vector2.Zero, ModContent.ProjectileType<SharkSummoner>(), 0, 0f);
                     float flySpeed = Math.Abs(npc.Center.Y - spawnPosition.Y) * 0.0125f + 5f;
-                    flySpeed = MathHelper.Min(flySpeed, 27f);
+                    flySpeed = Math.Min(flySpeed, 27f);
                     if (Main.projectile.IndexInRange(summoner))
                     {
                         Main.projectile[summoner].direction = i;
@@ -865,21 +892,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
             }
 
             // Summon tornadoes.
-            if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer == hoverTime - 45f)
+            if (attackTimer == hoverTime - 45f)
             {
-                List<int> horizontalSpawnPositions = new List<int>()
+                if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    (int)(target.Center.X - (enraged ? 600f : 750f)) / 16,
-                    (int)(target.Center.X + (enraged ? 600f : 750f)) / 16
-                };
+                    List<int> horizontalSpawnPositions = new List<int>()
+                    {
+                        (int)(target.Center.X - (enraged ? 600f : 750f)) / 16,
+                        (int)(target.Center.X + (enraged ? 600f : 750f)) / 16
+                    };
 
-                int y = Utils.Clamp((int)target.Center.Y / 16 + 95, 20, Main.maxTilesY - 20);
-                foreach (int x in horizontalSpawnPositions)
-                {
-                    Vector2 spawnPosition = new Point(x, y).ToWorldCoordinates();
-                    int tornado = Utilities.NewProjectileBetter(spawnPosition, Vector2.Zero, ModContent.ProjectileType<Tornado>(), 300, 0f);
-                    Main.projectile[tornado].ai[1] = 1f;
-                    Main.projectile[tornado].Bottom = spawnPosition;
+                    int y = Utils.Clamp((int)target.Center.Y / 16 + 95, 20, Main.maxTilesY - 20);
+                    foreach (int x in horizontalSpawnPositions)
+                    {
+                        Vector2 spawnPosition = new Point(x, y).ToWorldCoordinates();
+                        int tornado = Utilities.NewProjectileBetter(spawnPosition, Vector2.Zero, ModContent.ProjectileType<Tornado>(), TornadoDamage, 0f);
+                        Main.projectile[tornado].ai[1] = 1f;
+                        Main.projectile[tornado].Bottom = spawnPosition;
+                    }
                 }
             }
 
@@ -908,7 +938,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
                         {
                             float offsetAngle = MathHelper.TwoPi * i / typhoonCount;
                             Vector2 shootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(offsetAngle) * typhoonBurstSpeed;
-                            Utilities.NewProjectileBetter(npc.Center + shootVelocity * 2f, shootVelocity, ModContent.ProjectileType<TyphoonBlade>(), 185, 0f);
+                            Utilities.NewProjectileBetter(npc.Center + shootVelocity * 2f, shootVelocity, ModContent.ProjectileType<TyphoonBlade>(), ChargeTyphoonDamage, 0f);
                         }
                     }
                 }
@@ -992,7 +1022,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
             {
                 Vector2 spawnPosition = (Vector2.Normalize(npc.velocity) * new Vector2((npc.width + 50) / 2f, npc.height) * 0.75f).RotatedBy(i * MathHelper.Pi / 7f) + npc.Center;
                 Vector2 dustVelocity = (Main.rand.NextFloat(MathHelper.Pi) - MathHelper.PiOver2).ToRotationVector2() * Main.rand.Next(3, 8);
-                int water = Dust.NewDust(spawnPosition + dustVelocity, 0, 0, 172, dustVelocity.X * 2f, dustVelocity.Y * 2f, 100, default, 1.4f);
+                int water = Dust.NewDust(spawnPosition + dustVelocity, 0, 0, DustID.DungeonWater, dustVelocity.X * 2f, dustVelocity.Y * 2f, 100, default, 1.4f);
                 Main.dust[water].noGravity = true;
                 Main.dust[water].noLight = true;
                 Main.dust[water].velocity *= 0.25f;
@@ -1045,9 +1075,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
 
             // Declare the trail drawer.
             if (npc.Infernum().OptionalPrimitiveDrawer is null)
-                npc.Infernum().OptionalPrimitiveDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:DukeTornado"]);
+                npc.Infernum().OptionalPrimitiveDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.DukeTornadoVertexShader);
 
-            GameShaders.Misc["Infernum:DukeTornado"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/VoronoiShapes"));
+            InfernumEffectsRegistry.DukeTornadoVertexShader.SetShaderTexture(InfernumTextureRegistry.VoronoiShapes);
 
             bool hasEyes = npc.Infernum().ExtraAI[9] == 1f || npc.Infernum().ExtraAI[11] > 0f;
             Texture2D eyeTexture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/DukeFishron/DukeFishronGlowmask");
@@ -1078,7 +1108,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
                 if (hasEyes)
                 {
                     Color eyeColor = Color.Lerp(Color.White, Color.Yellow, 0.5f) * npc.Infernum().ExtraAI[11];
-                    eyeColor *= (float)Math.Pow(color.ToVector3().Length() / 1.414f, 0.6);
+                    eyeColor *= (float)Math.Pow(color.ToVector3().Length() / 1.414f, 0.6f);
                     spriteBatch.Draw(eyeTexture, drawPosition - Main.screenPosition, npc.frame, eyeColor, npc.rotation, origin, npc.scale, spriteEffects, 0f);
                 }
             }
@@ -1105,7 +1135,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DukeFishron
 
                 for (int i = (int)afterimageCount; i >= 1; i--)
                 {
-                    Color afterimageColor = lightColor.MultiplyRGB(Color.White) * (float)Math.Pow(1f - i / (float)afterimageCount, 3D);
+                    Color afterimageColor = lightColor.MultiplyRGB(Color.White) * (float)Math.Pow(1f - i / (float)afterimageCount, 3f);
                     DrawOldDukeInstance(afterimageColor, npc.oldPos[i] + npc.Size * 0.5f, npc.spriteDirection);
                 }
             }

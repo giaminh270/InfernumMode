@@ -20,6 +20,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
             projectile.penetrate = -1;
             projectile.timeLeft = 210;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -29,7 +30,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
 
             if (Main.dedServ || InfernumConfig.Instance.ReducedGraphicsConfig)
                 return;
-			
+
             Dust cursedFlame = Dust.NewDustPerfect(projectile.Center + Main.rand.NextVector2Circular(projectile.width, projectile.height) * 0.5f, 173);
             cursedFlame.velocity = Vector2.UnitY.RotatedBy(projectile.velocity.ToRotation()) * Main.rand.NextFloat(1.5f, 2.3f);
             cursedFlame.scale = Main.rand.NextFloat(0.7f, 0.8f);

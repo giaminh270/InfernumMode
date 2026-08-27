@@ -42,7 +42,7 @@ namespace InfernumMode.Particles
             if (Time <= 5f)
                 Opacity = Lerp(OriginalOpacity, OriginalOpacity * 1.5f, Time / 5f);
             else
-				Opacity = Lerp(OriginalOpacity * 1.5f, 0f, -((float)Math.Cos(((Time - 5f) / (Lifetime - 5f)) * Math.PI) - 1) / 2f);
+                Opacity = MathHelper.Lerp(OriginalOpacity * 1.5f, 0f, Utilities.SineInOutEasing((Time - 5f) / (Lifetime - 5f), 0));
             if (Gravity)
             {
                 Velocity.X *= 0.99f;

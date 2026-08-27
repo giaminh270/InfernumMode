@@ -2,6 +2,8 @@ using CalamityMod;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using Terraria.GameContent;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.EyeOfCthulhu
@@ -27,7 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EyeOfCthulhu
             projectile.alpha = 255;
             projectile.penetrate = -1;
             projectile.tileCollide = true;
-            projectile.timeLeft = 720;
+            projectile.timeLeft = 540;
             cooldownSlot = 1;
         }
 
@@ -71,11 +73,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EyeOfCthulhu
         {
             fallThrough = false;
             return base.TileCollideStyle(ref width, ref height, ref fallThrough);
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
         }
     }
 }

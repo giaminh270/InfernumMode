@@ -17,7 +17,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 
         public ref float LaserLength => ref projectile.ai[1];
 
-        public override string Texture => "InfernumMode/ExtraTextures/Smoke";
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/Smoke";
 
         public override void SetStaticDefaults() => DisplayName.SetDefault("Brimstone Fire Cloud");
 

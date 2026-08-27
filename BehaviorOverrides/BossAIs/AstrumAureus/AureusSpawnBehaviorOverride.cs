@@ -86,7 +86,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumAureus
 
                 // Determine if tile collision is happening.
                 Tile tile = Framing.GetTileSafely(npc.Center.ToTileCoordinates());
-                bool collidingWithTile = tile.nactive() && Main.tileSolid[tile.type] && !Main.tileSolidTop[tile.type] && !TileID.Sets.Platforms[tile.type];
+                bool collidingWithTile = tile.active() && Main.tileSolid[tile.type] && !Main.tileSolidTop[tile.type] && !TileID.Sets.Platforms[tile.type];
 
                 if (collidingWithTile)
                 {

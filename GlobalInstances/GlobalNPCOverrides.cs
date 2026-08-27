@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Buffs.StatBuffs;
 using CalamityMod.Buffs.StatDebuffs;
@@ -39,6 +39,7 @@ using InfernumMode.BehaviorOverrides.BossAIs.MoonLord;
 using InfernumMode.BehaviorOverrides.BossAIs.SlimeGod;
 using InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh;
 using InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow;
+using InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians;
 using InfernumMode.Buffs;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
@@ -54,6 +55,13 @@ using SlimeGodCore = CalamityMod.NPCs.SlimeGod.SlimeGodCore;
 using CalamityMod.Items.Accessories;
 using CalamitasShadowBoss = CalamityMod.NPCs.Calamitas.CalamitasRun3;
 using Terraria.Localization;
+using InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians;
+using CalamityMod.NPCs.ProfanedGuardians;
+using Terraria.Graphics.Effects;
+using static InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians.GuardianComboAttackManager;
+using InfernumMode.BehaviorOverrides.BossAIs.Skeletron;
+using static InfernumMode.BehaviorOverrides.BossAIs.Skeletron.SkeletronHeadBehaviorOverride;
+using InfernumMode.BehaviorOverrides.BossAIs.Yharon;
 
 namespace InfernumMode.GlobalInstances
 {
@@ -61,6 +69,7 @@ namespace InfernumMode.GlobalInstances
     {
         #region Instance and Variables
         public override bool InstancePerEntity => true;
+		public bool DisableNaturalDespawning;
 
         public const int TotalExtraAISlots = 100;
 
@@ -72,6 +81,7 @@ namespace InfernumMode.GlobalInstances
         internal static int Cryogen = -1;
         internal static int AstrumAureus = -1;
         internal static int Yharon = -1;
+		internal static int ProfanedCrystal = -1;
 
         public Primitive3DStrip Optional3DStripDrawer;
         #endregion
@@ -103,6 +113,7 @@ namespace InfernumMode.GlobalInstances
             ResetSavedIndex(ref Cryogen, ModContent.NPCType<CryogenNPC>());
             ResetSavedIndex(ref AstrumAureus, ModContent.NPCType<AstrumAureus>());
             ResetSavedIndex(ref Yharon, ModContent.NPCType<Yharon>());
+			ResetSavedIndex(ref ProfanedCrystal, ModContent.NPCType<HealerShieldCrystal>());
         }
         #endregion Reset Effects
 
@@ -261,16 +272,24 @@ namespace InfernumMode.GlobalInstances
             if (!InfernumMode.CanUseCustomAIs)
                 return;
             
+            
+
             bool bigSlimeGod = npc.type == ModContent.NPCType<SlimeGodRun>() || npc.type == ModContent.NPCType<SlimeGod>();
             if (bigSlimeGod && OverridingListManager.Registered(npc.type))
             {
+
                 for (int i = 0; i < 12; i++)
                 {
                     int slime = NPC.NewNPC((int)npc.Center.X, (int)npc.Center.Y, npc.type, ModContent.NPCType<SplitBigSlimeAnimation>());
                     Main.npc[slime].velocity = Main.rand.NextVector2Circular(8f, 8f);
                 }
+				
+				SlimeGodComboAttackManager.SelectNextAttackSpecific(npc);
             }
 
+			if (npc.type == ModContent.NPCType<Yharon>()) 
+				Utilities.DisplayText("A primordial light shimmers at the nadir of the abyssal depths...", Color.Lerp(Color.LightCoral, Color.Wheat, 0.6f));
+			
             if (npc.type == NPCID.MoonLordCore && !PoDWorld.HasGeneratedProfanedShrine)
             {
                 Utilities.DisplayText("A profaned shrine has erupted from the ashes at the underworld's edge!", Color.Orange);
@@ -328,8 +347,9 @@ namespace InfernumMode.GlobalInstances
 
             if (npc.type == ModContent.NPCType<Yharon>() && OverridingListManager.Registered(npc.type))
             {
-                if (npc.life - (int)Math.Ceiling(damage) <= 0)
-                    npc.NPCLoot();
+                int yharonRealDamage = (int)Math.Ceiling(crit ? damage * 2D : damage);
+                if (!YharonBehaviorOverride.DisableNaturalYharonDeath(npc, ref damage, yharonRealDamage, defense, ref knockback, hitDirection, ref crit))
+                    return false;
             }
 
             double realDamage = crit ? damage * 2D : damage;
@@ -363,8 +383,16 @@ namespace InfernumMode.GlobalInstances
 
             BalancingChangesManager.ApplyFromProjectile(npc, ref damage, projectile);
         }
+		
+		public override bool CheckDead(NPC npc)
+        {
+            if (InfernumMode.CanUseCustomAIs && OverridingListManager.InfernumCheckDeadOverrideList.TryGetValue(npc.type, out OverridingListManager.NPCCheckDeadDelegate value))
+                return (bool)value.DynamicInvoke(npc);
 
-        public override bool CheckDead(NPC npc)
+            return base.CheckDead(npc);
+        }
+		
+        /*public override bool CheckDead(NPC npc)
         {
             if (!InfernumMode.CanUseCustomAIs)
                 return base.CheckDead(npc);
@@ -469,6 +497,47 @@ namespace InfernumMode.GlobalInstances
                     return false;
                 }
             }
+			
+			if (npc.type == NPCID.SkeletronHead && OverridingListManager.Registered(npc.type))
+			{
+				// Check if death animation has already started
+				bool hasStartedDeathAnimation = npc.ai[0] == (int)SkeletronAttackType.DeathAnimation;
+				
+				if (!hasStartedDeathAnimation)
+				{
+					// Start death animation
+					npc.ai[0] = (int)SkeletronAttackType.DeathAnimation;
+					npc.ai[1] = 0f;
+					
+					// Reset extra AI slots
+					for (int i = 0; i < 5; i++)
+						npc.Infernum().ExtraAI[i] = 0f;
+
+					// Get rid of the hands
+					for (int i = 0; i < Main.maxNPCs; i++)
+					{
+						if (Main.npc[i].type == NPCID.SkeletronHand && Main.npc[i].active)
+						{
+							Main.npc[i].active = false;
+							Main.npc[i].netUpdate = true;
+						}
+					}
+
+					// Delete old projectiles
+					Utilities.DeleteAllProjectiles(true, 
+						ModContent.ProjectileType<AcceleratingSkull>(), 
+						ModContent.ProjectileType<NonHomingSkull>(), 
+						ModContent.ProjectileType<ShadowflameFireball>(), 
+						ModContent.ProjectileType<SpinningFireball>());
+
+					npc.life = npc.lifeMax;
+					npc.dontTakeDamage = true;
+					npc.netUpdate = true;
+					return false;
+				}
+				// If death animation already started, allow death
+				return true;
+			}
 
             if (npc.type == NPCID.CultistBoss && OverridingListManager.Registered(npc.type))
             {
@@ -560,14 +629,94 @@ namespace InfernumMode.GlobalInstances
                     return false;
                 }
             }
+			
+			int attackerGuardianType = ModContent.NPCType<ProfanedGuardianBoss>();
+			if (npc.type == attackerGuardianType && OverridingListManager.Registered(npc.type))
+			{
+				// Reset the crystal shader. This is necessary since the vanilla values are only stored once.
+				if (Main.netMode != NetmodeID.Server)
+					Filters.Scene["CrystalDestructionColor"].GetShader().UseColor(1f, 0f, 0.75f);
+
+				// Just die as usual if the Profaned Guardian is killed during the death animation. 
+				// This is done so that Cheat Sheet and other butcher effects can kill it quickly.
+				if (npc.ai[0] == (int)GuardiansAttackType.CommanderDeathAnimation)
+					return true;
+
+				npc.ai[0] = (int)GuardiansAttackType.CommanderDeathAnimation;
+				npc.ai[1] = 0f;
+				for (int i = 0; i < 5; i++)
+					npc.Infernum().ExtraAI[i] = 0f;
+
+				// Get rid of the silly hands.
+				int handID = ModContent.NPCType<EtherealHand>();
+				for (int i = 0; i < Main.maxNPCs; i++)
+				{
+					if (Main.npc[i].type == handID && Main.npc[i].active)
+					{
+						Main.npc[i].active = false;
+						Main.npc[i].netUpdate = true;
+					}
+				}
+
+				GuardianComboAttackManager.DespawnTransitionProjectiles();
+				
+				npc.life = npc.lifeMax;
+				npc.netUpdate = true;
+				return false;
+			}
+			
+	
+			int defenderGuardianType = ModContent.NPCType<ProfanedGuardianBoss2>();
+			if (npc.type == defenderGuardianType && OverridingListManager.Registered(npc.type))
+			{
+				// Make sure the commander exists
+				if (!Main.npc.IndexInRange(CalamityGlobalNPC.doughnutBoss) || !Main.npc[CalamityGlobalNPC.doughnutBoss].active)
+				{
+					// If no commander, just let it die normally
+					return true;
+				}
+
+				NPC commander = Main.npc[CalamityGlobalNPC.doughnutBoss];
+				GuardianComboAttackManager.DespawnTransitionProjectiles();
+				GuardianComboAttackManager.SelectNewAttack(commander, ref commander.ai[1], (float)GuardiansAttackType.DefenderDeathAnimation);
+				npc.life = npc.lifeMax;
+				npc.dontTakeDamage = true;
+				npc.netUpdate = true;
+				
+				return false;
+			}
+			
+			int healerGuardianType = ModContent.NPCType<ProfanedGuardianBoss3>();
+			if (npc.type == healerGuardianType && OverridingListManager.Registered(npc.type))
+			{
+				// Make sure the commander exists
+				if (!Main.npc.IndexInRange(CalamityGlobalNPC.doughnutBoss) || !Main.npc[CalamityGlobalNPC.doughnutBoss].active)
+				{
+					// If no commander, just let it die normally
+					return true;
+				}
+
+				NPC commander = Main.npc[CalamityGlobalNPC.doughnutBoss];
+				GuardianComboAttackManager.DespawnTransitionProjectiles();
+				GuardianComboAttackManager.SelectNewAttack(commander, ref commander.ai[1], (float)GuardiansAttackType.HealerDeathAnimation);
+				npc.life = npc.lifeMax;
+				npc.dontTakeDamage = true;
+				npc.netUpdate = true;
+				
+				return false;
+			}
 
             return base.CheckDead(npc);
-        }
+        }*/
 
         public override bool CheckActive(NPC npc)
         {
+            if (DisableNaturalDespawning)
+                return false;
+			
             if (!InfernumMode.CanUseCustomAIs)
                 return base.CheckActive(npc);
+			
 
             if (npc.type == NPCID.KingSlime && OverridingListManager.Registered(npc.type))
                 return false;
@@ -577,6 +726,16 @@ namespace InfernumMode.GlobalInstances
                 return false;
             if (npc.type == NPCID.MoonLordFreeEye && OverridingListManager.Registered(NPCID.MoonLordCore))
                 return false;
+
+            int commanderType = ModContent.NPCType<ProfanedGuardianBoss>();
+            int defenderType = ModContent.NPCType<ProfanedGuardianBoss2>();
+            int healerType = ModContent.NPCType<ProfanedGuardianBoss3>();
+            int crystalType = ModContent.NPCType<HealerShieldCrystal>();
+            if ((npc.type == defenderType || npc.type == healerType || npc.type == crystalType) &&
+                NPC.AnyNPCs(commanderType))
+            {
+                return false;
+            }
 
             return base.CheckActive(npc);
         }

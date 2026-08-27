@@ -1,9 +1,11 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
+using static InfernumMode.BehaviorOverrides.BossAIs.Golem.GolemBodyBehaviorOverride;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
 {
@@ -27,6 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
             projectile.penetrate = -1;
             projectile.timeLeft = 900000;
             projectile.netImportant = true;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)
@@ -47,7 +50,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
                 return;
             }
 
-            if (SpikesShouldExtendOutward)
+            float lifeRatio = Main.npc[NPC.golemBoss].life / (float)Main.npc[NPC.golemBoss].lifeMax;
+            bool inPhase2 = Main.npc[NPC.golemBoss].Infernum().ExtraAI[16] >= Phase2TransitionAnimationTime && lifeRatio < Phase2LifeRatio;
+
+            if (SpikesShouldExtendOutward || inPhase2)
                 SpikeReach = MathHelper.Clamp(SpikeReach + 8f, 0f, 50f);
 
             // Create a visual warning effect on the ground before releasing spikes so that the player knows to avoid it.

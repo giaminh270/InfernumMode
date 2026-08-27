@@ -13,7 +13,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DesertScourge
 
         public override bool PreAI(NPC npc)
         {
-            // Bye lmao
+            // Bye lmao!
             npc.active = false;
             return false;
         }

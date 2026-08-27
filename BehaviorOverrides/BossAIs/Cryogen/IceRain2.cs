@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using Terraria;
 using Terraria.ID;
@@ -20,6 +21,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             projectile.scale = 1.3f;
             projectile.hostile = true;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer) => writer.Write(projectile.localAI[0]);
@@ -66,7 +68,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             }
         }
 
-        public override Color? GetAlpha(Color lightColor) => new Color(255, 255, 255, 60) * projectile.Opacity;
+        //public override Color? GetAlpha(Color lightColor) => new Color(255, 255, 255, 60) * Projectile.Opacity;
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        {
+            Texture2D texture = Main.projectileTexture[projectile.type];
+
+            // Draw backglow effects.
+            for (int i = 0; i < 12; i++)
+            {
+                Vector2 afterimageOffset = (MathHelper.TwoPi * i / 12f).ToRotationVector2() * 4f;
+                Color afterimageColor = new Color(90, 206, 244, 0f) * 0.7f;
+                Main.spriteBatch.Draw(texture, projectile.Center - Main.screenPosition + afterimageOffset, null, projectile.GetAlpha(afterimageColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
+            }
+
+            Main.spriteBatch.Draw(texture, projectile.Center - Main.screenPosition, null, Color.White, projectile.rotation, texture.Size() * 0.5f, 1, 0, 0);
+            return false;
+        }
 
         public override void Kill(int timeLeft)
         {
@@ -79,7 +96,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
                 snow.scale = 0.7f;
             }
         }
-
         public override void OnHitPlayer(Player target, int damage, bool crit) => target.AddBuff(BuffID.Frostburn, 60, true);
     }
 }

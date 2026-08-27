@@ -1,10 +1,12 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.NPCs.Providence;
 using CalamityMod.Particles;
 using CalamityMod.Tiles.FurnitureProfaned;
+using InfernumMode.BehaviorOverrides.BossAIs.Providence;
 using InfernumMode.BehaviorOverrides.BossAIs.Yharon;
 using InfernumMode.Particles;
 using InfernumMode.Tiles;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -69,8 +71,11 @@ namespace InfernumMode.Projectiles
             }
 
             // Play a rumble sound.
-            if (Time == 75f)
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/LeviathanSummonBase"), projectile.Center);
+            if (Time == 115f)
+            {
+                Main.PlaySound(InfernumSoundRegistry.LeviathanRumbleSound, projectile.Center);
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceSpawnSuspenseSound);
+            }
 
             if (Time >= 210f)
             {
@@ -115,10 +120,12 @@ namespace InfernumMode.Projectiles
                 fire.noGravity = true;
             }
 
+            Main.PlaySound(InfernumSoundRegistry.ProvidenceScreamSound);
+
             // Create an explosion and summon Providence.
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
-                CalamityUtils.SpawnBossBetter(projectile.Center - Vector2.UnitY * 325f, ModContent.NPCType<Providence>());
+                CalamityUtils.SpawnBossBetter(projectile.Center - Vector2.UnitY * 160f, ModContent.NPCType<Providence>());
                 Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<ProvSummonFlameExplosion>(), 0, 0f);
             }
         }
@@ -129,10 +136,29 @@ namespace InfernumMode.Projectiles
 
             for (int i = 0; i < 8; i++)
             {
-                Color color = Color.Lerp(new Color(1f, 0.62f, 0f, 0f), Color.White, (float)Math.Pow(projectile.Opacity, 1.63)) * projectile.Opacity;
+                Color color = Color.Lerp(new Color(1f, 0.62f, 0f, 0f), Color.White, (float)Math.Pow(projectile.Opacity, 2.7f)) * (float)Math.Pow(projectile.Opacity, 2f);
                 Vector2 drawOffset = (Time * MathHelper.TwoPi / 67f + MathHelper.TwoPi * i / 8f).ToRotationVector2() * (1f - projectile.Opacity) * 75f;
                 Vector2 drawPosition = projectile.Center - Main.screenPosition + drawOffset;
                 Main.spriteBatch.Draw(texture, drawPosition, null, color, projectile.rotation, texture.Size() * 0.5f, projectile.scale, 0, 0f);
+            }
+
+            // Create a glimmer right before the core explodes.
+            float glimmerInterpolant = Utils.InverseLerp(40f, 20f, projectile.timeLeft, true) * Utils.InverseLerp(0f, 12f, projectile.timeLeft, true) * 0.56f;
+
+            if (glimmerInterpolant > 0f)
+            {
+                Main.spriteBatch.SetBlendState(BlendState.Additive);
+
+                texture = ModContent.GetTexture("InfernumMode/ExtraTextures/GreyscaleObjects/LargeStar");
+                Vector2 glimmerDrawPosition = projectile.Center - Main.screenPosition;
+
+                for (float scale = 1f; scale > 0.3f; scale -= 0.1f)
+                {
+                    Color c = Color.Lerp(projectile.GetAlpha(Color.Lerp(Color.Yellow, Color.Wheat, 0.45f)), Color.White, 1f - scale);
+                    Main.spriteBatch.Draw(texture, glimmerDrawPosition, null, c, projectile.rotation, texture.Size() * 0.5f, projectile.scale * scale * glimmerInterpolant, 0, 0f);
+                    Main.spriteBatch.Draw(texture, glimmerDrawPosition, null, c, projectile.rotation, texture.Size() * 0.5f, projectile.scale * new Vector2(4f, 0.2f) * scale * glimmerInterpolant, 0, 0f);
+                }
+                Main.spriteBatch.ResetBlendState();
             }
 
             return false;

@@ -1,5 +1,5 @@
+﻿using InfernumMode;
 using CalamityMod;
-using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -16,6 +16,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
 
         public const float MaxRadius = 336f;
 
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Profaned Defender Field");
@@ -31,6 +33,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
             projectile.tileCollide = false;
             projectile.ignoreWater = true;
             projectile.timeLeft = 240;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -45,7 +48,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
                 Radius -= 1.25f;
 
             // Create a bunch of fire inside of the field.
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < (InfernumConfig.Instance.ReducedGraphicsConfig ? 4 : 7); i++)
             {
                 Vector2 fireSpawnPosition = projectile.Center + Main.rand.NextVector2Circular(Radius, Radius) * 0.8f;
                 if (!Main.LocalPlayer.WithinRange(fireSpawnPosition, 1000f))
@@ -70,9 +73,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
             {
                 Vector2 drawPosition = baseDrawPosition + (MathHelper.TwoPi * (i - 1f) / 6f + GeneralTimer * spinDirection / 54f).ToRotationVector2() * Radius;
                 Vector2 drawPositionNext = baseDrawPosition + (MathHelper.TwoPi * i / 6f + GeneralTimer * spinDirection / 54f).ToRotationVector2() * Radius;
-                Main.spriteBatch.DrawLineBetter(drawPosition, drawPositionNext, (Color.Orange * 0.6f), 8f);
-                Main.spriteBatch.DrawLineBetter(drawPosition, drawPositionNext, (Color.Yellow * 0.85f), 5f);
-                Main.spriteBatch.DrawLineBetter(drawPosition, drawPositionNext, Color.White, 2f);
+                Color c1 = Color.Orange * 0.6f;
+                c1.A = 0;
+                Main.spriteBatch.DrawLineBetter(drawPosition, drawPositionNext, c1, 8f);
+                Color c2 = Color.Yellow * 0.85f;
+                c2.A = 72;
+                Main.spriteBatch.DrawLineBetter(drawPosition, drawPositionNext, c2, 5f);
+                Color c3 = Color.White;
+                c3.A = 125;
+                Main.spriteBatch.DrawLineBetter(drawPosition, drawPositionNext, c3, 2f);
             }
 
             for (int i = 1; i <= 6; i++)
@@ -92,7 +101,5 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
         }
 
         public override bool CanDamage() => Radius >= MaxRadius * 0.5f;
-
-        public override void OnHitPlayer(Player target, int damage, bool crit) => target.AddBuff(ModContent.BuffType<HolyFlames>(), 120);
     }
 }

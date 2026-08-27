@@ -12,15 +12,23 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
     public class LightRayTelegraph : ModProjectile
     {
         public int Lifetime;
+
         public static NPC Thanatos => Main.npc[CalamityGlobalNPC.draedonExoMechWorm];
+
         public Vector2 StartingPosition => Thanatos.Center - (Thanatos.rotation - MathHelper.PiOver2 + CurrentSpread).ToRotationVector2() * projectile.Opacity * 275f;
 
         public Color RayColor => CalamityUtils.MulticolorLerp(RayHue, CalamityUtils.ExoPalette);
+
         public Color HueDownscaledRayColor => RayColor * 0.66f;
+
         public ref float RayHue => ref projectile.ai[0];
+
         public ref float MaximumSpread => ref projectile.ai[1];
+
         public ref float CurrentSpread => ref projectile.localAI[0];
+
         public ref float Time => ref projectile.localAI[1];
+
         public override string Texture => "CalamityMod/Projectiles/StarProj";
 
         public override void SetStaticDefaults()
@@ -36,6 +44,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             projectile.tileCollide = false;
             projectile.ignoreWater = true;
             projectile.timeLeft = 900;
+            cooldownSlot = 1;
         }
 
         public override void AI()

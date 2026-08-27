@@ -1,7 +1,9 @@
-using InfernumMode.OverridingSystem;
+﻿using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.IO;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -20,6 +22,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
                 GolemBodyBehaviorOverride.DespawnNPC(npc.whoAmI);
                 return false;
             }
+
+            npc.lifeMax = Main.npc[(int)npc.ai[0]].lifeMax;
+            npc.damage = Main.npc[(int)npc.ai[0]].damage >= 1 ? npc.defDamage : 0;
             npc.chaseable = !npc.dontTakeDamage;
             npc.Opacity = npc.dontTakeDamage ? 0f : 1f;
             return false;
@@ -30,11 +35,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
             if (npc.dontTakeDamage)
                 return false;
 
-            Texture2D texture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Golem/FreeHead");
-            Texture2D glowMask = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Golem/FreeHeadGlow");
-            Rectangle rect = new Rectangle(0, 0, texture.Width, texture.Height);
+            Texture2D texture = Main.npcTexture[npc.type];
+            Rectangle rect = npc.frame;
             Main.spriteBatch.Draw(texture, npc.Center - Main.screenPosition, rect, lightColor * npc.Opacity, npc.rotation, rect.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
-            Main.spriteBatch.Draw(glowMask, npc.Center - Main.screenPosition, rect, Color.White * npc.Opacity, npc.rotation, rect.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
             GolemHeadBehaviorOverride.DoEyeDrawing(npc);
             return false;
         }

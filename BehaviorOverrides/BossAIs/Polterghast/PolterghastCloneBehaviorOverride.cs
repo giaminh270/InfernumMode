@@ -1,5 +1,6 @@
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.Polterghast;
+using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Terraria;
@@ -28,6 +29,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
 
             NPC polterghast = Main.npc[CalamityGlobalNPC.ghostBoss];
             Player target = Main.player[polterghast.target];
+
+            // Explode into souls if the main boss is done performing the attack that involves clones.
+            if (polterghast.ai[0] != (int)PolterghastBehaviorOverride.PolterghastAttackType.CloneSplit)
+            {
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    for (int j = 0; j < 18; j++)
+                    {
+                        Vector2 shootVelocity = npc.SafeDirectionTo(npc.Center).RotatedByRandom(0.4f) * Main.rand.NextFloat(15f, 20f);
+
+                        ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(soul => soul.timeLeft = 20);
+                        Utilities.NewProjectileBetter(npc.Center, shootVelocity, ModContent.ProjectileType<NotSpecialSoul>(), 0, 0f);
+                    }
+                }
+                npc.active = false;
+            }
 
             // Manually set the number of souls released by Polter.
             // These will be brought back once these clones disappear.

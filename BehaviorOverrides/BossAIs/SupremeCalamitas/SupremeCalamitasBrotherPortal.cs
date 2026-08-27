@@ -1,5 +1,7 @@
 using CalamityMod;
 using CalamityMod.Particles;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -16,6 +18,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
         public ref float Time => ref projectile.ai[1];
 
         public const int Lifetime = 150;
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
 
         public override void SetStaticDefaults() => DisplayName.SetDefault("Dark Portal");
 
@@ -38,7 +42,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
             // Create a lot of light particles around the portal.
             float particleSpawnChance = Utilities.Remap(Time, 0f, 60f, 0.1f, 0.9f);
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < 3; i++)
             {
                 if (Main.rand.NextFloat() > particleSpawnChance)
                     continue;
@@ -54,8 +58,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             // Summon the brother and create a massive explosion before having the portal close.
             if (Time == (int)(Lifetime * 0.8f))
             {
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/WyrmElectricCharge"), projectile.Center);
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/HeavyExplosion"), projectile.Center);
+                Main.PlaySound(InfernumSoundRegistry.WyrmChargeSound, projectile.Center);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     int explosion = Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<DemonicExplosion>(), 0, 0f);

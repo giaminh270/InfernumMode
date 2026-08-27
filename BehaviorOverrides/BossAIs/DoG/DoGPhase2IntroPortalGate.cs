@@ -1,5 +1,7 @@
 using CalamityMod.Items.Weapons.DraedonsArsenal;
 using CalamityMod.NPCs.DevourerofGods;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -15,6 +17,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
         public ref float Time => ref projectile.ai[0];
 
         public const int Phase2AnimationTime = 280;
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
 
         public override void SetStaticDefaults()
         {
@@ -40,6 +44,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                 projectile.localAI[1] = 1f;
             }
 
+            DoGPhase1HeadBehaviorOverride.GeneralPortalIndex = projectile.whoAmI;
+
             Main.LocalPlayer.Infernum().CurrentScreenShakePower = (float)Math.Pow(MathHelper.Clamp(Time / 160f, 0f, 1f), 9f) * 45f + 5f;
 
             // Play idle sounds.
@@ -62,6 +68,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             }
             Time++;
         }
+
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             float leftCleaveAngularOffset = MathHelper.Pi * -0.18f;
@@ -93,18 +100,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                 while (Vector2.Distance(drawPosition, endingPosition) > 90f)
                 {
                     drawPosition += (endingPosition - drawPosition).SafeNormalize(Vector2.UnitY) * texture.Width * 0.2f;
-                    spriteBatch.Draw(texture, drawPosition - Main.screenPosition, null, rendLineColor, rotation, texture.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
-                    spriteBatch.Draw(texture, drawPosition - Main.screenPosition, null, Color.Lerp(rendLineColor, Color.White, 0.5f), rotation, texture.Size() * 0.5f, new Vector2(0.5f, 1f), SpriteEffects.None, 0f);
+                    Main.spriteBatch.Draw(texture, drawPosition - Main.screenPosition, null, rendLineColor, rotation, texture.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
+                    Main.spriteBatch.Draw(texture, drawPosition - Main.screenPosition, null, Color.Lerp(rendLineColor, Color.White, 0.5f), rotation, texture.Size() * 0.5f, new Vector2(0.5f, 1f), SpriteEffects.None, 0f);
                 }
             }
 
-            spriteBatch.EnterShaderRegion();
+            Main.spriteBatch.EnterShaderRegion();
 
             float fade = Utils.InverseLerp(Phase2AnimationTime, Phase2AnimationTime - 45f, projectile.timeLeft, true);
             if (projectile.timeLeft <= 45f)
                 fade = Utils.InverseLerp(0f, 45f, projectile.timeLeft, true);
 
-            Texture2D noiseTexture = ModContent.GetTexture("CalamityMod/ExtraTextures/VoronoiShapes");
+            Texture2D noiseTexture = InfernumTextureRegistry.VoronoiShapes;
             Vector2 drawPosition2 = projectile.Center - Main.screenPosition;
             Vector2 origin = noiseTexture.Size() * 0.5f;
             GameShaders.Misc["CalamityMod:DoGPortal"].UseOpacity(fade);
@@ -112,15 +119,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             GameShaders.Misc["CalamityMod:DoGPortal"].UseSecondaryColor(Color.Fuchsia);
             GameShaders.Misc["CalamityMod:DoGPortal"].Apply();
 
-            spriteBatch.Draw(noiseTexture, drawPosition2, null, Color.White, 0f, origin, 3.5f, SpriteEffects.None, 0f);
-            spriteBatch.ExitShaderRegion();
+            Main.spriteBatch.Draw(noiseTexture, drawPosition2, null, Color.White, 0f, origin, 3.5f, SpriteEffects.None, 0f);
+            Main.spriteBatch.ExitShaderRegion();
 
             return false;
         }
 
         public override void Kill(int timeLeft)
         {
-            //DoGPhase1HeadBehaviorOverride.GeneralPortalIndex = -1;
+            DoGPhase1HeadBehaviorOverride.GeneralPortalIndex = -1;
+
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
                 for (int i = 0; i < Main.maxPlayers; i++)
@@ -137,7 +145,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                 if (soundInstance != null)
                     soundInstance.Volume = MathHelper.Clamp(soundInstance.Volume * 1.6f, 0f, 1f);
 
-                soundInstance = Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/DoGLaugh"), Main.LocalPlayer.Center);
+                soundInstance = Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/DevourerOfGods/DoGLaugh"), Main.LocalPlayer.Center);
                 if (soundInstance != null)
                     soundInstance.Volume = MathHelper.Clamp(soundInstance.Volume * 3f, 0f, 1f);
 

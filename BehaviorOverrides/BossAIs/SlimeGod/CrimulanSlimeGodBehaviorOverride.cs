@@ -5,7 +5,6 @@ using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-
 using EbonianSlimeGod = CalamityMod.NPCs.SlimeGod.SlimeGod;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod

@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ID;
@@ -20,6 +20,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.timeLeft = 210;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -29,8 +30,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
             if (projectile.Hitbox.Intersects(Target.Hitbox))
                 projectile.Kill();
 
+            // Emit smoke effects.
+            EmitSmoke(projectile);
+
             if (Time < 30f)
                 projectile.velocity *= 1.01f;
+
             if (Time >= 30f)
             {
                 float newSpeed = MathHelper.Clamp(projectile.velocity.Length() * 1.003f, 11f, 18f);
@@ -41,13 +46,29 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
             Time++;
         }
 
+        public static void EmitSmoke(Projectile projectile)
+        {
+            if (Main.netMode == NetmodeID.Server)
+                return;
+
+            Vector2 currentDirection = projectile.velocity.SafeNormalize(Vector2.Zero);
+            Vector2 endOfRocket = projectile.Center - currentDirection * 36f;
+            Vector2 smokeVelocity = -currentDirection.RotatedByRandom(0.93f) * Main.rand.NextFloat(1f, 7f);
+
+            Dust smokeDust = Dust.NewDustPerfect(endOfRocket, 31);
+            smokeDust.velocity = smokeVelocity * Main.rand.NextFloat(0.3f, 1.1f) + projectile.velocity;
+            smokeDust.scale *= 0.92f;
+            smokeDust.fadeIn = -0.2f;
+            smokeDust.noGravity = true;
+        }
+
         public override void Kill(int timeLeft)
         {
             Main.PlaySound(SoundID.Item14, projectile.Center);
             if (Main.netMode == NetmodeID.MultiplayerClient)
                 return;
 
-            Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<LargePlagueExplosion>(), 160, 0f);
+            Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<LargePlagueExplosion>(), PlaguebringerGoliathBehaviorOverride.ExplosionDamage, 0f);
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
@@ -65,7 +86,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
                 spriteBatch.Draw(texture, drawPosition + afterimageOffset, null, projectile.GetAlpha(afterimageColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
             }
 
-            spriteBatch.Draw(texture, drawPosition, null, projectile.GetAlpha(lightColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
+            projectile.DrawProjectileWithBackglowTemp(Color.White, lightColor, 4f);
             spriteBatch.Draw(glowmask, drawPosition, null, projectile.GetAlpha(Color.White), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
 
             return false;

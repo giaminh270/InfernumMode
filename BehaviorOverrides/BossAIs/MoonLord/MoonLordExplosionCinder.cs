@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Terraria;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
@@ -19,9 +20,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             projectile.width = projectile.height = 4;
             projectile.penetrate = -1;
             projectile.tileCollide = false;
-            projectile.magic = true;
             projectile.timeLeft = 300;
             projectile.ignoreWater = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()

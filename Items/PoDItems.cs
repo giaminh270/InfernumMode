@@ -3,8 +3,10 @@ using CalamityMod.CalPlayer;
 using CalamityMod.Items.SummonItems;
 using CalamityMod.Items.TreasureBags;
 using CalamityMod.NPCs.DevourerofGods;
+using CalamityMod.NPCs.ProfanedGuardians;
 using InfernumMode.Balancing;
 using InfernumMode.BehaviorOverrides.BossAIs.DoG;
+using InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians;
 using InfernumMode.Items;
 using InfernumMode.Projectiles;
 using Microsoft.Xna.Framework;
@@ -44,31 +46,13 @@ namespace InfernumMode
                 }
             }
 
-            if (InfernumMode.CanUseCustomAIs && item.type == ModContent.ItemType<ProfanedShard>())
-            {
-                var tooltip1 = tooltips.FirstOrDefault(x => x.Name == "Tooltip1" && x.mod == "Terraria");
-                if (tooltip1 != null)
-                {
-                    tooltip1.text = "Summons the Profaned Guardians when used in the profaned garden at the far right of the underworld";
-
-                    tooltips.RemoveAt(tooltips.IndexOf(tooltip1) + 1);
-                    if (!PoDWorld.HasGeneratedProfanedShrine)
-                    {
-                        TooltipLine warningTooltip = new TooltipLine(mod, "Warning",
-                            "Your world does not currently have a garden. kill the Moon Lord again to generate it\n" +
-                            "Be sure to grab the Hell schematic first if you do this, as the garden might destroy the lab");
-                        warningTooltip.overrideColor = Color.Orange;
-                        tooltips.Insert(tooltips.IndexOf(tooltip1) + 1, warningTooltip);
-                    }
-                }
-            }
-
             if (InfernumMode.CanUseCustomAIs && item.type == ModContent.ItemType<ProfanedCoreUnlimited>())
             {
                 var tooltip1 = tooltips.FirstOrDefault(x => x.Name == "Tooltip1" && x.mod == "Terraria");
                 if (tooltip1 != null)
                     tooltip1.text = "Summons Providence when used at the alter in the profaned temple at the far right of the underworld";
             }
+
 			
             if (InfernumMode.CanUseCustomAIs && item.type == ModContent.ItemType<BlightedEyeball>())
             {
@@ -83,38 +67,82 @@ namespace InfernumMode
                 if (tooltip0 != null)
                     tooltip0.text += "\nCreates a rectangular arena around the altar. If the altar is inside of the temple solid tiles within the arena are broken";
             }
+			
+			if (InfernumMode.CanUseCustomAIs && item.type == ModContent.ItemType<ProfanedShard>())
+            {
+                bool inGarden = Main.LocalPlayer.Infernum().InProfanedArena;
+                string summoningText = "Summons the Profaned Guardians when used on the cliff in the profaned garden at the far right of the underworld during day";
+                Color textColor = inGarden ? WayfinderSymbol.Colors[2] : Color.White;
+
+                TooltipLine tooltip1 = tooltips.FirstOrDefault(x => x.Name == "Tooltip1" && x.mod == "Terraria");
+                if (tooltip1 != null)
+                {
+                    tooltip1.text = summoningText;
+                    tooltip1.overrideColor = textColor;
+                }
+
+                tooltips.RemoveAll(x => x.Name == "Tooltip2" && x.mod == "Terraria");
+
+                if (!PoDWorld.HasGeneratedProfanedShrine)
+                {
+                    TooltipLine warningTooltip = new TooltipLine(mod, "Warning",
+                        "Your world does not currently have a Profaned Garden. Kill the Moon Lord again to generate it\n" +
+                        "Be sure to grab the Hell schematic first if you do this, as the garden might destroy the lab");
+                    warningTooltip.overrideColor = Color.Orange;
+
+                    int index = tooltips.FindIndex(x => x.Name == "Tooltip1" && x.mod == "Terraria");
+                    if (index >= 0 && index + 1 < tooltips.Count)
+                        tooltips.Insert(index + 1, warningTooltip);
+                    else
+                        tooltips.Add(warningTooltip);
+                }
+            }
         }
 
-        internal static void DoGTeleportDenialText(Player player)
+        public static bool DisplayTeleportDenialText(Player player, Vector2 teleportPosition, Item item, bool isDoG)
         {
             if (!player.chaosState)
             {
-                player.AddBuff(BuffID.ChaosState, CalamityPlayer.chaosStateDurationBoss, true);
-                Projectile.NewProjectile(Main.MouseWorld, Vector2.Zero, ModContent.ProjectileType<RoDFailPulse>(), 0, 0f, player.whoAmI);
-
-                string[] possibleEdgyShitToSay = new string[]
+                player.AddBuff(BuffID.ChaosState, CalamityPlayer.chaosStateDuration, true);
+                if (isDoG)
                 {
+                    Projectile.NewProjectile(teleportPosition, Vector2.Zero, ModContent.ProjectileType<RoDFailPulse>(), 0, 0f, player.whoAmI);
+
+                    string[] possibleEdgyShitToSay = new string[]
+                    {
                         "YOU CANNOT EVADE ME SO EASILY!",
                         "YOU CANNOT HOPE TO OUTSMART A MASTER OF DIMENSIONS!",
                         "NOT SO FAST!"
-                };
-                Utilities.DisplayText(Main.rand.Next(possibleEdgyShitToSay), Color.Cyan);
+                    };
+                    Utilities.DisplayText(Main.rand.Next(possibleEdgyShitToSay), Color.Cyan);
+                }
+                else
+                {
+                    Projectile.NewProjectile(teleportPosition, Vector2.Zero, ModContent.ProjectileType<GuardiansRodFailPulse>(), 0, 0f, player.whoAmI);
+                }
             }
+            return false;
         }
 
         public override bool CanUseItem(Item item, Player player)
         {
-            if (InfernumMode.CanUseCustomAIs && item.type == ItemID.RodofDiscord && NPC.AnyNPCs(ModContent.NPCType<DevourerofGodsHead>()))
+			if (InfernumMode.CanUseCustomAIs && item.type == ItemID.RodofDiscord)
             {
-                if (PoDWorld.InfernumMode)
-                {
-                    DoGTeleportDenialText(player);
-                    return false;
-                }
+                if (NPC.AnyNPCs(ModContent.NPCType<ProfanedGuardianBoss>()) || Main.projectile.Any(p => p.active && p.type == ModContent.ProjectileType<GuardiansSummonerProjectile>()))
+                    return DisplayTeleportDenialText(player, Main.MouseWorld, item, false);
+                if (NPC.AnyNPCs(ModContent.NPCType<DevourerofGodsHead>()))
+                    return DisplayTeleportDenialText(player, Main.MouseWorld, item, true);
             }
-            if (InfernumMode.CanUseCustomAIs && (item.type == ModContent.ItemType<ProfanedShard>() || item.type == ModContent.ItemType<ProfanedCoreUnlimited>()))
+			
+            if (InfernumMode.CanUseCustomAIs && (item.type == ModContent.ItemType<ProfanedCoreUnlimited>()))
                 return false;
+
+            if (InfernumMode.CanUseCustomAIs && (item.type == ModContent.ItemType<ProfanedShard>()))
+                return player.Hitbox.Intersects(GuardianComboAttackManager.ShardUseisAllowedArea);
+
             return base.CanUseItem(item, player);
+
+
         }
         public override bool UseItem(Item item, Player player)
         {

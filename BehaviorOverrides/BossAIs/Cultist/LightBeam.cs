@@ -1,3 +1,5 @@
+﻿using CalamityMod;
+using InfernumMode.Graphics.Interfaces;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -8,11 +10,18 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 {
-    public class LightBeam : ModProjectile
+    public class LightBeam : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
+		
         internal PrimitiveTrailCopy BeamDrawer;
+
+        public const int Lifetime = 60;
+
         public ref float Time => ref projectile.ai[0];
+
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Beam");
 
         public override void SetDefaults()
@@ -22,8 +31,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             projectile.tileCollide = false;
             projectile.hide = true;
             projectile.penetrate = -1;
-            projectile.timeLeft = 60;
+            projectile.timeLeft = Lifetime;
             projectile.alpha = 255;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -38,7 +48,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             projectile.velocity = projectile.velocity.RotatedBy(MathHelper.Pi / 90f * (projectile.identity % 2f == 0f).ToDirectionInt());
 
             // Fade effects.
-            float cyclicFade = (float)Math.Sin(MathHelper.Pi * Time / 60f);
+            float cyclicFade = CalamityUtils.Convert01To010(Time / Lifetime);
             projectile.Opacity = cyclicFade * 1.8f;
             if (projectile.Opacity > 1f)
                 projectile.Opacity = 1f;
@@ -57,7 +67,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
         public Color ColorFunction(float completionRatio) => Color.White * projectile.Opacity * Utils.InverseLerp(0.95f, 0.725f, completionRatio, true);
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (BeamDrawer is null)
                 BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true);
@@ -68,8 +80,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             for (int i = 0; i <= 12; i++)
                 points.Add(Vector2.Lerp(projectile.Center, projectile.Center + projectile.velocity * length, i / 12f));
 
-            BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, 47);
-            return false;
+            BeamDrawer.DrawPixelated(points, projectile.Size * 0.5f - Main.screenPosition, 47);
         }
 
         public override bool ShouldUpdatePosition() => false;

@@ -1,6 +1,6 @@
+using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -9,6 +9,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
 {
     public class CursedFlameBurstTelegraph : ModProjectile
     {
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Telegraph");
@@ -39,14 +41,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
 
         public Color ColorFunction(float completionRatio)
         {
-            Color color = Color.Lerp(Color.Green, Color.LimeGreen, (float)Math.Pow(completionRatio, 2D));
-            color *= 1f - 0.5f * (float)Math.Pow(completionRatio, 3D);
+            Color color = Color.Lerp(Color.Green, Color.LimeGreen, (float)Math.Pow(completionRatio, 2f));
+            color *= 1f - 0.5f * (float)Math.Pow(completionRatio, 3f);
             return color * projectile.Opacity;
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            Utils.DrawLine(spriteBatch, projectile.Center - Vector2.UnitX * 1600f, projectile.Center + Vector2.UnitX * 1600f, Color.LimeGreen, Color.LimeGreen, projectile.Opacity * 1.6f + 0.1f);
+            Utils.DrawLine(Main.spriteBatch, projectile.Center - Vector2.UnitX * 1600f, projectile.Center + Vector2.UnitX * 1600f, Color.LimeGreen, Color.LimeGreen, projectile.Opacity * 1.6f + 0.1f);
             return false;
         }
 
@@ -55,7 +57,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
             if (Main.netMode == NetmodeID.MultiplayerClient)
                 return;
 
-            Utilities.NewProjectileBetter(projectile.Center, projectile.velocity, ModContent.ProjectileType<CursedFlameBurst>(), 115, 0f);
+            Utilities.NewProjectileBetter(projectile.Center, projectile.velocity, ModContent.ProjectileType<CursedFlameBurst>(), TwinsAttackSynchronizer.CursedFlameBurstDamage, 0f);
         }
 
         public override bool ShouldUpdatePosition() => false;

@@ -29,7 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             projectile.friendly = false;
             projectile.ignoreWater = true;
             projectile.tileCollide = false;
-            projectile.timeLeft = 200;
+            projectile.timeLeft = 300;
             projectile.penetrate = -1;
             cooldownSlot = 1;
         }
@@ -37,6 +37,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
         public override void SendExtraAI(BinaryWriter writer) => writer.Write(projectile.timeLeft);
 
         public override void ReceiveExtraAI(BinaryReader reader) => projectile.timeLeft = reader.ReadInt32();
+
         public override void AI()
         {
             if (!Main.npc.IndexInRange(CalamityGlobalNPC.ghostBoss))
@@ -57,9 +58,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
                 projectile.frame = (projectile.frame + 1) % Main.projFrames[projectile.type];
 
             // Create periodic puffs of dust.
-            if (projectile.timeLeft % 30 == 29 && Main.rand.NextBool(2))
+            bool reducedGraphics = PolterghastPerformanceUtils.ReducedGraphics;
+            int dustInterval = reducedGraphics ? 60 : 30;
+            if (projectile.timeLeft % dustInterval == dustInterval - 1 && Main.rand.NextBool(reducedGraphics ? 3 : 2))
             {
-                for (int i = 0; i < 8; i++)
+                int dustCount = reducedGraphics ? 2 : 8;
+                for (int i = 0; i < dustCount; i++)
                 {
                     Vector2 dustOffset = Vector2.UnitY.RotatedBy(MathHelper.TwoPi * i / 16f) * new Vector2(4f, 1f);
                     dustOffset = dustOffset.RotatedBy(projectile.velocity.ToRotation());

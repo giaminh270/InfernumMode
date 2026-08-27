@@ -13,6 +13,7 @@ using Terraria.ID;
 using Terraria.ModLoader;
 
 using SCalNPC = CalamityMod.NPCs.SupremeCalamitas.SupremeCalamitas;
+using InfernumMode.GlobalInstances;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
@@ -36,7 +37,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public override void SetDefaults(NPC npc)
         {
-            npc.damage = 335;
+            npc.damage = 420;
             npc.npcSlots = 5f;
             npc.width = 62;
             npc.height = 64;
@@ -44,7 +45,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             npc.lifeMax = 331550;
             npc.aiStyle = -1;
             npc.knockBackResist = 0f;
-            npc.scale *= 1.2f;
             npc.alpha = 255;
             npc.chaseable = true;
             npc.behindTiles = true;
@@ -70,6 +70,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             npc.buffImmune[ModContent.BuffType<GlacialState>()] = true;
             npc.buffImmune[ModContent.BuffType<Eutrophication>()] = true;
             npc.buffImmune[ModContent.BuffType<TemporalSadness>()] = true;
+
+            // No.
+            npc.scale = 1.25f;
 
             if (Main.netMode != NetmodeID.MultiplayerClient && hasSummonedSegments == 0f)
             {
@@ -114,6 +117,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             // Fade in.
             npc.Opacity = MathHelper.Clamp(npc.Opacity + 0.1f, 0f, 1f);
 
+            // Do not take damage.
+            npc.dontTakeDamage = true;
+
             float chargeInterpolant = Utils.InverseLerp(40f, 110f, attackTimer, true);
             Vector2 idealVelocity = npc.SafeDirectionTo(target.Center) * new Vector2(7f, -13f);
 
@@ -123,7 +129,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             npc.velocity = Vector2.Lerp(npc.velocity, idealVelocity, 0.035f);
 
             if (attackTimer >= 150f)
+            {
+                npc.dontTakeDamage = false;
                 SelectNextAttack(npc);
+            }
         }
 
         public static void DoBehavior_ErraticCharges(NPC npc, Player target, ref float attackTimer)
@@ -168,13 +177,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                     }
 
                     Vector2 bombSpawnPosition = target.Center + new Vector2(MathHelper.Lerp(-maxBombOffset, maxBombOffset, bombOffsetInterpolant % 1f), -maxBombOffset).RotatedBy(bombSpawnOffsetAngle);
-                    int bomb = Utilities.NewProjectileBetter(bombSpawnPosition, Vector2.UnitY.RotatedBy(bombSpawnOffsetAngle) * 17f, ModContent.ProjectileType<DemonicBomb>(), 0, 0f);
-                    if (Main.projectile.IndexInRange(bomb))
+
+                    ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(bomb =>
                     {
-                        Main.projectile[bomb].timeLeft = 180;
-                        Main.projectile[bomb].ModProjectile<DemonicBomb>().ExplosionRadius = bombRadius;
-                        Main.projectile[bomb].ModProjectile<DemonicBomb>().ExplodeIntoDarts = true;
-                    }
+                        bomb.timeLeft = 180;
+                        bomb.ModProjectile<DemonicBomb>().ExplodeIntoDarts = true;
+                    });
+                    Utilities.NewProjectileBetter(bombSpawnPosition, Vector2.UnitY.RotatedBy(bombSpawnOffsetAngle) * 17f, ModContent.ProjectileType<DemonicBomb>(), 0, 0f, -1, bombRadius);
                 }
             }
 
@@ -203,7 +212,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 }
                 return;
             }
-            
+
             if (attackTimer >= erraticMovementTime + chargeTime)
             {
                 chargeCounter++;
@@ -224,7 +233,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             int boneReleaseRate = 4;
             int chargeRedirectTime = 10;
             float chargeSpeed = 36.5f;
-            
+
             if (SupremeCalamitasBehaviorOverride.Enraged)
                 chargeSpeed = 78f;
 
@@ -275,8 +284,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 {
                     Vector2 leftVelocity = npc.velocity.SafeNormalize(Vector2.UnitY).RotatedBy(-MathHelper.PiOver2) * 4f;
                     Vector2 rightVelocity = npc.velocity.SafeNormalize(Vector2.UnitY).RotatedBy(MathHelper.PiOver2) * 4f;
-                    Utilities.NewProjectileBetter(npc.Center, leftVelocity, ModContent.ProjectileType<SepulcherBone>(), 500, 0f);
-                    Utilities.NewProjectileBetter(npc.Center, rightVelocity, ModContent.ProjectileType<SepulcherBone>(), 500, 0f);
+                    Utilities.NewProjectileBetter(npc.Center, leftVelocity, ModContent.ProjectileType<SepulcherBone>(), SupremeCalamitasBehaviorOverride.SepulcherBoneDamage, 0f);
+                    Utilities.NewProjectileBetter(npc.Center, rightVelocity, ModContent.ProjectileType<SepulcherBone>(), SupremeCalamitasBehaviorOverride.SepulcherBoneDamage, 0f);
                 }
             }
 
@@ -308,19 +317,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             if (wrappedAttackTimer < bombHoverTime && !npc.WithinRange(target.Center, 600f))
             {
                 Vector2 idealVelocity = npc.SafeDirectionTo(target.Center) * 11f;
-                npc.velocity = npc.velocity.RotateTowards(idealVelocity.ToRotation(), 0.037f);
+                npc.velocity = npc.velocity.RotateTowards(idealVelocity.ToRotation(), 0.06f);
                 npc.velocity = npc.velocity.SafeNormalize(Vector2.UnitY) * MathHelper.Lerp(npc.velocity.Length(), idealVelocity.Length(), 0.1f);
             }
             if (npc.velocity.Length() > 11.5f)
                 npc.velocity = npc.velocity.SafeNormalize(Vector2.UnitY) * 11.49f;
-            if (!npc.WithinRange(target.Center, 920f))
-                npc.Center = npc.Center.MoveTowards(target.Center, 15f);
 
             // Create the bomb.
             if (Main.netMode != NetmodeID.MultiplayerClient && wrappedAttackTimer == 1f && !bombExists)
             {
                 if (bombLaunchCounter < bombLaunchCount)
-                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, bombID, 600, 0f);
+                    Utilities.NewProjectileBetter(npc.Center + npc.SafeDirectionTo(target.Center) * 15f, Vector2.Zero, bombID, SupremeCalamitasBehaviorOverride.SepulcherSoulBombDamage, 0f);
                 else
                 {
                     SelectNextAttack(npc);

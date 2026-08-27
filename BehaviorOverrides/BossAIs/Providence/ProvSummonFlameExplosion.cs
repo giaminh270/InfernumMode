@@ -1,14 +1,15 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.GameContent;
+using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
+namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 {
     public class ProvSummonFlameExplosion : ModProjectile
     {
-        public override string Texture => "InfernumMode/BehaviorOverrides/BossAIs/Yharon/YharonFlameExplosion";
+        public override string Texture => "CalamityMod/ExtraTextures/XerocLight";
 
         public override void SetStaticDefaults() => DisplayName.SetDefault("Hyperthermal Explosion");
 
@@ -21,6 +22,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             projectile.extraUpdates = 1;
             projectile.timeLeft = projectile.MaxUpdates * 120;
             projectile.scale = 0.1f;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -57,6 +59,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             return Utilities.CircularCollision(projectile.Center, targetHitbox, projectile.scale * 135f);
         }
 
-        public override bool CanDamage() => projectile.Opacity > 0.45f;
+        public override bool CanDamage()/* tModPorter Suggestion: Return null instead of false */ => projectile.Opacity > 0.45f;
     }
 }

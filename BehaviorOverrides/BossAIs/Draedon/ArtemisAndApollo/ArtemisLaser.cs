@@ -1,4 +1,5 @@
 using CalamityMod;
+using InfernumMode.ExtraTextures;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
@@ -90,7 +91,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
                 InitialSpeed = projectile.velocity.Length();
 
             // Fade in after telegraphs have faded.
-            float positionOffset = ExoMechManagement.CurrentTwinsPhase >= 2 ? 102f : 70f;
+            float positionOffset = ExoMechManagement.ExoTwinsAreInSecondPhase ? 102f : 70f;
             if (TelegraphDelay > TelegraphTotalTime)
             {
                 if (projectile.alpha > 0)
@@ -174,11 +175,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 
         public override bool CanHitPlayer(Player target) => TelegraphDelay > TelegraphTotalTime;
 
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
-        }
-
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
         {
             return projectile.RotatingHitboxCollision(targetHitbox.TopLeft(), targetHitbox.Size());
@@ -188,37 +184,32 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
         {
             if (TelegraphDelay >= TelegraphTotalTime)
             {
-                lightColor.R = (byte)(255 * projectile.Opacity);
-                lightColor.G = (byte)(175 * projectile.Opacity);
-                lightColor.B = 0;
-                lightColor.A = (byte)(255 * (1f - projectile.Opacity));
                 Vector2 drawOffset = projectile.velocity.SafeNormalize(Vector2.Zero) * -30f;
                 projectile.Center += drawOffset;
-                CalamityUtils.DrawAfterimagesCentered(projectile, ProjectileID.Sets.TrailingMode[projectile.type], lightColor, 1);
+                CalamityUtils.DrawAfterimagesCentered(projectile, ProjectileID.Sets.TrailingMode[projectile.type], Color.White, 1);
                 projectile.Center -= drawOffset;
                 return false;
             }
 
-            Texture2D laserTelegraph = ModContent.GetTexture("CalamityMod/ExtraTextures/LaserWallTelegraphBeam");
+            Texture2D laserTelegraph = InfernumTextureRegistry.BloomLineSmall;
 
-            float yScale = 2f;
+            float xScale = 1f;
             if (TelegraphDelay < TelegraphFadeTime)
-                yScale = MathHelper.Lerp(0f, 2f, TelegraphDelay / 15f);
+                xScale = MathHelper.Lerp(0f, 1f, TelegraphDelay / 15f);
             if (TelegraphDelay > TelegraphTotalTime - TelegraphFadeTime)
-                yScale = MathHelper.Lerp(2f, 0f, (TelegraphDelay - (TelegraphTotalTime - TelegraphFadeTime)) / 15f);
+                xScale = MathHelper.Lerp(1f, 0f, (TelegraphDelay - (TelegraphTotalTime - TelegraphFadeTime)) / 15f);
 
-            Vector2 scaleInner = new Vector2(TelegraphWidth / laserTelegraph.Width, yScale);
-            Vector2 origin = laserTelegraph.Size() * new Vector2(0f, 0.5f);
-            Vector2 scaleOuter = scaleInner * new Vector2(1f, 2.2f);
+            Vector2 scaleInner = new Vector2(xScale, TelegraphWidth / laserTelegraph.Height);
+            Vector2 origin = laserTelegraph.Size() * new Vector2(0.5f, 0f);
+            Vector2 scaleOuter = scaleInner * new Vector2(1f, 3f);
 
-            Color colorOuter = Color.Lerp(Color.Orange, Color.OrangeRed, TelegraphDelay / TelegraphTotalTime * 2f % 1f);
+            Color colorOuter = Color.Lerp(Color.OrangeRed, Color.Gold, TelegraphDelay / TelegraphTotalTime * 2f % 1f * 0.4f);
             Color colorInner = Color.Lerp(colorOuter, Color.White, 0.75f);
 
-            colorOuter *= 0.6f;
-            colorInner *= 0.6f;
-
-            Main.spriteBatch.Draw(laserTelegraph, projectile.Center - Main.screenPosition, null, colorInner, Velocity.ToRotation(), origin, scaleInner, SpriteEffects.None, 0f);
-            Main.spriteBatch.Draw(laserTelegraph, projectile.Center - Main.screenPosition, null, colorOuter, Velocity.ToRotation(), origin, scaleOuter, SpriteEffects.None, 0f);
+            colorInner.A = 0;
+            colorOuter.A = 0;
+            Main.spriteBatch.Draw(laserTelegraph, projectile.Center - Main.screenPosition, null, colorOuter, Velocity.ToRotation() - MathHelper.PiOver2, origin, scaleOuter, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(laserTelegraph, projectile.Center - Main.screenPosition, null, colorInner, Velocity.ToRotation() - MathHelper.PiOver2, origin, scaleInner, SpriteEffects.None, 0f);
             return false;
         }
     }

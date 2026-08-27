@@ -1,4 +1,6 @@
 using CalamityMod;
+using CalamityMod.NPCs;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
 using CalamityMod.NPCs.Cryogen;
 using CalamityMod.NPCs.DevourerofGods;
 using CalamityMod.NPCs.ExoMechs.Thanatos;
@@ -6,11 +8,14 @@ using CalamityMod.NPCs.Leviathan;
 using CalamityMod.NPCs.Polterghast;
 using CalamityMod.NPCs.Signus;
 using CalamityMod.NPCs.SupremeCalamitas;
+using CalamityMod.NPCs.ExoMechs.Apollo;
 using CalamityMod.NPCs.Yharon;
 using CalamityMod.NPCs.Calamitas;
 using InfernumMode.BehaviorOverrides.BossAIs.DoG;
 using InfernumMode.BehaviorOverrides.BossAIs.MoonLord;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo;
 using InfernumMode.OverridingSystem;
+using InfernumMode.ILEditingStuff;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -18,6 +23,10 @@ using Terraria;
 using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
+using InfernumMode.BehaviorOverrides.BossAIs.Yharon;
+using CalamityMod.NPCs.ExoMechs.Artemis;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon;
+using InfernumMode.BehaviorOverrides.BossAIs.Twins;
 
 namespace InfernumMode.GlobalInstances
 {
@@ -78,13 +87,13 @@ namespace InfernumMode.GlobalInstances
                 index = -1;
 
             // Make Signus completely invisible on the map.
-            if (npc.type == ModContent.NPCType<Signus>())
+            if (npc.type == ModContent.NPCType<Signus>() && npc.Opacity < 0.3f)
                 index = -1;
 
             // Prevent Yharon from showing himself amongst his illusions in Subphase 10.
             if (npc.type == ModContent.NPCType<Yharon>())
             {
-                if (npc.life / (float)npc.lifeMax <= 0.05f && npc.Infernum().ExtraAI[2] == 1f)
+                if (npc.life / (float)npc.lifeMax <= YharonBehaviorOverride.Subphase8LifeRatio && YharonBehaviorOverride.InSecondPhase)
                     index = -1;
             }
 
@@ -102,7 +111,45 @@ namespace InfernumMode.GlobalInstances
 				index = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CataclysmMapIcon");
 			
 			if (npc.type == ModContent.NPCType<CalamitasRun2>())
-				index = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CatastropheMapIcon");			
+				index = ModContent.GetModBossHeadSlot("InfernumMode/BehaviorOverrides/BossAIs/CalamitasShadow/CatastropheMapIcon");	
+
+			if (npc.type == ModContent.NPCType<Artemis>())
+            {
+                if (npc.Opacity <= 0f)
+                    index = -1;
+                else if (ExoMechManagement.ExoTwinsAreInSecondPhase)
+                    index = Artemis.phase2IconIndex;
+                else
+                    index = Artemis.phase1IconIndex;
+            }
+            if (npc.type == ModContent.NPCType<Apollo>())
+            {
+                if (npc.Opacity <= 0f)
+                    index = -1;
+                else if (ExoMechManagement.ExoTwinsAreInSecondPhase)
+                    index = Apollo.phase2IconIndex;
+                else
+                    index = Apollo.phase1IconIndex;
+            }
+
+			if (npc.type == NPCID.Spazmatism)
+            {
+                if (npc.Opacity <= 0f)
+                    index = -1;
+                else if (TwinsAttackSynchronizer.PersonallyInPhase2(npc))
+                    index = 21;
+                else
+                    index = 20;
+            }
+            if (npc.type == NPCID.Retinazer)
+            {
+                if (npc.Opacity <= 0f)
+                    index = -1;
+                else if (TwinsAttackSynchronizer.PersonallyInPhase2(npc))
+                    index = 16;
+                else
+                    index = 15;
+            }
         }
 
         public override void BossHeadRotation(NPC npc, ref float rotation)
@@ -193,6 +240,10 @@ namespace InfernumMode.GlobalInstances
             bool isDoG = npc.type == ModContent.NPCType<DevourerofGodsHead>() || npc.type == ModContent.NPCType<DevourerofGodsBody>() || npc.type == ModContent.NPCType<DevourerofGodsTail>();
             if (isDoG && npc.alpha >= 252)
                 return false;
+			
+            // Don't draw HP bars if Ares is in the background.
+            if (npc.realLife == CalamityGlobalNPC.draedonExoMechPrime && CalamityGlobalNPC.draedonExoMechPrime >= 0 && Math.Abs(Main.npc[CalamityGlobalNPC.draedonExoMechPrime].ai[2]) >= 0.25f)
+                return false;			
 
             if (npc.type == NPCID.EaterofWorldsBody)
                 return false;
@@ -201,6 +252,21 @@ namespace InfernumMode.GlobalInstances
         }
 
         #endregion
+		
+        #region Layering Manipulation
+        public override void DrawBehind(NPC npc, int index)
+        {
+            if (!InfernumMode.CanUseCustomAIs)
+                return;
+
+            bool isAres = npc.whoAmI == CalamityGlobalNPC.draedonExoMechPrime || npc.realLife == CalamityGlobalNPC.draedonExoMechPrime;
+            if (isAres && CalamityGlobalNPC.draedonExoMechPrime >= 0 && AresBodyBehaviorOverride.ShouldDrawBehindTiles && npc.hide)
+            {
+                Main.instance.DrawCacheNPCProjectiles.Remove(index);
+                ScreenOverlaysSystem.DrawCacheBeforeBlack.Add(index);
+            }
+        }
+        #endregion Layering Manipulation		
 
         #region Frame Manipulation
         public override void FindFrame(NPC npc, int frameHeight)

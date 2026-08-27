@@ -1,4 +1,6 @@
-using CalamityMod;
+﻿using CalamityMod;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.GlobalInstances;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -9,7 +11,7 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 {
-    public class RefractionRotor : ModProjectile
+    public class RefractionRotor : ModProjectile, IScreenCullDrawer
     {
         public ref float TotalLasersToFire => ref projectile.ai[0];
         public ref float LaserShootOffsetAngle => ref projectile.ai[1];
@@ -55,7 +57,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             projectile.velocity *= 0.96f;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)  => false;
+
+        public void CullDraw(SpriteBatch spriteBatch)
         {
             Texture2D texture = Main.projectileTexture[projectile.type];
             Texture2D glowmask = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Draedon/Thanatos/RefractionRotorGlowmask");
@@ -75,7 +79,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                     // Define the telegraph direction.
                     // As the player moves away the lines focus on them more powerfully.
                     Vector2 telegraphDirection = (MathHelper.TwoPi * i / TotalLasersToFire + LaserShootOffsetAngle).ToRotationVector2();
-                    Vector2 aimedOffset = (Utils.RandomNextSeed((ulong)(i + projectile.identity)) * MathHelper.E % MathHelper.TwoPi).ToRotationVector2() * 0.2f;
+                    float aimedOffsetAngle = (float)(Utils.RandomNextSeed((ulong)(i + projectile.identity)) * Math.E % MathHelper.TwoPi);
+                    Vector2 aimedOffset = aimedOffsetAngle.ToRotationVector2() * 0.2f;
                     Vector2 aimedDirection = (projectile.SafeDirectionTo(Target.Center) + aimedOffset).SafeNormalize(Vector2.UnitY);
                     telegraphDirection = Vector2.Lerp(telegraphDirection, aimedDirection, PointAtTargetInterpolant);
 
@@ -109,8 +114,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             color.A = 255;
             Main.spriteBatch.Draw(texture, drawPosition, null, color * projectile.Opacity, rotation, origin, projectile.scale, 0, 0f);
             Main.spriteBatch.Draw(glowmask, drawPosition, null, glowmaskColor * projectile.Opacity, rotation, origin, projectile.scale, 0, 0f);
-
-            return false;
         }
 
         public override void Kill(int timeLeft)
@@ -125,20 +128,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
                 {
                     float laserShootSpeed = MathHelper.Lerp(21f, 35f, PointAtTargetInterpolant);
                     Vector2 laserDirection = (MathHelper.TwoPi * i / TotalLasersToFire + LaserShootOffsetAngle).ToRotationVector2();
-                    Vector2 aimedOffset = (Utils.RandomNextSeed((ulong)(i + projectile.identity)) * MathHelper.E % MathHelper.TwoPi).ToRotationVector2() * 0.2f;
+                    float aimedOffsetAngle = (float)(Utils.RandomNextSeed((ulong)(i + projectile.identity)) * Math.E % MathHelper.TwoPi);
+                    Vector2 aimedOffset = aimedOffsetAngle.ToRotationVector2() * 0.2f;
                     Vector2 aimedDirection = (projectile.SafeDirectionTo(Target.Center) + aimedOffset).SafeNormalize(Vector2.UnitY);
                     laserDirection = Vector2.Lerp(laserDirection, aimedDirection, PointAtTargetInterpolant);
                     Vector2 laserVelocity = laserDirection * laserShootSpeed;
-                    int spark = Utilities.NewProjectileBetter(projectile.Center, laserVelocity, ModContent.ProjectileType<ExolaserSpark>(), DraedonBehaviorOverride.NormalShotDamage, 0f);
-                    if (Main.projectile.IndexInRange(spark))
-                        Main.projectile[spark].MaxUpdates = 3;
+
+                    ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(spark => spark.MaxUpdates = 3);
+                    Utilities.NewProjectileBetter(projectile.Center, laserVelocity, ModContent.ProjectileType<ExolaserSpark>(), DraedonBehaviorOverride.NormalShotDamage, 0f);
                 }
             }
-        }
-
-        public override void DrawBehind(int index, List<int> behindNPCsAndTiles, List<int> behindNPCs, List<int> behindProjectiles, List<int> overPlayers)
-        {
-            behindProjectiles.Add(index);
         }
     }
 }

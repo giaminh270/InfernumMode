@@ -17,14 +17,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.StormWeaver
             projectile.hostile = true;
             projectile.timeLeft = 300;
             projectile.Opacity = 0f;
+            cooldownSlot = 1;
         }
 
         public override void AI()
         {
             projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.1f, 0f, 1f);
 
-            if (projectile.velocity.Length() < 29f)
-                projectile.velocity *= 1.022f;
+            if (projectile.velocity.Length() < 30f)
+                projectile.velocity *= 1.023f;
             projectile.rotation = projectile.velocity.ToRotation() + MathHelper.PiOver2;
         }
 

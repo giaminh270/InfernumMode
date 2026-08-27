@@ -9,9 +9,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DesertScourge
     public class Sandnado : ModProjectile
     {
         public const int Lifetime = 300;
+
         public const float HorizontalCollisionAreaFactor = 0.2f;
+
         public ref float Time => ref projectile.ai[0];
+
         public ref float StuckTimer => ref projectile.localAI[0];
+
+        public override string Texture => "CalamityMod/Projectiles/TornadoProj";
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Sand Tornado");
@@ -22,12 +28,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DesertScourge
         public override void SetDefaults()
         {
             projectile.width = 60;
-            projectile.height = 450;
+            projectile.height = 648;
             projectile.hostile = true;
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.timeLeft = 480;
             projectile.ignoreWater = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -167,9 +174,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DesertScourge
 
                     afterimageColor.A = (byte)(afterimageColor.A * 0.5f);
                     afterimageColor *= generalOpacity;
-                    spriteBatch.Draw(texture, drawPosition, null, afterimageColor, baseRotation + heightBasedRotation, origin, (1f + scaleAdditive) * 0.8f, direction, 0f);
+                    Main.spriteBatch.Draw(texture, drawPosition, null, afterimageColor, baseRotation + heightBasedRotation, origin, (1f + scaleAdditive) * 0.8f, direction, 0f);
                 }
-                spriteBatch.Draw(texture, drawPosition, null, color, baseRotation + heightBasedRotation, origin, 1f + scaleAdditive, direction, 0f);
+                Main.spriteBatch.Draw(texture, drawPosition, null, color, baseRotation + heightBasedRotation, origin, 1f + scaleAdditive, direction, 0f);
             }
             return false;
         }

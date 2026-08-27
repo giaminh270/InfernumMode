@@ -72,18 +72,20 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             Rectangle frame = texture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
             Vector2 origin = frame.Size() * 0.5f;
 
-            for (int i = 0; i < 4; i++)
+            int backCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 2 : 4;
+            for (int i = 0; i < backCount; i++)
             {
                 Vector2 drawOffset = -projectile.velocity.SafeNormalize(Vector2.Zero) * i * 12f;
                 Vector2 afterimageDrawPosition = projectile.Center + drawOffset - Main.screenPosition;
-                Color backAfterimageColor = projectile.GetAlpha(lightColor) * ((4f - i) / 4f);
+                Color backAfterimageColor = projectile.GetAlpha(lightColor) * ((backCount - i) / (float)backCount);
                 Main.spriteBatch.Draw(texture, afterimageDrawPosition, frame, backAfterimageColor, projectile.rotation, origin, projectile.scale, SpriteEffects.None, 0f);
             }
 
             Color frontAfterimageColor = projectile.GetAlpha(lightColor) * 0.2f;
-            for (int i = 0; i < 9; i++)
+            int frontCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 9 : 9;
+            for (int i = 0; i < frontCount; i++)
             {
-                Vector2 drawOffset = (MathHelper.TwoPi * i / 9f + projectile.rotation - MathHelper.PiOver2).ToRotationVector2() * 2f;
+                Vector2 drawOffset = (MathHelper.TwoPi * i / frontCount + projectile.rotation - MathHelper.PiOver2).ToRotationVector2() * 2f;
                 Vector2 afterimageDrawPosition = projectile.Center + drawOffset - Main.screenPosition;
                 Main.spriteBatch.Draw(texture, afterimageDrawPosition, frame, frontAfterimageColor, projectile.rotation, origin, projectile.scale, SpriteEffects.None, 0f);
             }

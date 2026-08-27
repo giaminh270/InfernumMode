@@ -1,6 +1,8 @@
+using CalamityMod.Items.Weapons.Ranged;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using System.IO;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -9,7 +11,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
     public class BombingTelegraph : ModProjectile
     {
         public ref float Countdown => ref projectile.ai[0];
+
         public Player Target => Main.player[projectile.owner];
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Telegraph");
 
         public override void SetDefaults()
@@ -21,7 +27,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
             projectile.penetrate = -1;
             projectile.timeLeft = 180;
             projectile.scale = 0.01f;
+            cooldownSlot = 1;
         }
+
+        public override void SendExtraAI(BinaryWriter writer) => writer.Write(projectile.rotation);
+
+        public override void ReceiveExtraAI(BinaryReader reader) => projectile.rotation = reader.ReadSingle();
 
         public override void AI()
         {
@@ -36,9 +47,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
                 {
                     Vector2 missileSpawnPosition = new Vector2(projectile.Center.X, Target.Center.Y) - Vector2.UnitY.RotatedBy(projectile.rotation) * 1000f;
                     Vector2 missileVelocity = Vector2.UnitY.RotatedBy(projectile.rotation) * 29f;
-                    int missile = Utilities.NewProjectileBetter(missileSpawnPosition, missileVelocity, ModContent.ProjectileType<PlagueMissile2>(), 170, 0f);
-                    if (Main.projectile.IndexInRange(missile))
-                        Main.projectile[missile].ai[0] = Target.whoAmI;
+                    Utilities.NewProjectileBetter(missileSpawnPosition, missileVelocity, ModContent.ProjectileType<PlagueMissile2>(), 170, 0f, -1, 0f, Target.whoAmI);
                 }
 
                 projectile.Kill();
@@ -46,12 +55,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
 
             projectile.scale = MathHelper.Clamp(projectile.scale + 0.05f, 0f, 1f);
         }
-
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             Vector2 start = projectile.Center - Vector2.UnitY.RotatedBy(projectile.rotation) * 4350f;
             Vector2 end = projectile.Center + Vector2.UnitY.RotatedBy(projectile.rotation) * 4350f;
-            Utilities.DrawLineBetter(spriteBatch, start, end, Color.Lime * projectile.scale, projectile.scale * 3f);
+            Main.spriteBatch.DrawLineBetter(start, end, Color.Lime * projectile.scale, projectile.scale * 3f);
             return false;
         }
     }

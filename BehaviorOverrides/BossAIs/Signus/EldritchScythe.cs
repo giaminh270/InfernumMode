@@ -1,6 +1,7 @@
 using CalamityMod;
 using CalamityMod.Buffs.StatDebuffs;
 using CalamityMod.NPCs;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
@@ -63,7 +64,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Signus
 
                 if (ShootCountdown == 0f)
                 {
-                    Main.PlaySound(SoundID.Item73, projectile.position);
+                    Main.PlaySound(InfernumSoundRegistry.SignusWeaponFireSound, projectile.position);
 
                     projectile.velocity = (projectile.Center - signus.Center).SafeNormalize(Vector2.UnitY) * 34.5f;
                     projectile.netUpdate = true;

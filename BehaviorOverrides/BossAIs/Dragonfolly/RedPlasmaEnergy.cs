@@ -108,7 +108,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             drawColor = Color.Red * npc.Opacity * 0.8f;
             drawColor.A = 0;
             Texture2D energyTexture = Main.npcTexture[npc.type];
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < 12; i++)
             {
                 Vector2 drawPosition = npc.Center + (MathHelper.TwoPi * i / 12f + Main.GlobalTime * 4.1f).ToRotationVector2() * 4f - Main.screenPosition;
                 spriteBatch.Draw(energyTexture, drawPosition, null, drawColor, npc.rotation, energyTexture.Size() * 0.5f, npc.scale, SpriteEffects.None, 0f);

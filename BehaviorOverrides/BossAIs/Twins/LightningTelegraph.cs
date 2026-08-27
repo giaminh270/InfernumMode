@@ -1,14 +1,15 @@
 using CalamityMod.Projectiles.BaseProjectiles;
-using InfernumMode.BehaviorOverrides.BossAIs.Twins;
+using CalamityMod.Projectiles.Boss;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using CalamityMod.Projectiles.Boss;
+using ReLogic;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+
 using TwinsRedLightning = InfernumMode.BehaviorOverrides.BossAIs.Twins.RedLightning;
 
-namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
+namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
 {
     public class LightningTelegraph : BaseLaserbeamProjectile
     {
@@ -52,9 +53,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
             Vector2 lightningDirection = projectile.velocity.RotateTowards(projectile.AngleTo(target.Center + target.velocity * 10f), MathHelper.Pi / 32f);
             lightningDirection = lightningDirection.RotatedByRandom(0.05f);
 
-            int lightning = Utilities.NewProjectileBetter(projectile.Center, lightningDirection * 7f, ModContent.ProjectileType<TwinsRedLightning>(), 120, 0f);
-            Main.projectile[lightning].ai[0] = lightningDirection.ToRotation();
-            Main.projectile[lightning].ai[1] = Main.rand.Next(100);
+            Utilities.NewProjectileBetter(projectile.Center, lightningDirection * 7f, ModContent.ProjectileType<TwinsRedLightning>(), TwinsAttackSynchronizer.RedLightningDamage, 0f, -1, lightningDirection.ToRotation(), Main.rand.Next(100));
         }
     }
 }

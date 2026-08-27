@@ -26,7 +26,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
             projectile.ignoreWater = true;
             projectile.tileCollide = false;
             projectile.penetrate = -1;
-            projectile.timeLeft = 180;
+            projectile.timeLeft = 270;
             projectile.Opacity = 0f;
             cooldownSlot = 1;
         }

@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Dusts;
 using CalamityMod.Events;
@@ -15,16 +15,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
     public class HomingBrimstoneSkull : ModProjectile
     {
         public Vector2 StartingVelocity;
+
         public ref float Time => ref projectile.ai[0];
-        public static float MaxSpeed
-        {
-            get
-            {
-                if ((CalamityWorld.downedProvidence || BossRushEvent.BossRushActive) && BrimstoneElementalBehaviorOverride.ReadyToUseBuffedAI)
-                    return 17f;
-                return 13f;
-            }
-        }
+
+        public static float MaxSpeed => BossRushEvent.BossRushActive ? 17f : 13f;
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Brimstone Hellblast");
@@ -56,11 +51,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
             }
 
             if (StartingVelocity == Vector2.Zero)
+            {
                 StartingVelocity = projectile.velocity.SafeNormalize(Vector2.UnitY) * 2f;
+                projectile.netUpdate = true;
+            }
 
             if (Time < 0f)
             {
-                float speedInterpolant = (float)Math.Pow(Utils.InverseLerp(-150f, -1f, Time, true), 4D);
+                float speedInterpolant = (float)Math.Pow(Utils.InverseLerp(-150f, -1f, Time, true), 4f);
                 Vector2 endingVelocity = projectile.velocity.SafeNormalize(Vector2.UnitY) * MaxSpeed;
                 projectile.velocity = Vector2.Lerp(StartingVelocity, endingVelocity, speedInterpolant);
             }
@@ -94,7 +92,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
 
         public override void OnHitPlayer(Player target, int damage, bool crit)
         {
-            if ((CalamityWorld.downedProvidence || BossRushEvent.BossRushActive) && BrimstoneElementalBehaviorOverride.ReadyToUseBuffedAI)
+            if (CalamityWorld.downedProvidence || BossRushEvent.BossRushActive)
                 target.AddBuff(ModContent.BuffType<AbyssalFlames>(), 180);
             else
                 target.AddBuff(ModContent.BuffType<BrimstoneFlames>(), 120);

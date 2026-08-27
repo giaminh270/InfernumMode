@@ -29,6 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
             projectile.penetrate = -1;
             projectile.Opacity = 0f;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -116,7 +117,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
                         Vector2 rockSpawnPosition = projectile.Center + Main.rand.NextVector2Circular(projectile.width, projectile.height) * 0.5f;
                         Vector2 rockVelocity = -Vector2.UnitY.RotatedByRandom(0.57f) * Main.rand.NextFloat(7f, 11f);
                         rockVelocity.X += Math.Abs(projectile.velocity.X) * Main.rand.NextFloat(0.67f, 0.95f) * Main.rand.NextBool().ToDirectionInt();
-						GeneralParticleHandler.SpawnParticle(new StoneDebrisParticle2(rockSpawnPosition, rockVelocity, Color.SandyBrown, 1.1f, 180));
+                        GeneralParticleHandler.SpawnParticle(new StoneDebrisParticle2(rockSpawnPosition, rockVelocity, Color.SandyBrown, 1.1f, 180));
                     }
 
                     Main.projectile[otherPillar].Kill();

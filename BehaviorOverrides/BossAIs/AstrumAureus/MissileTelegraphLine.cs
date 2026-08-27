@@ -9,8 +9,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumAureus
     public class MissileTelegraphLine : ModProjectile
     {
         public ref float Time => ref projectile.ai[0];
-        
+
         public const int Lifetime = 27;
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
 
         public override void SetStaticDefaults() => DisplayName.SetDefault("Telegraph");
 

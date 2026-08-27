@@ -39,9 +39,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.StormWeaver
             npc.life = head.life;
             npc.lifeMax = head.lifeMax;
             npc.Opacity = head.Opacity;
+            npc.chaseable = head.chaseable;
             npc.Calamity().DR = head.Calamity().DR;
             npc.Calamity().unbreakableDR = head.Calamity().unbreakableDR;
             npc.damage = head.damage > 0 ? npc.defDamage : 0;
+            npc.dontTakeDamage = head.dontTakeDamage;
+            npc.HitSound = head.HitSound;
+            npc.Infernum().ExtraAI[StormWeaverHeadBehaviorOverride.FogInterpolantIndex] = head.Infernum().ExtraAI[StormWeaverHeadBehaviorOverride.FogInterpolantIndex];
 
             if (npc.type == ModContent.NPCType<StormWeaverTail>())
             {
@@ -50,7 +54,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.StormWeaver
             }
 
             Vector2 directionToNextSegment = aheadSegment.Center - npc.Center;
-            if (aheadSegment.rotation != npc.rotation)
+            if (npc.Infernum().ExtraAI[0] >= 1f)
+                npc.Infernum().ExtraAI[0]--;
+            else if (aheadSegment.rotation != npc.rotation)
                 directionToNextSegment = directionToNextSegment.RotatedBy(MathHelper.WrapAngle(aheadSegment.rotation - npc.rotation) * 0.05f);
 
             npc.rotation = directionToNextSegment.ToRotation() + MathHelper.PiOver2;

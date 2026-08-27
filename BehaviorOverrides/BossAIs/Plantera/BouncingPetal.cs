@@ -6,7 +6,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Plantera
 {
     public class BouncingPetal : ModProjectile
     {
-        public override void SetStaticDefaults() => DisplayName.SetDefault("Petal");
+
+        public override void SetStaticDefaults()
+        {
+            DisplayName.SetDefault("Petal");
+            Main.projFrames[projectile.type] = 2;
+        }
 
         public override void SetDefaults()
         {
@@ -15,6 +20,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Plantera
             projectile.tileCollide = true;
             projectile.timeLeft = 480;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()

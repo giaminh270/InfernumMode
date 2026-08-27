@@ -24,6 +24,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Perforators
             projectile.ignoreWater = true;
             projectile.tileCollide = true;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()

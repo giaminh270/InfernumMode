@@ -14,6 +14,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Water Spear");
+            Main.projFrames[projectile.type] = 4;
             ProjectileID.Sets.TrailingMode[projectile.type] = 0;
             ProjectileID.Sets.TrailCacheLength[projectile.type] = 4;
         }
@@ -36,7 +37,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
             // Create ice dust on the first frame.
             if (projectile.localAI[1] == 0f)
             {
-                for (int i = 0; i < 5; i++)
+                for (int i = 0; i < 10; i++)
                 {
                     Dust ice = Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, 33, 0f, 0f, 100, default, 2f);
                     ice.velocity *= 3f;

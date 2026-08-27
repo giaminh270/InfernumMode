@@ -1,3 +1,6 @@
+
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -5,11 +8,15 @@ using System.Collections.Generic;
 using Terraria;
 using Terraria.Graphics.Shaders;
 using Terraria.ModLoader;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 {
-    public class VortexTelegraphBeam : ModProjectile
+    public class VortexTelegraphBeam : ModProjectile, IPixelPrimitiveDrawer
     {
+        public bool DrawBeforeNPCs => false;
+        public PrimitiveTrailCopy LaserDrawer;
         internal PrimitiveTrailCopy BeamDrawer;
         public ref float Time => ref projectile.ai[0];
         public ref float LaserLength => ref projectile.ai[1];
@@ -51,18 +58,20 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 
         public Color ColorFunction(float completionRatio)
         {
-            Color color = Color.Lerp(Color.Orange, Color.DarkRed, (float)Math.Pow(completionRatio, 2D));
+            Color color = Color.Lerp(Color.Orange, Color.DarkRed, (float)Math.Pow(completionRatio, 2f));
             color = Color.Lerp(color, Color.Red, 0.65f);
             return color * projectile.Opacity * 0.6f;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (BeamDrawer is null)
-                BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:Fire"]);
+                BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.FireVertexShader);
 
-            GameShaders.Misc["Infernum:Fire"].UseSaturation(1.4f);
-            GameShaders.Misc["Infernum:Fire"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/CultistRayMap"));
+            InfernumEffectsRegistry.FireVertexShader.UseSaturation(1.4f);
+            InfernumEffectsRegistry.FireVertexShader.SetShaderTexture(InfernumTextureRegistry.CultistRayMap);
 
             List<float> originalRotations = new List<float>();
             List<Vector2> points = new List<Vector2>();
@@ -72,9 +81,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
                 originalRotations.Add(MathHelper.PiOver2);
             }
 
-            BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, 60);
-
-            return false;
+            BeamDrawer.DrawPixelated(points, projectile.Size * 0.5f - Main.screenPosition, 60);
         }
 
         public override void DrawBehind(int index, List<int> drawCacheProjsBehindNPCsAndTiles, List<int> drawCacheProjsBehindNPCs, List<int> drawCacheProjsBehindProjectiles, List<int> drawCacheProjsOverWiresUI)

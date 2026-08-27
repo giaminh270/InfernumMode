@@ -11,7 +11,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
     public class LunarAsteroid : ModProjectile
     {
         public ref float Owner => ref projectile.ai[0];
+
         public ref float Time => ref projectile.ai[1];
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Lunar Flame");
@@ -62,7 +64,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            Utilities.DrawAfterimagesCentered(projectile, Color.White, ProjectileID.Sets.TrailingMode[projectile.type], 1);
+            projectile.DrawProjectileWithBackglowTemp(Color.White, Color.White, 6f);
             return false;
         }
 
@@ -76,11 +78,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             Main.PlaySound(SoundID.Item, (int)projectile.position.X, (int)projectile.position.Y, 20);
             for (int dust = 0; dust < 4; dust++)
                 Dust.NewDust(projectile.position + projectile.velocity, projectile.width, projectile.height, (int)CalamityDusts.Nightwither, 0f, 0f);
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
         }
     }
 }

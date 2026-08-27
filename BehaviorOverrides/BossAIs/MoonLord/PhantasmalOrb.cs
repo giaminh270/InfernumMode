@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -15,6 +16,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             get => projectile.ai[1] == 0f;
             set => projectile.ai[1] = 1 - value.ToInt();
         }
+
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/Gleam";
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Phantasmal Orb");
@@ -49,7 +53,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             }
         }
 
-
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             float lerpMult = (1f + 0.22f * (float)Math.Cos(Main.GlobalTime % 30f * MathHelper.TwoPi * 3f + projectile.identity % 10f)) * 0.8f;
@@ -70,32 +73,32 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             if (projectile.spriteDirection == -1)
                 spriteEffects = SpriteEffects.FlipHorizontally;
 
-            spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver2, origin, scale, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorA, 0f, origin, scale, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver2, origin, scale * 0.8f, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorB, 0f, origin, scale * 0.8f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver2, origin, scale, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorA, 0f, origin, scale, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver2, origin, scale * 0.8f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorB, 0f, origin, scale * 0.8f, spriteEffects, 0);
 
-            spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver2 + Main.GlobalTime * 0.35f, origin, scale, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorA, Main.GlobalTime * 0.35f, origin, scale, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver2 + Main.GlobalTime * 0.625f, origin, scale * 0.8f, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorB, Main.GlobalTime * 0.625f, origin, scale * 0.8f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver2 + Main.GlobalTime * 0.35f, origin, scale, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorA, Main.GlobalTime * 0.35f, origin, scale, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver2 + Main.GlobalTime * 0.625f, origin, scale * 0.8f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorB, Main.GlobalTime * 0.625f, origin, scale * 0.8f, spriteEffects, 0);
 
-            spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver4, origin, scale * 0.6f, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver4 * 3f, origin, scale * 0.6f, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver4, origin, scale * 0.4f, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver4 * 3f, origin, scale * 0.4f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver4, origin, scale * 0.6f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver4 * 3f, origin, scale * 0.6f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver4, origin, scale * 0.4f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver4 * 3f, origin, scale * 0.4f, spriteEffects, 0);
 
-            spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver4 + Main.GlobalTime * 1.1f * 0.75f, origin, scale * 0.6f, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver4 * 3f + Main.GlobalTime * 1.1f * 0.75f, origin, scale * 0.6f, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver4 + Main.GlobalTime * 1.1f, origin, scale * 0.4f, spriteEffects, 0);
-            spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver4 * 3f + Main.GlobalTime * 1.1f, origin, scale * 0.4f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver4 + Main.GlobalTime * 1.1f * 0.75f, origin, scale * 0.6f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorA, MathHelper.PiOver4 * 3f + Main.GlobalTime * 1.1f * 0.75f, origin, scale * 0.6f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver4 + Main.GlobalTime * 1.1f, origin, scale * 0.4f, spriteEffects, 0);
+            Main.spriteBatch.Draw(texture, drawPos, null, colorB, MathHelper.PiOver4 * 3f + Main.GlobalTime * 1.1f, origin, scale * 0.4f, spriteEffects, 0);
 
             return false;
         }
 
         public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
         {
-            
+
         }
     }
 }

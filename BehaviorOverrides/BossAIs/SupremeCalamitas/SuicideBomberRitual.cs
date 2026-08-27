@@ -1,3 +1,4 @@
+using InfernumMode.DataStructures;
 using InfernumMode.ILEditingStuff;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -8,7 +9,7 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
-    public class SuicideBomberRitual : ModProjectile
+    public class SuicideBomberRitual : ModProjectile, IAdditiveDrawer
     {
         public ref float Time => ref projectile.ai[0];
 
@@ -25,6 +26,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.penetrate = -1;
             projectile.timeLeft = Lifetime;
             projectile.hide = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -46,7 +48,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<BrimstoneDemonSummonExplosion>(), 0, 0f);
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void AdditiveDraw(SpriteBatch spriteBatch)
         {
             Texture2D texture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/SupremeCalamitas/SuicideBomberRitual");
             Texture2D innerCircle = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/SupremeCalamitas/SuicideBomberRitualCircleInner");
@@ -55,12 +59,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             Vector2 drawPosition = projectile.Center - Main.screenPosition;
             Main.spriteBatch.Draw(texture, drawPosition, null, color, projectile.rotation, texture.Size() * 0.5f, projectile.scale, 0, 0f);
             Main.spriteBatch.Draw(innerCircle, drawPosition, null, color2, -projectile.rotation, innerCircle.Size() * 0.5f, projectile.scale, 0, 0f);
-            return false;
-        }
-
-        public override void DrawBehind(int index, List<int> drawCacheProjsBehindNPCsAndTiles, List<int> drawCacheProjsBehindNPCs, List<int> drawCacheProjsBehindProjectiles, List<int> drawCacheProjsOverWiresUI)
-        {
-            DrawBlackEffectHook.DrawCacheAdditiveLighting.Add(index);
         }
     }
 }

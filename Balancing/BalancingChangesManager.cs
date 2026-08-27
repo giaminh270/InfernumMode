@@ -24,6 +24,8 @@ using CalamityMod.Projectiles.Rogue;
 using CalamityMod.Projectiles.Summon;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
 using InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath;
+using InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians;
+using CalamityMod.NPCs.ProfanedGuardians;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
@@ -136,6 +138,12 @@ namespace InfernumMode.Balancing
 
                 // Polterghast.
                 new NPCBalancingChange(NPCType<Polterghast>(), Do(new ProjectileResistBalancingRule(0.67f, ProjectileType<PrecisionBolt>()))),
+				
+				// Guardians. Summoner completely melted them at ~50% faster killtimes which is not ok.
+                new NPCBalancingChange(NPCType<ProfanedGuardianBoss>(), Do(new ClassResistBalancingRule(0.654424808f, ClassType.Summon))),
+                new NPCBalancingChange(NPCType<ProfanedGuardianBoss2>(), Do(new ClassResistBalancingRule(0.654424808f, ClassType.Summon))),
+                new NPCBalancingChange(NPCType<ProfanedGuardianBoss3>(), Do(new ClassResistBalancingRule(0.654424808f, ClassType.Summon))),
+                new NPCBalancingChange(NPCType<HealerShieldCrystal>(), Do(new ClassResistBalancingRule(0.654424808f, ClassType.Summon))),
                 
                 // Old Duke.
                 new NPCBalancingChange(NPCType<OldDuke>(), Do(new ProjectileResistBalancingRule(0.65f, ProjectileType<FatesRevealFlame>()))),

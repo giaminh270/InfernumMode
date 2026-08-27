@@ -2,6 +2,8 @@ using CalamityMod;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using Terraria.GameContent;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Plantera
@@ -31,6 +33,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Plantera
             projectile.timeLeft = 660;
             projectile.penetrate = -1;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -72,6 +75,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Plantera
             float _ = 0f;
             return Collision.CheckAABBvLineCollision(targetHitbox.TopLeft(), targetHitbox.Size(), start, end, 8f, ref _);
         }
+
+        public override bool CanDamage() => !projectile.WithinRange(StartingPosition, 720f);
 
         public override Color? GetAlpha(Color lightColor) => Color.White * projectile.Opacity;
     }

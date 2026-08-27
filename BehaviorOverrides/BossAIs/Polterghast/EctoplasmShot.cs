@@ -1,4 +1,5 @@
 using CalamityMod;
+using CalamityMod.NPCs;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -58,9 +59,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
 
             if (ShouldFall)
             {
-                Player target = Main.player[Player.FindClosest(projectile.Center, 1, 1)];
-                if (projectile.timeLeft > 1080f)
-                    projectile.velocity = Vector2.Lerp(projectile.velocity, projectile.SafeDirectionTo(target.Center) * 18f, 0.032f);
+                int bossIndex = CalamityGlobalNPC.ghostBoss;
+                if (Main.npc.IndexInRange(bossIndex) && Main.npc[bossIndex].active && projectile.timeLeft > 1080f)
+                {
+                    Player target = Main.player[Main.npc[bossIndex].target];
+                    if (target.active && !target.dead)
+                        projectile.velocity = Vector2.Lerp(projectile.velocity, projectile.SafeDirectionTo(target.Center) * 18f, 0.032f);
+                }
             }
             else
                 projectile.velocity *= 0.985f;
@@ -90,8 +95,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
 
                 float completionRatio = i / (float)projectile.oldPos.Length;
                 float fade = (float)Math.Pow(completionRatio, 2f);
-                float scale = projectile.scale * MathHelper.Lerp(1.2f, 0.9f, Utils.InverseLerp(0f, 0.24f, completionRatio, true)) *
-                    MathHelper.Lerp(0.9f, 0.56f, Utils.InverseLerp(0.5f, 0.78f, completionRatio, true));
+                float scale = projectile.scale * MathHelper.Lerp(1.2f, 0.9f, Utils.InverseLerp(0f, 0.24f, completionRatio, true)) * MathHelper.Lerp(0.9f, 0.56f, Utils.InverseLerp(0.5f, 0.78f, completionRatio, true));
                 Color drawColor = Color.HotPink * (1f - fade) * projectile.Opacity;
                 drawColor.A = 0;
 

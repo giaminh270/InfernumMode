@@ -1,5 +1,6 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Projectiles;
+using InfernumMode.ExtraTextures;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -18,16 +19,26 @@ namespace InfernumMode.BaseEntities
             set => projectile.ai[0] = value;
         }
 
+        public virtual float Opacity { get; } = 1f;
+
         public virtual float MinScale { get; } = 1.2f;
+
         public virtual float MaxScale { get; } = 5f;
+
         public virtual Texture2D ExplosionNoiseTexture => ModContent.GetTexture("Terraria/Misc/Perlin");
+
         public abstract int Lifetime { get; }
+
         public abstract float MaxRadius { get; }
+
         public abstract float RadiusExpandRateInterpolant { get; }
+
         public abstract float DetermineScreenShakePower(float lifetimeCompletionRatio, float distanceFromPlayer);
+
         public abstract Color DetermineExplosionColor(float lifetimeCompletionRatio);
 
-        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+        public override string Texture => InfernumTextureRegistry.InvisPath;
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Explosion");
 
         public override void SetDefaults()
@@ -52,9 +63,16 @@ namespace InfernumMode.BaseEntities
             projectile.scale = MathHelper.Lerp(MinScale, MaxScale, Utils.InverseLerp(Lifetime, 0f, projectile.timeLeft, true));
             CalamityGlobalProjectile.ExpandHitboxBy(projectile, (int)(Radius * projectile.scale), (int)(Radius * projectile.scale));
         }
+
+        public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
+        {
+            return CalamityUtils.CircularHitboxCollision(projectile.Center, Radius * 0.4f, targetHitbox);
+        }
+
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            Main.spriteBatch.EnterShaderRegion();
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.LinearWrap, DepthStencilState.None, Main.instance.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
 
             Vector2 scale = new Vector2(1.5f, 1f);
             Vector2 drawPosition = projectile.Center - Main.screenPosition + projectile.Size * scale * 0.5f;
@@ -62,7 +80,7 @@ namespace InfernumMode.BaseEntities
                 ExplosionNoiseTexture,
                 drawPosition,
                 new Rectangle(0, 0, projectile.width, projectile.height),
-                new Color(new Vector4(1f - (float)Math.Sqrt(1f - projectile.timeLeft / (float)Lifetime))) * 0.7f * projectile.Opacity,
+                new Color(new Vector4((float)Math.Sqrt(projectile.timeLeft / (float)Lifetime))) * 0.7f * projectile.Opacity,
                 projectile.rotation,
                 projectile.Size,
                 scale,

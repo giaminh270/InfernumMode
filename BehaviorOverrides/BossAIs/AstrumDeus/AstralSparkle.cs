@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using Terraria;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
@@ -20,10 +21,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             get => projectile.ai[1];
             set => projectile.ai[1] = value;
         }
+
         public const int Lifetime = 90;
+
         public const int FadeinTime = 18;
+
         public const int FadeoutTime = 18;
-        public override string Texture => "InfernumMode/ExtraTextures/Gleam";
+
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/Gleam";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Astral Sparkle");
 
         public override void SetDefaults()

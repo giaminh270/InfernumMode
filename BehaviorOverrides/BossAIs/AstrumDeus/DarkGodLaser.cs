@@ -1,7 +1,12 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.NPCs.AstrumDeus;
 using CalamityMod.Projectiles.BaseProjectiles;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
+using InfernumMode;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -13,15 +18,17 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
 {
-    public class DarkGodLaser : BaseLaserbeamProjectile
+    public class DarkGodLaser : BaseLaserbeamProjectile, IPixelPrimitiveDrawer
     {
+        public bool DrawBeforeNPCs => false;
+		
         public int OwnerIndex
         {
             get => (int)projectile.ai[0];
             set => projectile.ai[0] = value;
         }
 
-        public PrimitiveTrail LaserDrawer = null;
+        public PrimitiveTrailCopy LaserDrawer;
 
         public const int LaserLifetime = 300;
         public override float MaxScale => 1f;
@@ -75,7 +82,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
 
         public override void UpdateLaserMotion()
         {
-            float spinSpeed = Utils.InverseLerp(0f, 60f, Time, true) * 0.016f;
+            float spinSpeed = Utils.InverseLerp(0f, 60f, Time, true) * 0.0135f;
             if (BossRushEvent.BossRushActive)
                 spinSpeed *= 1.64f;
 
@@ -96,17 +103,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
         public static Color LaserColorFunction(float completionRatio)
         {
             float colorInterpolant = (float)Math.Sin(Main.GlobalTime * -1.23f + completionRatio * 23f) * 0.5f + 0.5f;
-            return Color.Lerp(Color.Black, Color.Cyan, (float)Math.Pow(colorInterpolant, 3.3) * 0.25f);
+            return Color.Lerp(Color.Black, Color.Cyan, (float)Math.Pow(colorInterpolant, 3.3f) * 0.25f);
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)  => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             // This should never happen, but just in case.
             if (projectile.velocity == Vector2.Zero)
-                return false;
+                return;
 
             if (LaserDrawer is null)
-                LaserDrawer = new PrimitiveTrail(LaserWidthFunction, LaserColorFunction, null, GameShaders.Misc["Infernum:ArtemisLaser"]);
+                LaserDrawer = new PrimitiveTrailCopy(LaserWidthFunction, LaserColorFunction, null, true, InfernumEffectsRegistry.ArtemisLaserVertexShader);
 
             Vector2 laserEnd = projectile.Center + projectile.velocity.SafeNormalize(Vector2.UnitY) * LaserLength;
             Vector2[] baseDrawPoints = new Vector2[8];
@@ -114,13 +123,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 baseDrawPoints[i] = Vector2.Lerp(projectile.Center, laserEnd, i / (float)(baseDrawPoints.Length - 1f));
 
             // Select textures to pass to the shader, along with the electricity color.
-            GameShaders.Misc["Infernum:ArtemisLaser"].UseColor(Color.Turquoise);
-            GameShaders.Misc["Infernum:ArtemisLaser"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/PrismaticLaserbeamStreak2"));
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.UseColor(Color.Turquoise);
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.SetShaderTexture(InfernumTextureRegistry.StreakThickGlow);
             Main.instance.GraphicsDevice.Textures[2] = ModContent.GetTexture("Terraria/Misc/Perlin");
 
             int pointCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 10 : 25;
-            LaserDrawer.Draw(baseDrawPoints, -Main.screenPosition, pointCount);
-            return false;
+            LaserDrawer.DrawPixelated(baseDrawPoints, -Main.screenPosition, pointCount);
         }
 
         public override bool CanHitPlayer(Player target) => projectile.scale >= 0.5f;

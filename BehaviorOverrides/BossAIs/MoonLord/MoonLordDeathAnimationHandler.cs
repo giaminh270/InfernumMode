@@ -1,3 +1,5 @@
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -9,9 +11,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 {
     public class MoonLordDeathAnimationHandler : ModProjectile
     {
-        public PrimitiveTrailCopy LightDrawer = null;
+        public PrimitiveTrailCopy LightDrawer;
+
         public ref float Owner => ref projectile.ai[0];
+
         public float AnimationTimer => Main.npc[(int)Owner].Infernum().ExtraAI[6];
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Death Animation");
 
         public override void SetDefaults()
@@ -21,6 +28,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             projectile.tileCollide = true;
             projectile.penetrate = -1;
             projectile.timeLeft = 9000;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -55,9 +63,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                 rayDirection += Main.GlobalTime * 0.48f;
                 DrawLightRay(seed, rayDirection, rayAnimationCompletion, projectile.Center);
             }
-            spriteBatch.ExitShaderRegion();
+            Main.spriteBatch.ExitShaderRegion();
 
-            spriteBatch.SetBlendState(BlendState.Additive);
+            Main.spriteBatch.SetBlendState(BlendState.Additive);
 
             float coreBloomPower = Utils.InverseLerp(0f, 120f, deathAnimationTimer, true);
 
@@ -66,30 +74,30 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             {
                 Texture2D bloomCircle = ModContent.GetTexture("CalamityMod/ExtraTextures/THanosAura");
                 Vector2 drawPosition = projectile.Center - Main.screenPosition;
-                Vector2 bloomSize = new Vector2(200f) / bloomCircle.Size() * (float)Math.Pow(coreBloomPower, 2D);
+                Vector2 bloomSize = new Vector2(200f) / bloomCircle.Size() * (float)Math.Pow(coreBloomPower, 2f);
                 bloomSize *= 1f + (rayExpandFactor - 1f) * 2f;
 
-                spriteBatch.Draw(bloomCircle, drawPosition, null, Color.Turquoise * coreBloomPower, 0f, bloomCircle.Size() * 0.5f, bloomSize, 0, 0f);
+                Main.spriteBatch.Draw(bloomCircle, drawPosition, null, Color.Turquoise * coreBloomPower, 0f, bloomCircle.Size() * 0.5f, bloomSize, 0, 0f);
             }
 
-            spriteBatch.ResetBlendState();
+            Main.spriteBatch.ResetBlendState();
 
             float giantTwinkleSize = Utils.InverseLerp(570f, 530f, deathAnimationTimer, true) * Utils.InverseLerp(450f, 510f, deathAnimationTimer, true);
             if (giantTwinkleSize > 0f)
             {
                 float twinkleScale = giantTwinkleSize * 10f;
-                Texture2D twinkleTexture = ModContent.GetTexture("InfernumMode/ExtraTextures/LargeStar");
+                Texture2D twinkleTexture = InfernumTextureRegistry.LargeStar;
                 Vector2 drawPosition = projectile.Center - Main.screenPosition;
                 float secondaryTwinkleRotation = Main.GlobalTime * 5.13f;
 
-                spriteBatch.SetBlendState(BlendState.Additive);
+                Main.spriteBatch.SetBlendState(BlendState.Additive);
 
                 for (int i = 0; i < 2; i++)
                 {
-                    spriteBatch.Draw(twinkleTexture, drawPosition, null, Color.White, 0f, twinkleTexture.Size() * 0.5f, twinkleScale * new Vector2(1f, 1.85f), SpriteEffects.None, 0f);
-                    spriteBatch.Draw(twinkleTexture, drawPosition, null, Color.White, secondaryTwinkleRotation, twinkleTexture.Size() * 0.5f, twinkleScale * new Vector2(1.3f, 1f), SpriteEffects.None, 0f);
+                    Main.spriteBatch.Draw(twinkleTexture, drawPosition, null, Color.White, 0f, twinkleTexture.Size() * 0.5f, twinkleScale * new Vector2(1f, 1.85f), SpriteEffects.None, 0f);
+                    Main.spriteBatch.Draw(twinkleTexture, drawPosition, null, Color.White, secondaryTwinkleRotation, twinkleTexture.Size() * 0.5f, twinkleScale * new Vector2(1.3f, 1f), SpriteEffects.None, 0f);
                 }
-                spriteBatch.ResetBlendState();
+                Main.spriteBatch.ResetBlendState();
             }
 
             return false;
@@ -112,8 +120,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 
             if (LightDrawer is null)
                 LightDrawer = new PrimitiveTrailCopy(c => rayWidthFunction(c, projectile.Infernum().ExtraAI[8]), c => rayColorFunction(c, projectile.Infernum().ExtraAI[8]), null, false);
-            Vector2 currentRayDirection = initialRayRotation.ToRotationVector2();
 
+            Vector2 currentRayDirection = initialRayRotation.ToRotationVector2();
             float length = MathHelper.Lerp(225f, 360f, Utils.RandomFloat(ref seed)) * rayBrightness;
             List<Vector2> points = new List<Vector2>();
             for (int i = 0; i <= 12; i++)

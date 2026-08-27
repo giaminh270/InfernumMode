@@ -3,6 +3,8 @@ using CalamityMod.Events;
 using CalamityMod.NPCs.AstrumDeus;
 using CalamityMod.Particles;
 using CalamityMod.Sounds;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Sounds;
 using InfernumMode.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -96,8 +98,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 else
                     projectile.velocity *= 0.9f;
 
-                // Idly create debris crystals.
-                if (Timer % FlameSpawnRate == FlameSpawnRate - 1)
+                // Idly create flames.
+                if (FlameSpawnRate >= 1f && Timer % FlameSpawnRate == FlameSpawnRate - 1)
                 {
                     Vector2 crystalSpawnPosition = projectile.Center + Main.rand.NextVector2Unit() * Main.rand.NextFloat(50f, 200f) * projectile.scale;
                     if (!Main.player[Player.FindClosest(crystalSpawnPosition, 1, 1)].WithinRange(crystalSpawnPosition, 300f))
@@ -106,7 +108,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                         if (Main.netMode != NetmodeID.MultiplayerClient)
                         {
                             Vector2 crystalVelocity = (crystalSpawnPosition - projectile.Center).SafeNormalize(Vector2.UnitY).RotatedBy(MathHelper.PiOver2) * flameSpeed;
-                            Utilities.NewProjectileBetter(crystalSpawnPosition, crystalVelocity, ModContent.ProjectileType<AstralFlame2>(), 200, 0f);
+                            Utilities.NewProjectileBetter(crystalSpawnPosition, crystalVelocity, ModContent.ProjectileType<AstralFlame2>(), AstrumDeusHeadBehaviorOverride.AstralFlameDamage, 0f);
                         }
                     }
                 }
@@ -114,8 +116,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 // Explode if very close and merging.
                 if (projectile.WithinRange(otherVortex.Center, 125f) && flyTogetherInterpolant >= 0.75f)
                 {
-					Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Custom/FlareSound"), (int)projectile.position.X, (int)projectile.position.Y);
-                	Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/WyrmElectricCharge"), projectile.Center);
+					Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/FlareSound"), projectile.Center);
+                    Main.PlaySound(InfernumSoundRegistry.WyrmChargeSound, projectile.Center);
 
                     // Create a bunch of sparkles, along with a circular spread of astral flames.
                     Vector2 impactPoint = (projectile.Center + otherVortex.Center) * 0.5f;
@@ -130,7 +132,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                         for (int i = 0; i < 9; i++)
                         {
                             Vector2 flameVelocity = (MathHelper.TwoPi * i / 9f).ToRotationVector2() * 10f;
-                            Utilities.NewProjectileBetter(impactPoint, flameVelocity, ModContent.ProjectileType<AstralFlame2>(), 200, 0f);
+                            Utilities.NewProjectileBetter(impactPoint, flameVelocity, ModContent.ProjectileType<AstralFlame2>(), AstrumDeusHeadBehaviorOverride.AstralFlameDamage, 0f);
                         }
                     }
                     Color[] explosionColors = new Color[]
@@ -155,7 +157,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            Texture2D noiseTexture = ModContent.GetTexture("CalamityMod/ExtraTextures/VoronoiShapes");
+            Texture2D noiseTexture = InfernumTextureRegistry.VoronoiShapes;
             Vector2 drawPosition = projectile.Center - Main.screenPosition;
             Vector2 origin = noiseTexture.Size() * 0.5f;
             Main.spriteBatch.EnterShaderRegion();

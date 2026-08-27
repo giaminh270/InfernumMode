@@ -90,10 +90,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             if (projectile.frameCounter % 5 == 4)
                 projectile.frame = (projectile.frame + 1) % Main.projFrames[projectile.type];
 
-            if (projectile.timeLeft % 18 == 17)
+            bool reducedGraphics = PolterghastPerformanceUtils.ReducedGraphics;
+            int dustInterval = reducedGraphics ? 36 : 18;
+            if (projectile.timeLeft % dustInterval == dustInterval - 1)
             {
-                // Release a circle of dust every so often.
-                for (int i = 0; i < 16; i++)
+                // Release a smaller dust ring on low-end graphics.
+                int dustCount = reducedGraphics ? 4 : 16;
+                for (int i = 0; i < dustCount; i++)
                 {
                     Vector2 dustOffset = Vector2.UnitY.RotatedBy(MathHelper.TwoPi * i / 16f) * new Vector2(4f, 1f);
                     dustOffset = dustOffset.RotatedBy(projectile.velocity.ToRotation());

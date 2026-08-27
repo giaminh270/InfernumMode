@@ -3,6 +3,8 @@ using CalamityMod.Items.Weapons.Ranged;
 using CalamityMod.Items.Weapons.Typeless;
 using CalamityMod.NPCs.SupremeCalamitas;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.Sounds;
+using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -61,7 +63,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             ref float firingFromRight = ref npc.Infernum().ExtraAI[6];
 
             // Die if the either brother is missing.
-            if (cataclysmIndex == -1 || catastropheIndex == -1 || !NPC.AnyNPCs(ModContent.NPCType<SCalNPC>()))
+            if (cataclysmIndex == -1 || catastropheIndex == -1 || !NPC.AnyNPCs(ModContent.NPCType<SCalNPC>()) || npc.life < npc.lifeMax * 0.01f)
             {
                 npc.life = 0;
                 npc.HitEffect();
@@ -125,7 +127,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
         public static void DoFastHoverMovement(NPC npc, Vector2 hoverDestination)
         {
             float distanceFromDestination = npc.Distance(hoverDestination);
-            Vector2 closeMoveVelocity = npc.SafeDirectionTo(hoverDestination) * MathHelper.Min(distanceFromDestination, 24f);
+            Vector2 closeMoveVelocity = npc.SafeDirectionTo(hoverDestination) * Math.Min(distanceFromDestination, 24f);
             npc.velocity = Vector2.Lerp(closeMoveVelocity, (hoverDestination - npc.Center) * 0.0125f, Utils.InverseLerp(360f, 1080f, distanceFromDestination, true));
             npc.rotation = MathHelper.Clamp(npc.velocity.X * 0.02f, -0.125f, 0.125f);
         }
@@ -156,10 +158,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
         public static void DoBehavior_SinusoidalBobbing(NPC npc, Player target, bool isCataclysm, ref float attackSpecificTimer, ref float currentFrame, ref float firingFromRight, ref float attackTimer)
         {
             int shootTime = 420;
-            int soulShootRate = 45;
+            int soulShootRate = 55;
             int soulCount = 9;
-            int projectileFireThreshold = isCataclysm ? 60 : 45;
-            float regularShotSpeed = 11f;
+            int projectileFireThreshold = isCataclysm ? 105 : 85;
+            float regularShotSpeed = 9.5f;
             float lifeRatio = npc.life / (float)npc.lifeMax;
             float shootIncrement = MathHelper.Lerp(1.85f, 3.1f, 1f - lifeRatio);
             if (lifeRatio < 0.5f)
@@ -201,11 +203,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 }
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    int proj = Utilities.NewProjectileBetter(projectileSpawnPosition, Vector2.UnitX * npc.spriteDirection * regularShotSpeed, type, 550, 0f);
-                    if (Main.projectile.IndexInRange(proj))
-                        Main.projectile[proj].ai[1] = firingFromRight;
-                }
+                    Utilities.NewProjectileBetter(projectileSpawnPosition, Vector2.UnitX * npc.spriteDirection * regularShotSpeed, type, SupremeCalamitasBehaviorOverride.BrothersProjectileDamage, 0f, -1, 0f, firingFromRight);
+
                 firingFromRight = firingFromRight == 0f ? 1f : 0f;
             }
 
@@ -217,8 +216,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 {
                     for (int i = 0; i < soulCount; i++)
                     {
-                        Vector2 soulVelocity = (MathHelper.TwoPi * i / soulCount).ToRotationVector2() * 10f;
-                        Utilities.NewProjectileBetter(npc.Center, soulVelocity, ModContent.ProjectileType<LostSoulProj>(), 550, 0f);
+                        Vector2 soulVelocity = (MathHelper.TwoPi * i / soulCount).ToRotationVector2() * 8.5f;
+                        Utilities.NewProjectileBetter(npc.Center, soulVelocity, ModContent.ProjectileType<LostSoulProj>(), SupremeCalamitasBehaviorOverride.BrothersProjectileDamage, 0f);
                     }
                 }
             }
@@ -234,13 +233,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             int hoverTime = 60;
             int shootTime = 240;
             int fireBurstCount = 2;
-            int projectileFireThreshold = isCataclysm ? 60 : 64;
+            int projectileFireThreshold = isCataclysm ? 120 : 136;
             float fireShootSpeed = 17.5f;
             float lifeRatio = npc.life / (float)npc.lifeMax;
             if (lifeRatio < 0.5f)
-                projectileFireThreshold -= 9;
+                projectileFireThreshold -= 13;
             if (lifeRatio < 0.25f)
-                projectileFireThreshold -= 9;
+                projectileFireThreshold -= 13;
             if (SupremeCalamitasBehaviorOverride.Enraged)
             {
                 projectileFireThreshold = 12;
@@ -273,11 +272,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             Vector2 hoverDestination = target.Center + new Vector2(hoverOffsetDirection * 550f, isCataclysm.ToInt() * -255f);
             if (wrappedTimer < hoverTime)
             {
-                // Slow down right before firing.
+                // Slow down right before firing. This only happens if sufficiently far away from the target.
                 if (wrappedTimer > hoverTime * 0.5f)
                 {
-                    npc.velocity *= 0.9f;
-                    npc.rotation *= 0.9f;
+                    if (!npc.WithinRange(target.Center, 320f))
+                    {
+                        npc.velocity *= 0.9f;
+                        npc.rotation *= 0.9f;
+                    }
+                    else
+                        npc.Center -= npc.SafeDirectionTo(target.Center) * 10f;
                 }
 
                 // Otherwise, do typical hover behavior, towards the upper right of the target.
@@ -319,7 +323,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                             firingFromRight = firingFromRight == 0f ? 1f : 0f;
                         }
 
-                        Utilities.NewProjectileBetter(projectileSpawnPosition, shootVelocity, projectileType, 500, 0f);
+                        Utilities.NewProjectileBetter(projectileSpawnPosition, shootVelocity, projectileType, SupremeCalamitasBehaviorOverride.BrothersProjectileDamage, 0f);
                         attackSpecificTimer = 0f;
                         npc.netUpdate = true;
                     }
@@ -357,12 +361,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 npc.Center = hoverDestination;
                 npc.velocity = Vector2.Zero;
                 npc.Opacity = 0f;
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ThunderStrike"), npc.Center);
+                Main.PlaySound(InfernumSoundRegistry.CalThunderStrikeSound, npc.Center);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int explosion = Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<DemonicExplosion>(), 0, 0f);
-                    if (Main.projectile.IndexInRange(explosion))
-                        Main.projectile[explosion].ModProjectile<DemonicExplosion>().MaxRadius = 300f;
+                    ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(explosion =>
+                    {
+                        explosion.ModProjectile<DemonicExplosion>().MaxRadius = 300f;
+                    });
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<DemonicExplosion>(), 0, 0f);
                     npc.netUpdate = true;
                 }
             }
@@ -380,9 +386,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                     for (int i = 0; i < soulCount; i++)
                     {
                         Vector2 soulVelocity = (MathHelper.TwoPi * i / soulCount).ToRotationVector2() * 10f;
-                        Utilities.NewProjectileBetter(npc.Center, soulVelocity, ModContent.ProjectileType<LostSoulProj>(), 550, 0f);
+                        Utilities.NewProjectileBetter(npc.Center, soulVelocity, ModContent.ProjectileType<LostSoulProj>(), SupremeCalamitasBehaviorOverride.BrothersProjectileDamage, 0f);
                     }
                 }
+
             }
 
             // Define the red-glow interpolant.

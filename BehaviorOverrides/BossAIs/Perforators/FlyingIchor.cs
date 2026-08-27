@@ -19,6 +19,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Perforators
             projectile.ignoreWater = true;
             projectile.timeLeft = 360;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -30,8 +31,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Perforators
             blood.velocity = Vector2.Zero;
             blood.noGravity = true;
         }
-
-        
 
         public override void OnHitPlayer(Player target, int damage, bool crit) => target.AddBuff(ModContent.BuffType<BurningBlood>(), 120);
 

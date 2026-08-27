@@ -9,7 +9,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
     public class LunarFlareTelegraph : ModProjectile
     {
         public ref float Countdown => ref projectile.ai[0];
+
         public Player Target => Main.player[projectile.owner];
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Telegraph");
 
         public override void SetDefaults()
@@ -21,6 +25,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             projectile.penetrate = -1;
             projectile.timeLeft = 300;
             projectile.scale = 0.01f;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -70,7 +75,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             Vector2 start = projectile.Center - Vector2.UnitY.RotatedBy(projectile.rotation) * 4350f;
             Vector2 end = projectile.Center + Vector2.UnitY.RotatedBy(projectile.rotation) * 4350f;
             Color lineColor = new Color(50, 255, 156);
-            Utilities.DrawLineBetter(spriteBatch, start, end, lineColor * projectile.scale, projectile.scale * 3f);
+            Main.spriteBatch.DrawLineBetter(start, end, lineColor * projectile.scale, projectile.scale * 3f);
             return false;
         }
     }

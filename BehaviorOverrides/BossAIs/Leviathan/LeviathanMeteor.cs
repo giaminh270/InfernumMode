@@ -26,12 +26,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
             projectile.ignoreWater = true;
             projectile.tileCollide = false;
             projectile.penetrate = -1;
-            projectile.timeLeft = 125;
+            projectile.timeLeft = 105;
             projectile.Opacity = 0f;
             projectile.Calamity().canBreakPlayerDefense = true;
             cooldownSlot = 1;
         }
-        
+
         public override void AI()
         {
             // Determine opacity and rotation.

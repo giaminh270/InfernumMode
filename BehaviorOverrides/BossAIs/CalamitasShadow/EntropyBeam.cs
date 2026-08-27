@@ -1,5 +1,9 @@
 using CalamityMod;
 using CalamityMod.NPCs;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -7,12 +11,13 @@ using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-using Terraria.Graphics.Shaders;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 {
-    public class EntropyBeam : ModProjectile
+    public class EntropyBeam : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
+		
         public PrimitiveTrailCopy BeamDrawer
         {
             get;
@@ -97,26 +102,25 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             return color * opacity;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
-		{
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
+        {
             if (BeamDrawer is null) 
-				BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:ArtemisLaser"]);
+				BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.ArtemisLaserVertexShader);
 
             // Select textures to pass to the shader, along with the electricity color.
-            GameShaders.Misc["Infernum:ArtemisLaser"].UseColor(Color.Red);
-            GameShaders.Misc["Infernum:ArtemisLaser"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/StreakMagma"));
-            GameShaders.Misc["Infernum:ArtemisLaser"].UseImage("Images/Misc/Perlin");
-            GameShaders.Misc["Infernum:ArtemisLaser"].Shader.Parameters["uStretchReverseFactor"].SetValue((LaserLength + 1f) / MaxLaserLength * 4f);
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.UseColor(Color.Red);
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.SetShaderTexture(InfernumTextureRegistry.StreakMagma);
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.UseImage("Images/Misc/Perlin");
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.Shader.Parameters["uStretchReverseFactor"].SetValue((LaserLength + 1f) / MaxLaserLength * 4f);
 
             List<Vector2> points = new List<Vector2>();
             for (int i = 0; i <= 8; i++)
                 points.Add(Vector2.Lerp(projectile.Center - projectile.velocity * 18f, projectile.Center + projectile.velocity * LaserLength, i / 8f));
 
-            BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, 60);
+            BeamDrawer.DrawPixelated(points, projectile.Size * 0.5f - Main.screenPosition, 60);
             Main.spriteBatch.ExitShaderRegion();
-            return false;			
-		}
-
+        }
 
         public override bool CanDamage() => Time >= 4f;
     }

@@ -3,6 +3,7 @@ using MonoMod.Cil;
 using System;
 using Terraria;
 using Terraria.ModLoader;
+using static CalamityMod.ILEditing.ILChanges;
 
 namespace InfernumMode.GlobalInstances
 {
@@ -14,7 +15,6 @@ namespace InfernumMode.GlobalInstances
 
         internal static void Load()
         {
-            // Signature đúng của 1.3.5.3 / tML 0.11.x
             IL.Terraria.Projectile.NewProjectile_float_float_float_float_int_int_float_int_float_float += PreSyncProjectileStuff;
         }
 
@@ -27,7 +27,7 @@ namespace InfernumMode.GlobalInstances
         {
             ILCursor cursor = new ILCursor(il);
 
-            // Đi tới chỗ gán stepSpeed = 1f (sau khi projectile đã được tạo và gán hầu hết field)
+            // Go after the projectile instantiation phase and find the local index of the spawned projectile.
             int projectileILIndex = 0;
             if (!cursor.TryGotoNext(MoveType.Before, i => i.MatchStfld<Projectile>("stepSpeed")))
             {
@@ -36,20 +36,17 @@ namespace InfernumMode.GlobalInstances
             }
 
             int placeToSetAction = cursor.Index;
-
-            // Lùi lại tìm local chứa instance Projectile vừa tạo
             if (!cursor.TryGotoPrev(i => i.MatchLdloc(out projectileILIndex)))
             {
                 InfernumMode.Instance.Logger.Warn("Projectile Initialization Manager: Could not find the spawned projectile's local IL index.");
                 return;
             }
 
-            // Chèn code ngay trước stfld stepSpeed
             cursor.Goto(placeToSetAction);
             cursor.Emit(OpCodes.Ldloc, projectileILIndex);
             cursor.EmitDelegate<Action<Projectile>>(projectile =>
             {
-                // Gọi action (nếu có) rồi hủy luôn để không bị “dính” sang lần spawn sau
+                // Invoke the pre-sync action and then destroy it, to ensure that the action doesn't bleed into successive, unrelated spawn calls.
                 preSyncAction?.Invoke(projectile);
                 preSyncAction = null;
             });

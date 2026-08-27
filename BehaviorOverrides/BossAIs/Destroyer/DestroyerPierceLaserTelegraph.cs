@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using Terraria;
@@ -10,6 +10,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
     public class DestroyerPierceLaserTelegraph : ModProjectile
     {
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Telegraph");
@@ -22,14 +23,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
             projectile.tileCollide = false;
             projectile.alpha = 255;
             projectile.penetrate = -1;
-            projectile.timeLeft = 20;
+            projectile.timeLeft = 45;
             cooldownSlot = 1;
         }
 
         public override void AI()
         {
             // Pulse in and out.
-            projectile.scale = (float)Math.Sin(MathHelper.Pi * projectile.timeLeft / 20f) * 6f;
+            projectile.scale = (float)Math.Sin(MathHelper.Pi * projectile.timeLeft / 45f) * 6f;
         }
 
         public override bool CanDamage() => false;
@@ -56,9 +57,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
             if (Main.netMode == NetmodeID.MultiplayerClient)
                 return;
 
-            int laser = Utilities.NewProjectileBetter(projectile.Center, projectile.velocity * 18f, ProjectileID.DeathLaser, 120, 0f);
-            if (Main.projectile.IndexInRange(laser))
-                Main.projectile[laser].tileCollide = false;
+            Utilities.NewProjectileBetter(projectile.Center, projectile.velocity.SafeNormalize(-Vector2.UnitY), ModContent.ProjectileType<DestroyerPierceLaser>(), DestroyerHeadBehaviorOverride.PierceLaserbeamDamage, 0f);
         }
     }
 }

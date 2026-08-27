@@ -39,14 +39,22 @@ namespace InfernumMode.InverseKinematics
                     break;
 
                 // Update rotation.
-                limbs.Limbs[i].Rotation += angularOffset * slowdownInterpolant * AngularOffsetAcceleration;
+				limbs.Limbs[i].Rotation += angularOffset * slowdownInterpolant * AngularOffsetAcceleration;
 
-                // And limit it so that it doesn't look weird.
-                if (i > 0)
-                {
-                    float behindRotation = (float)limbs.Limbs[i - 1].Rotation;
-                    limbs.Limbs[i].Rotation = MathHelper.Clamp((float)limbs.Limbs[i].Rotation, behindRotation - AngularDeviationLenience, behindRotation + AngularDeviationLenience);
-                }
+				// And limit it so that it doesn't look weird. Use angular difference clamping to handle wrap-around correctly.
+				if (i > 0)
+				{
+					float behindRotation = (float)limbs.Limbs[i - 1].Rotation;
+					float current = (float)limbs.Limbs[i].Rotation;
+					float diff = MathHelper.WrapAngle(current - behindRotation);
+					limbs.Limbs[i].Rotation = behindRotation + MathHelper.Clamp(diff, -AngularDeviationLenience, AngularDeviationLenience);
+				}
+
+				// Fully normalize to [0, 2π) to prevent drift and wrapping issues in subsequent clamps/updates.
+				while (limbs.Limbs[i].Rotation < 0f)
+					limbs.Limbs[i].Rotation += MathHelper.TwoPi;
+				while (limbs.Limbs[i].Rotation >= MathHelper.TwoPi)
+					limbs.Limbs[i].Rotation -= MathHelper.TwoPi;
             }
         }
     }

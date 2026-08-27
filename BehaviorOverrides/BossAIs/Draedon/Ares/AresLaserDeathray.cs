@@ -1,6 +1,9 @@
 ﻿using CalamityMod;
 using CalamityMod.NPCs.ExoMechs.Ares;
 using CalamityMod.Projectiles.BaseProjectiles;
+using InfernumMode.Effects;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
@@ -11,13 +14,15 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 {
-    public class AresLaserDeathray : BaseLaserbeamProjectile
+    public class AresLaserDeathray : BaseLaserbeamProjectile, IPixelPrimitiveDrawer
     {
-        public PrimitiveTrail LaserDrawer
+		public bool DrawBeforeNPCs => false;
+		
+        public PrimitiveTrailCopy LaserDrawer
         {
             get;
             set;
-        } = null;
+        }
 
         public int OwnerIndex
         {
@@ -75,7 +80,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             if (Main.npc[OwnerIndex].active && Main.npc[OwnerIndex].type == ModContent.NPCType<AresLaserCannon>() && Main.npc[OwnerIndex].Opacity > 0.25f)
             {
                 NPC pulseCannon = Main.npc[OwnerIndex];
-                projectile.Center = pulseCannon.Center + new Vector2(pulseCannon.spriteDirection * -23f, 16f).RotatedBy(pulseCannon.rotation);
+                projectile.Center = pulseCannon.Center + new Vector2(pulseCannon.spriteDirection * -68f, 16f).RotatedBy(pulseCannon.rotation);
             }
 
             // Die of the owner is invalid in some way.
@@ -102,18 +107,20 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 projectile.frame = (projectile.frame + 1) % Main.projFrames[projectile.type];
         }
 
-        public float LaserWidthFunction(float _) => projectile.scale * projectile.width;
+        public float LaserWidthFunction(float _) => projectile.scale * projectile.width* Utils.InverseLerp(0f, 0.1f, _, true);
 
-        public static Color LaserColorFunction(float completionRatio) => Color.Red;
+        public static Color LaserColorFunction(float completionRatio) => Color.Red * Utils.InverseLerp(0f, 0.04f, completionRatio, true);
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             // This should never happen, but just in case.
             if (projectile.velocity == Vector2.Zero)
-                return false;
+                return;
 			
             if (LaserDrawer is null)
-				LaserDrawer = new PrimitiveTrail(LaserWidthFunction, LaserColorFunction, null, GameShaders.Misc["Infernum:ArtemisLaser"]);
+				LaserDrawer = new PrimitiveTrailCopy(LaserWidthFunction, LaserColorFunction, null, true, InfernumEffectsRegistry.ArtemisLaserVertexShader);
 
             Vector2 laserEnd = projectile.Center + projectile.velocity.SafeNormalize(Vector2.UnitY) * LaserLength;
             Vector2[] baseDrawPoints = new Vector2[8];
@@ -121,12 +128,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 baseDrawPoints[i] = Vector2.Lerp(projectile.Center, laserEnd, i / (float)(baseDrawPoints.Length - 1f));
 
             // Select textures to pass to the shader, along with the electricity color.
-			GameShaders.Misc["Infernum:ArtemisLaser"].UseColor(Color.Orange);
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.UseColor(Color.Orange);
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.UseImage("Images/Extra_194");
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.UseImage("Images/Extra_193");
 
-            LaserDrawer.Draw(baseDrawPoints, -Main.screenPosition, 54);
-            return false;
+            int sampleCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 20 : 40;
+            LaserDrawer.DrawPixelated(baseDrawPoints, -Main.screenPosition, sampleCount);
         }
-        
+
         public override bool CanHitPlayer(Player target) => projectile.scale >= 0.5f;
     }
 }

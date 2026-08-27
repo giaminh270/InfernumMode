@@ -1,4 +1,6 @@
 using CalamityMod;
+using InfernumMode.Effects;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -10,7 +12,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
 {
     public class SoulTelegraphLine : ModProjectile
     {
-        public PrimitiveTrailCopy TelegraphDrawer = null;
+        public PrimitiveTrailCopy TelegraphDrawer;
 
         public ref float Time => ref projectile.ai[0];
 
@@ -27,6 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             projectile.ignoreWater = true;
             projectile.timeLeft = 24;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -47,8 +50,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            TelegraphDrawer = new PrimitiveTrailCopy(TelegraphWidthFunction, TelegraphColorFunction, null, true, GameShaders.Misc["Infernum:SideStreak"]);
-            
+			if (TelegraphDrawer is null)
+            	TelegraphDrawer = new PrimitiveTrailCopy(TelegraphWidthFunction, TelegraphColorFunction, null, false, InfernumEffectsRegistry.SideStreakVertexShader);
+
             Vector2 telegraphStart = projectile.Center;
             Vector2 telegraphEnd = projectile.Center + projectile.velocity * 5000f;
             Vector2[] telegraphPoints = new Vector2[]

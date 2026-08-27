@@ -1,4 +1,5 @@
 using CalamityMod;
+using InfernumMode.DataStructures;
 using InfernumMode.ILEditingStuff;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -11,9 +12,12 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 {
-    public class SuperheatedExofireGas : ModProjectile
+    public class SuperheatedExofireGas : ModProjectile, IAdditiveDrawer
     {
         public ref float LightPower => ref projectile.ai[0];
+
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/NebulaGas1";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Superheated Fire");
 
         public override void SetDefaults()
@@ -42,27 +46,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 
             // Calculate light power. This checks below the position of the fog to check if this fog is underground.
             // Without this, it may render over the fullblack that the game renders for obscured tiles.
-            float lightPowerBelow = Lighting.GetColor((int)projectile.Center.X / 16, (int)projectile.Center.Y / 16 + 6).ToVector3().Length() / (float)Math.Sqrt(3D);
+            float lightPowerBelow = Lighting.GetColor((int)projectile.Center.X / 16, (int)projectile.Center.Y / 16 + 6).ToVector3().Length() / (float)Math.Sqrt(3f);
             LightPower = MathHelper.Lerp(LightPower, lightPowerBelow, 0.15f);
             projectile.Opacity = Utils.InverseLerp(180f, 165f, projectile.timeLeft, true) * Utils.InverseLerp(0f, 60f, projectile.timeLeft, true);
             projectile.rotation += projectile.velocity.X * 0.004f;
             projectile.velocity *= 0.985f;
         }
 
-        public override void DrawBehind(int index, List<int> drawCacheProjsBehindNPCsAndTiles, List<int> drawCacheProjsBehindNPCs, List<int> drawCacheProjsBehindProjectiles, List<int> drawCacheProjsOverWiresUI)
-        {
-            DrawBlackEffectHook.DrawCacheAdditiveLighting.Add(index);
-        }
-
         public override bool CanDamage() => projectile.Opacity > 0.6f;
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void AdditiveDraw(SpriteBatch spriteBatch)
         {
             Vector2 screenArea = new Vector2(Main.screenWidth, Main.screenHeight);
             Rectangle screenRectangle = Utils.CenteredRectangle(Main.screenPosition + screenArea * 0.5f, screenArea * 1.33f);
 
             if (!projectile.Hitbox.Intersects(screenRectangle))
-                return false;
+                return;
 
             Texture2D texture = Main.projectileTexture[projectile.type];
             Vector2 origin = texture.Size() * 0.5f;
@@ -71,7 +72,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             Color drawColor = new Color(255, 188, 89) * opacity;
             Vector2 scale = projectile.Size / texture.Size() * projectile.scale * 1.35f;
             Main.spriteBatch.Draw(texture, drawPosition, null, drawColor, projectile.rotation, origin, scale, SpriteEffects.None, 0f);
-            return false;
         }
     }
 }

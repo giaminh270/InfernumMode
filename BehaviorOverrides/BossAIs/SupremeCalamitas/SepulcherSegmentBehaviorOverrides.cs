@@ -32,7 +32,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             npc.lifeMax = 582000;
             npc.aiStyle = -1;
             npc.knockBackResist = 0f;
-            npc.scale *= 1.2f;
             npc.alpha = 255;
             npc.behindTiles = true;
             npc.noGravity = true;
@@ -42,7 +41,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             npc.netAlways = true;
             npc.dontCountMe = true;
             npc.HitSound = SoundID.DD2_SkeletonHurt.WithVolume(0.925f);
-            npc.Calamity().DR = 0.56f;
         }
 
         public static bool DoAI(NPC npc)
@@ -59,16 +57,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 npc.netUpdate = true;
             }
             NPC head = Main.npc[npc.realLife];
-            
+
             // Inherit various attributes from the ahead segment.
             // This code will go upstream across every segment, until it reaches the head.
             npc.Opacity = aheadSegment.Opacity;
             npc.chaseable = true;
             npc.friendly = false;
             npc.dontTakeDamage = aheadSegment.dontTakeDamage;
-            npc.defDamage = 100;
+            npc.defDamage = 200;
             npc.damage = npc.dontTakeDamage ? 0 : npc.defDamage;
             npc.defense = 20;
+            npc.scale = head.scale;
+            npc.Calamity().DR = 0.56f;
 
             npc.buffImmune[ModContent.BuffType<ExoFreeze>()] = true;
             npc.buffImmune[ModContent.BuffType<GlacialState>()] = true;
@@ -82,7 +82,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             directionToNextSegment = directionToNextSegment.SafeNormalize(Vector2.Zero);
 
             npc.rotation = directionToNextSegment.ToRotation() + MathHelper.PiOver2;
-            npc.Center = aheadSegment.Center - directionToNextSegment * npc.width * npc.scale * 0.725f;
+            npc.Center = aheadSegment.Center - directionToNextSegment * npc.width * npc.scale * 0.5f;
             npc.spriteDirection = (directionToNextSegment.X > 0).ToDirectionInt();
 
             // Disable dart spreads from the energy balls if Sepulcher is creating soul bombs.

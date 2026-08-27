@@ -30,6 +30,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
             projectile.timeLeft = 360;
             projectile.scale = 1.6f;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -42,6 +43,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
 
             if (projectile.frameCounter++ % 5 == 4)
                 projectile.frame = (projectile.frame + 1) % Main.projFrames[projectile.type];
+
+            // Accelerate.
+            if (projectile.velocity.Length() < 27f)
+                projectile.velocity *= 1.015f;
 
             projectile.rotation = projectile.velocity.ToRotation() - MathHelper.PiOver2;
         }

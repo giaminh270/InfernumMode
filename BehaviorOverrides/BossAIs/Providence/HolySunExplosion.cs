@@ -1,12 +1,13 @@
-using CalamityMod;
-using CalamityMod.Buffs.DamageOverTime;
+﻿using CalamityMod;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using System;
 using System.Collections.Generic;
+using System.IO;
 using Terraria;
-using Terraria.Graphics.Shaders;
+using Terraria.ID;
 using Terraria.ModLoader;
+using Microsoft.Xna.Framework.Graphics;
+using InfernumMode.Effects;
+using System;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 {
@@ -17,7 +18,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
         public PrimitiveTrailCopy FireDrawer;
 
         public ref float Time => ref projectile.ai[0];
+
         public ref float Radius => ref projectile.ai[1];
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Holy Explosion");
 
         public override void SetDefaults()
@@ -31,6 +36,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             projectile.MaxUpdates = 2;
             projectile.scale = 1f;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
+        }
+
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(projectile.MaxUpdates);
+            writer.Write(MaxRadius);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            projectile.MaxUpdates = reader.ReadInt32();
+            MaxRadius = reader.ReadSingle();
         }
 
         public override void AI()
@@ -42,15 +60,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             Time++;
         }
 
-        public override void OnHitPlayer(Player target, int damage, bool crit)
-        {
-            if (!ProvidenceBehaviorOverride.IsEnraged)
-                target.AddBuff(ModContent.BuffType<HolyFlames>(), 240);
-            else
-                target.AddBuff(ModContent.BuffType<Nightwither>(), 120);
-        }
+        public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox) => Utilities.CircularCollision(targetHitbox.Center.ToVector2(), projHitbox, Radius * 0.725f) && Time <= 30f;
 
-        public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox) => Utilities.CircularCollision(targetHitbox.Center.ToVector2(), projHitbox, Radius * 0.725f);
+        public override bool CanDamage() => projectile.Opacity >= 0.37f;
 
         public float SunWidthFunction(float completionRatio) => Radius * (float)Math.Sin(MathHelper.Pi * completionRatio);
 
@@ -64,11 +76,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            if (FireDrawer is null)
-                FireDrawer = new PrimitiveTrailCopy(SunWidthFunction, SunColorFunction, null, true, GameShaders.Misc["Infernum:Fire"]);
+            if (FireDrawer == null)
+                FireDrawer = new PrimitiveTrailCopy(SunWidthFunction, SunColorFunction, null, true, InfernumEffectsRegistry.FireVertexShader);
 
-            GameShaders.Misc["Infernum:Fire"].UseSaturation(0.45f);
-            GameShaders.Misc["Infernum:Fire"].UseImage("Images/Misc/Perlin");
+            InfernumEffectsRegistry.FireVertexShader.UseSaturation(0.45f);
+            InfernumEffectsRegistry.FireVertexShader.UseImage("Images/Misc/Perlin");
 
             List<float> rotationPoints = new List<float>();
             List<Vector2> drawPoints = new List<Vector2>();

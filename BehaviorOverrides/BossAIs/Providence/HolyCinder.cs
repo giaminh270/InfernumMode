@@ -1,10 +1,10 @@
-using CalamityMod.Buffs.DamageOverTime;
-using CalamityMod.Dusts;
+﻿using CalamityMod.Dusts;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using System;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 {
@@ -28,12 +28,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             projectile.ignoreWater = true;
             projectile.penetrate = -1;
             projectile.timeLeft = 360;
+            cooldownSlot = 1;
         }
 
         public override void AI()
         {
-            if (projectile.velocity.Length() < 25f && Time >= 25f)
-                projectile.velocity *= 1.035f;
+            if (projectile.velocity.Length() < 25f && Time >= 15f)
+                projectile.velocity *= 1.026f;
 
             projectile.frameCounter++;
             projectile.frame = projectile.frameCounter / 5 % Main.projFrames[projectile.type];
@@ -53,21 +54,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             }
         }
 
-        public override void OnHitPlayer(Player target, int damage, bool crit)
-        {
-            if (!ProvidenceBehaviorOverride.IsEnraged)
-                target.AddBuff(ModContent.BuffType<HolyFlames>(), 120);
-            else
-                target.AddBuff(ModContent.BuffType<Nightwither>(), 60);
-        }
-
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            float telegraphInterpolant = Utils.InverseLerp(0f, 45f, Time, true);
+            float telegraphInterpolant = Utils.InverseLerp(0f, 36f, Time, true) * Utils.InverseLerp(42f, 36f, Time, true);
             if (telegraphInterpolant >= 1f)
                 telegraphInterpolant = 0f;
 
-            Main.spriteBatch.DrawLineBetter(projectile.Center, projectile.Center + projectile.velocity.SafeNormalize(Vector2.UnitY) * 6000f, Color.Yellow * telegraphInterpolant, telegraphInterpolant * 3f);
+            Color telegraphColor = ProvidenceBehaviorOverride.IsEnraged ? Color.SeaGreen : Color.Orange;
+            Main.spriteBatch.DrawLineBetter(projectile.Center, projectile.Center + projectile.velocity.SafeNormalize(Vector2.UnitY) * 6000f, telegraphColor * telegraphInterpolant, telegraphInterpolant * 10f);
             lightColor = Color.Lerp(lightColor, Color.White, 0.4f);
             lightColor.A = 128;
 
@@ -78,6 +72,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             return false;
         }
 
-        public override bool CanDamage() => projectile.alpha < 20;
+        public override bool CanDamage()/* tModPorter Suggestion: Return null instead of false */ => projectile.alpha < 20;
     }
 }

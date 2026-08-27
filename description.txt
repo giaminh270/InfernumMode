@@ -1,4 +1,4 @@
-(Backport from Infernum 1.4.3)
+(Backport from Infernum 1.4.3 + Memory optimizations for tModLoader 1.3)
 An extension mod for Calamity that adds an extra difficulty - [c/F44847:Infernum]
 
 This difficulty is harder than Death mode and can be activated with the [c/d92256:Infernal Chalice] when Revengeance Mode is active.
@@ -8,3 +8,9 @@ Possible plans to add custom music, items, and exclusive bosses in the future...
 Some bosses may gain (unnecessary) extra phases for maximum "It's not over yet!" energy.
 
 The mod is not supported for multiplayer.
+
+[c/FFAA00:Memory notes (v1.1.1)]
+- Reduced Graphics and Low Memory Mode are enabled by default to prevent "Game Ran Out Of Memory" on 32-bit tModLoader 1.3.
+- Render targets are hard-capped in resolution.
+- Fusable particle counts are strictly limited.
+- If you still OOM, lower game resolution / disable other heavy mods.

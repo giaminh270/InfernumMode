@@ -28,6 +28,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.penetrate = -1;
             projectile.timeLeft = Lifetime;
             projectile.Opacity = 0f;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -49,10 +50,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 return;
 
             for (int i = 0; i < 6; i++)
-			{
+            {
                 Vector2 shadowSparkVelocity = (MathHelper.TwoPi * i / 6f).ToRotationVector2() * 7f;
                 Utilities.NewProjectileBetter(projectile.Center, shadowSparkVelocity, ModContent.ProjectileType<ShadowSpark>(), 500, 0f);
-			}
+            }
         }
     }
 }

@@ -19,6 +19,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.QueenBee
             projectile.tileCollide = true;
             projectile.friendly = false;
             projectile.hostile = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()

@@ -1,5 +1,6 @@
-using CalamityMod.NPCs;
+﻿using CalamityMod.NPCs;
 using CalamityMod.NPCs.DevourerofGods;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -22,11 +23,11 @@ namespace InfernumMode.Skies
             public Color LightningColor;
         }
 
-        public bool isActive = false;
-        public float Intensity = 0f;
+        public bool isActive;
+        public float Intensity;
         public int EdgyWormIndex = -1;
         public List<Lightning> LightningBolts = new List<Lightning>();
-        
+
         public static void CreateLightningBolt(Color color, int count = 1, bool playSound = false)
         {
             if (Main.netMode == NetmodeID.Server)
@@ -43,6 +44,7 @@ namespace InfernumMode.Skies
                 };
                 (SkyManager.Instance["InfernumMode:DoG"] as DoGSkyInfernum).LightningBolts.Add(lightning);
             }
+
             if (playSound && !Main.gamePaused)
             {
                 var lightningSound = Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ThunderStrike"), Main.LocalPlayer.Center);
@@ -73,7 +75,7 @@ namespace InfernumMode.Skies
 
         public override Color OnTileColor(Color inColor)
         {
-            float Intensity = this.GetIntensity();
+            float Intensity = GetIntensity();
             return new Color(Vector4.Lerp(new Vector4(0.5f, 0.8f, 1f, 1f), inColor.ToVector4(), 1f - Intensity));
         }
 
@@ -98,12 +100,6 @@ namespace InfernumMode.Skies
 
         public override void Draw(SpriteBatch spriteBatch, float minDepth, float maxDepth)
         {
-            if (maxDepth >= 0 && minDepth < 0)
-            {
-                float Intensity = this.GetIntensity();
-                Main.spriteBatch.Draw(Main.blackTileTexture, new Rectangle(0, 0, Main.screenWidth, Main.screenHeight), Color.Black * Intensity);
-            }
-
             Texture2D flashTexture = ModContent.GetTexture("Terraria/Misc/VortexSky/Flash");
             Texture2D boltTexture = ModContent.GetTexture("Terraria/Misc/VortexSky/Bolt");
 
@@ -129,6 +125,17 @@ namespace InfernumMode.Skies
                     Main.spriteBatch.Draw(texture, position, null, LightningBolts[i].LightningColor * opacity, 0f, Vector2.Zero, boltScale.X * 5f, SpriteEffects.None, 0f);
                 }
             }
+
+            /*if (CosmicBackgroundSystem.EffectIsActive || CosmicBackgroundSystem.MonolithIntensity > 0f)
+            {
+                Main.spriteBatch.End();
+                Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.AnisotropicWrap, DepthStencilState.None, Main.Rasterizer, null, Matrix.Identity);
+
+                CosmicBackgroundSystem.Draw();
+
+                Main.spriteBatch.End();
+                Main.spriteBatch.Begin();
+            }*/
         }
 
         public override float GetCloudAlpha()

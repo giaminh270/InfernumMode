@@ -1,8 +1,10 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.NPCs.Bumblebirb;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.Sounds;
 using InfernumMode.BehaviorOverrides.BossAIs.Twins;
+using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Audio;
@@ -29,8 +31,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             OrdinaryCharge,
             FakeoutCharge,
             ThunderCharge,
-            SummonSwarmers,
-            NormalLightningAura,
             PlasmaBursts,
             ElectricOverload,
             RuffleFeathers,
@@ -55,7 +55,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             DragonfollyAttackType.FeatherSpreadRelease,
             DragonfollyAttackType.OrdinaryCharge,
 
-            DragonfollyAttackType.NormalLightningAura,
+            DragonfollyAttackType.PlasmaBursts,
             DragonfollyAttackType.ThunderCharge,
         };
 
@@ -70,7 +70,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             DragonfollyAttackType.ExplodingEnergyOrbs,
             DragonfollyAttackType.ThunderCharge,
 
-            DragonfollyAttackType.NormalLightningAura,
+            DragonfollyAttackType.PlasmaBursts,
             DragonfollyAttackType.FakeoutCharge,
 
             DragonfollyAttackType.FeatherSpreadRelease,
@@ -110,6 +110,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
         #endregion
 
         #region AI
+
+        public static int RedSparkDamage => 225;
+
+        public static int FeatherDamage => 250;
+
+        public static int RedLightningDamage => 250;
 
         public const int TransitionTime = ScreamTime + 15;
 
@@ -225,19 +231,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                     DoAttack_Charge(npc, target, (DragonfollyAttackType)(int)attackType, phase2, phase3, ref fadeToRed, ref attackTimer, ref frameType, ref flapRate);
                     break;
 
-                // Currently unused to attack overlap problems.
-                case DragonfollyAttackType.SummonSwarmers:
-                    DoAttack_SummonSwarmers(npc, target, phase2, phase3, ref attackTimer, ref frameType, ref flapRate);
-                    break;
-
-                case DragonfollyAttackType.NormalLightningAura:
-                    DoAttack_CreateNormalLightningAura(npc, target, ref attackTimer, ref frameType, ref flapRate);
-                    break;
                 case DragonfollyAttackType.FeatherSpreadRelease:
                     DoAttack_FeatherSpreadRelease(npc, target, ref attackTimer, ref frameType, ref flapRate);
                     break;
                 case DragonfollyAttackType.PlasmaBursts:
-                    DoAttack_ReleasePlasmaBursts(npc, target, ref attackTimer, ref fadeToRed, ref frameType, ref flapRate);
+                    DoAttack_ReleasePlasmaBursts(npc, ref attackTimer, ref frameType);
                     break;
                 case DragonfollyAttackType.ElectricOverload:
                     DoAttack_ElectricOverload(npc, target, ref attackTimer, ref frameType, ref flapRate);
@@ -322,7 +320,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             if (attackTimer <= 45f)
             {
                 npc.Opacity = Utils.InverseLerp(25f, 45f, attackTimer, true);
-                npc.Center = Vector2.SmoothStep(npc.Center, target.Center - Vector2.UnitY * 1350f, (float)Math.Pow(attackTimer / 45f, 3D));
+                npc.Center = Vector2.SmoothStep(npc.Center, target.Center - Vector2.UnitY * 1350f, (float)Math.Pow(attackTimer / 45f, 3f));
                 npc.spriteDirection = (npc.Center.X - target.Center.X < 0).ToDirectionInt();
                 flapRate = 7;
             }
@@ -334,7 +332,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 {
                     Vector2 spawnPosition = target.Center - Vector2.UnitY.RotatedBy(offsetAngle) * 800f;
                     Vector2 shootDirection = target.DirectionFrom(spawnPosition) * 0.001f;
-                    Utilities.NewProjectileBetter(spawnPosition, shootDirection, ModContent.ProjectileType<RedLightningSnipeFeather>(), 300, 0f);
+                    Utilities.NewProjectileBetter(spawnPosition, shootDirection, ModContent.ProjectileType<RedLightningSnipeFeather>(), FeatherDamage, 0f);
                 }
             }
             if (attackTimer >= 150f)
@@ -362,7 +360,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                     fadeToRed = MathHelper.Lerp(fadeToRed, attackTimer >= 205f + chargeDelay ? 0f : 1f, 0.15f);
 
                     // Release lightning clouds from time to time while charging.
-                    if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % 6f == 5f)
+                    bool nearTarget = MathHelper.Distance(target.Center.X, npc.Center.X) < 600f;
+                    if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % 6f == 5f && nearTarget)
                         Projectile.NewProjectile(npc.Center, Vector2.Zero, ModContent.ProjectileType<LightningCloud>(), 0, 0f);
                 }
                 if (attackTimer >= 230f + chargeDelay)
@@ -539,12 +538,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 // Release lightning clouds from time to time while charging if doing a lightning charge.
                 int cloudSpawnRate = (int)MathHelper.Lerp(8f, 4f, 1f - npc.life / (float)npc.lifeMax);
                 float cloudOffsetAngle = npc.velocity.X * 0.01f;
-                if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % cloudSpawnRate == cloudSpawnRate - 1f && chargeType == DragonfollyAttackType.ThunderCharge)
+                bool nearTarget = MathHelper.Distance(target.Center.X, npc.Center.X) < 600f;
+                if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % cloudSpawnRate == cloudSpawnRate - 1f && chargeType == DragonfollyAttackType.ThunderCharge && nearTarget)
                 {
                     Vector2 cloudSpawnPosition = npc.Center - npc.velocity * 2f;
-                    int cloud = Projectile.NewProjectile(cloudSpawnPosition, Vector2.Zero, ModContent.ProjectileType<LightningCloud>(), 0, 0f);
-                    if (Main.projectile.IndexInRange(cloud))
-                        Main.projectile[cloud].ModProjectile<LightningCloud>().AngularOffset = cloudOffsetAngle;
+
+                    ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(cloud =>
+                    {
+                        cloud.ModProjectile<LightningCloud>().AngularOffset = cloudOffsetAngle;
+                    });
+                    Projectile.NewProjectile(cloudSpawnPosition, Vector2.Zero, ModContent.ProjectileType<LightningCloud>(), 0, 0f);
                 }
 
                 if (hasDoneFakeoutFlag == 0f && chargeType == DragonfollyAttackType.FakeoutCharge)
@@ -651,9 +654,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                         // Ensure that the spawn position is not near the target, to prevent potentially unfair hits.
                         if (!target.WithinRange(potentialSpawnPosition, 160f))
                         {
-                            int swarmer = NPC.NewNPC((int)potentialSpawnPosition.X, (int)potentialSpawnPosition.Y, ModContent.NPCType<Bumblefuck2>(), npc.whoAmI);
-                            Main.npc[swarmer].ai[3] = phase2.ToInt() + phase3.ToInt();
+                            int swarmer = NPC.NewNPC((int)potentialSpawnPosition.X, (int)potentialSpawnPosition.Y, ModContent.NPCType<Bumblefuck2>(), npc.whoAmI, 0f, 0f, 0f, phase2.ToInt() + phase3.ToInt());
                             Main.npc[swarmer].velocity = Vector2.UnitY * -12f;
+                            Main.npc[swarmer].netUpdate = true;
                         }
                     }
                 }
@@ -667,45 +670,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 if (attackTimer >= ScreamTime + 25f)
                     SelectNextAttack(npc);
             }
-        }
-
-        public static void DoAttack_CreateNormalLightningAura(NPC npc, Player target, ref float attackTimer, ref float frameType, ref float flapRate)
-        {
-            npc.velocity *= 0.96f;
-            npc.rotation *= 0.95f;
-
-            int shootDelay = 75;
-
-            if (attackTimer >= shootDelay - ScreamSoundDelay)
-                frameType = (int)DragonfollyFrameDrawingType.Screm;
-
-            // Terminate the attack early if an aura or flare already exists.
-            if (attackTimer < shootDelay)
-            {
-                if (Utilities.AnyProjectiles(ModContent.ProjectileType<BirbAuraFlare>()) || Utilities.AnyProjectiles(ModContent.ProjectileType<BirbAura>()))
-                    SelectNextAttack(npc);
-                npc.spriteDirection = (npc.SafeDirectionTo(target.Center).X > 0f).ToDirectionInt();
-            }
-
-            if (attackTimer == shootDelay)
-            {
-                Main.PlaySound(SoundID.DD2_BetsyFireballShot, npc.Center);
-
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    Vector2 mouthPosition = npc.Center + Vector2.UnitX * npc.direction * (float)Math.Cos(npc.rotation) * (npc.width * 0.5f + 36f);
-                    Projectile.NewProjectile(mouthPosition, Vector2.Zero, ModContent.ProjectileType<BirbAuraFlare>(), 0, 0f, Main.myPlayer, 2f, npc.target + 1);
-                }
-            }
-
-            if (attackTimer > shootDelay + 12f)
-            {
-                frameType = (int)DragonfollyFrameDrawingType.FlapWings;
-                flapRate = 5f;
-            }
-
-            if (attackTimer == shootDelay + 35f)
-                SelectNextAttack(npc);
         }
 
         public static void DoAttack_FeatherSpreadRelease(NPC npc, Player target, ref float attackTimer, ref float frameType, ref float flapRate)
@@ -755,7 +719,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                     for (int i = 0; i < totalFeathers; i++)
                     {
                         Vector2 shootVelocity = Vector2.UnitY.RotatedBy(MathHelper.TwoPi * i / totalFeathers) * -8f;
-                        Utilities.NewProjectileBetter(npc.Center + shootVelocity * 9f, shootVelocity, featherType, 240, 0f);
+                        Utilities.NewProjectileBetter(npc.Center + shootVelocity * 9f, shootVelocity, featherType, FeatherDamage, 0f);
                     }
                 }
 
@@ -799,7 +763,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             }
         }
 
-        public static void DoAttack_ReleasePlasmaBursts(NPC npc, Player target, ref float attackTimer, ref float fadeToRed, ref float frameType, ref float flapRate)
+        public static void DoAttack_ReleasePlasmaBursts(NPC npc, ref float attackTimer, ref float frameType)
         {
             if (NPC.CountNPCS(ModContent.NPCType<RedPlasmaEnergy>()) >= 3)
                 SelectNextAttack(npc);
@@ -814,7 +778,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 {
                     int plasmaBall = NPC.NewNPC((int)mouthPosition.X, (int)mouthPosition.Y, ModContent.NPCType<RedPlasmaEnergy>());
                     if (Main.npc.IndexInRange(plasmaBall))
+                    {
                         Main.npc[plasmaBall].velocity = Vector2.UnitX.RotatedByRandom(0.4f) * npc.direction * 7f;
+                        Main.npc[plasmaBall].netUpdate = true;
+                    }
                 }
             }
 
@@ -923,20 +890,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 npc.velocity *= 0.99f;
                 if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % cloudReleaseRate == cloudReleaseRate - 1f)
                 {
+                    int cloudExplosionDelay = 180 - (int)attackTimer;
                     Vector2 spawnPosition = target.Center + Vector2.UnitX * Main.rand.NextFloat(60f, 500f) * Main.rand.NextBool().ToDirectionInt();
-                    int cloud = Utilities.NewProjectileBetter(spawnPosition, Vector2.Zero, ModContent.ProjectileType<LightningCloud2>(), 0, 0f);
-                    if (Main.projectile.IndexInRange(cloud))
+
+                    ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(cloud =>
                     {
-                        Main.projectile[cloud].timeLeft = 10 + (170 - (int)attackTimer);
-                        Main.projectile[cloud].netUpdate = true;
-                    }
+                        cloud.timeLeft = cloudExplosionDelay;
+                    });
+                    Utilities.NewProjectileBetter(spawnPosition, Vector2.Zero, ModContent.ProjectileType<LightningCloud2>(), 0, 0f);
                 }
+
                 // Send sparks towards the target periodically.
                 if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % sparkReleaseRate == sparkReleaseRate - 1f)
                 {
                     Vector2 spawnOffset = -target.velocity.SafeNormalize(Main.rand.NextVector2Unit()) * 775f;
                     Vector2 sparkVelocity = -spawnOffset.SafeNormalize(Vector2.UnitY) * 14f;
-                    Utilities.NewProjectileBetter(target.Center + spawnOffset, sparkVelocity, ModContent.ProjectileType<RedSpark>(), 240, 0f);
+                    Utilities.NewProjectileBetter(target.Center + spawnOffset, sparkVelocity, ModContent.ProjectileType<RedSpark>(), RedSparkDamage, 0f);
                 }
 
                 npc.spriteDirection = (npc.velocity.X > 0f).ToDirectionInt();
@@ -963,7 +932,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             npc.rotation = npc.rotation.AngleTowards(0f, 0.125f);
             npc.noTileCollide = true;
 
-            int featherReleaseRate = phase3 ? 4 : 7;
+            int featherReleaseRate = phase3 ? 8 : 15;
             ref float attackState = ref npc.Infernum().ExtraAI[0];
 
             // Fly near the target.
@@ -990,6 +959,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 npc.velocity = Vector2.Lerp(npc.velocity, Vector2.Zero, 0.04f);
                 if (npc.velocity.Length() < 0.8f)
                     npc.velocity = Vector2.Zero;
+
                 // Create feathers in the air.
                 if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer < ScreamSoundDelay && attackTimer % featherReleaseRate == featherReleaseRate - 1f)
                 {
@@ -1008,6 +978,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                     SelectNextAttack(npc);
             }
         }
+
         public static void DoAttack_ExplodingEnergyOrbs(NPC npc, Player target, bool phase3, ref float attackTimer, ref float frameType, ref float flapRate)
         {
             int chargeDelay = 20;
@@ -1041,7 +1012,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 npc.SimpleFlyMovement(npc.SafeDirectionTo(hoverDestination) * 27f, 0.6f);
 
                 // Prepare for the charge if sufficiently close to the hover destination or if enough natural time has elapsed.
-                if ((attackTimer >= 45f && npc.WithinRange(hoverDestination, 200f)) || attackTimer >= 270f)
+                if (attackTimer >= 45f && npc.WithinRange(hoverDestination, 200f) || attackTimer >= 270f)
                 {
                     chargeDirection = npc.AngleTo(target.Center);
                     attackState = 1f;
@@ -1100,7 +1071,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
         {
             int chargeDelay = 20;
             int lightningSpawnerReleaseRate = 13;
-            int featherReleaseRate = 3;
+            int featherReleaseRate = 6;
             int chargeTime = 48;
             float chargeSpeed = 39.5f;
             float horizontalOffset = 600f;
@@ -1120,7 +1091,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 npc.SimpleFlyMovement(npc.SafeDirectionTo(hoverDestination) * 27f, 0.6f);
 
                 // Prepare for the charge if sufficiently close to the hover destination or if enough natural time has elapsed.
-                if ((attackTimer >= 45f && npc.WithinRange(hoverDestination, 200f)) || attackTimer >= 270f)
+                if (attackTimer >= 45f && npc.WithinRange(hoverDestination, 200f) || attackTimer >= 270f)
                 {
                     attackState = 1f;
                     attackTimer = 0f;
@@ -1136,16 +1107,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 {
                     chargeDirection = npc.AngleTo(target.Center);
 
-                    int telegraph = Projectile.NewProjectile(npc.Center, Vector2.Zero, ModContent.ProjectileType<LightningSuperchargeTelegraph>(), 0, 0f);
-                    if (Main.projectile.IndexInRange(telegraph))
+                    ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(telegraph =>
                     {
-                        Main.projectile[telegraph].ModProjectile<LightningSuperchargeTelegraph>().ChargePositions = new[]
+                        telegraph.ModProjectile<LightningSuperchargeTelegraph>().ChargePositions = new[]
                         {
                             npc.Center,
-                            npc.Center + chargeDirection.ToRotationVector2() * 1200f
+                            npc.Center + npc.SafeDirectionTo(target.Center) * 1200f
                         };
-                        Main.projectile[telegraph].netUpdate = true;
-                    }
+                    });
+
+                    Projectile.NewProjectile(npc.Center, Vector2.Zero, ModContent.ProjectileType<LightningSuperchargeTelegraph>(), 0, 0f);
                     hasCreatedTelegraph = 1f;
                     npc.netUpdate = true;
                 }
@@ -1177,7 +1148,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                         Projectile.NewProjectile(npc.Center + Main.rand.NextVector2CircularEdge(50f, 50f), featherVelocity, ModContent.ProjectileType<BigFollyFeather>(), 0, 0f);
                     }
                 }
-                
+
                 // Create the bolts from the mouth.
                 if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % lightningSpawnerReleaseRate == lightningSpawnerReleaseRate - 1f)
                 {

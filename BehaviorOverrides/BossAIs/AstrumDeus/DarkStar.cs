@@ -1,6 +1,7 @@
 using CalamityMod;
 using CalamityMod.Projectiles;
 using InfernumMode.ILEditingStuff;
+using InfernumMode.DataStructures;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -8,11 +9,12 @@ using System.Collections.Generic;
 using System.IO;
 using Terraria;
 using Terraria.GameContent;
+using InfernumMode.ExtraTextures;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
 {
-    public class DarkStar : ModProjectile
+    public class DarkStar : ModProjectile, IAdditiveDrawer
     {
         public Vector2 AnchorPoint;
 
@@ -33,10 +35,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
         public const float RadiusOfConstellation = 575f;
 
         public const int Lifetime = 960;
+
         public const int FadeinTime = 18;
+
         public const int FadeoutTime = 18;
 
-        public override string Texture => "InfernumMode/ExtraTextures/Gleam";
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/Gleam";
 
         public static Vector2 CalculateStarPosition(Vector2 origin, float offsetAngle, float spinAngle)
         {
@@ -92,15 +96,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             projectile.Center = CalculateStarPosition(AnchorPoint, InitialOffsetAngle, Time / 72f);
             projectile.velocity = Vector2.Zero;
             projectile.rotation += (projectile.identity % 2 == 0).ToDirectionInt() * 0.024f;
-            
+
             projectile.Opacity = Utils.InverseLerp(0f, FadeinTime, Time, true) * Utils.InverseLerp(Lifetime, Lifetime - FadeoutTime, Time, true);
             projectile.velocity = projectile.velocity.RotatedBy(Math.Sin(Time / 20f) * 0.02f);
             projectile.scale = MathHelper.Lerp(0.135f, 0.175f, FadeToDarkGodColors) * projectile.Opacity;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void AdditiveDraw(SpriteBatch spriteBatch)
         {
-            Texture2D sparkleTexture = ModContent.GetTexture("InfernumMode/ExtraTextures/LargeStar");
+            Texture2D sparkleTexture = InfernumTextureRegistry.LargeStar;
 
             // Orange and cyan.
             Color c1 = new Color(255, 63, 39);
@@ -150,12 +156,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             spriteBatch.Draw(sparkleTexture, drawCenter, null, sparkleColor, projectile.rotation, origin, sparkleScale, 0, 0f);
             spriteBatch.Draw(sparkleTexture, drawCenter, null, sparkleColor, MathHelper.PiOver2 + projectile.rotation, origin, orthogonalsparkleScale * 0.6f, 0, 0f);
             spriteBatch.Draw(sparkleTexture, drawCenter, null, sparkleColor, projectile.rotation, origin, sparkleScale * 0.6f, 0, 0f);
-            return false;
-        }
-
-        public override void DrawBehind(int index, List<int> drawCacheProjsBehindNPCsAndTiles, List<int> drawCacheProjsBehindNPCs, List<int> drawCacheProjsBehindProjectiles, List<int> drawCacheProjsOverWiresUI)
-        {
-            DrawBlackEffectHook.DrawCacheAdditiveLighting.Add(index);
         }
     }
 }

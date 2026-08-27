@@ -1,4 +1,4 @@
-using CalamityMod.Particles;
+﻿using CalamityMod.Particles;
 using CalamityMod.Projectiles.Boss;
 using InfernumMode;
 using InfernumMode.Particles;
@@ -14,6 +14,8 @@ using System.Collections.Generic;
 using System.Linq;
 using static System.Math;
 using static Microsoft.Xna.Framework.MathHelper;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Effects;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 {
@@ -60,9 +62,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                 Main.spriteBatch.EnterShaderRegion();
 				Color explosionTelegraphColor = Color.Lerp(Color.Red, Color.White, 0.4f) * (float)Math.Sqrt(explosionInterpolant);
 
-                Texture2D invisible = ModContent.GetTexture("InfernumMode/ExtraTextures/Invisible");
-                Texture2D noise = ModContent.GetTexture("CalamityMod/ExtraTextures/VoronoiShapes");
-                Effect fireballShader = Filters.Scene["Infernum:FireballShader"].GetShader().Shader;
+                Texture2D invisible = InfernumTextureRegistry.Invisible;
+                Texture2D noise = ModContent.GetTexture("InfernumMode/ExtraTextures/GreyscaleGradients/VoronoiShapes2");
+                Effect fireballShader = InfernumEffectsRegistry.FireballShader.GetShader().Shader;
 
                 Vector2 scale = Vector2.One * 950f / invisible.Size() * explosionInterpolant * projectile.Opacity;
                 fireballShader.Parameters["sampleTexture2"].SetValue(noise);
@@ -81,7 +83,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                 Main.spriteBatch.Draw(invisible, drawPosition, null, Color.White, projectile.rotation, invisible.Size() * 0.5f, scale * 0.32f, 0, 0f);
                 Main.spriteBatch.ExitShaderRegion();
             }
-            //projectile.DrawProjectileWithBackglowTemp(Color.Red, lightColor, (1f - projectile.Opacity) * 10f);
+            projectile.DrawProjectileWithBackglowTemp(Color.Red, lightColor, (1f - projectile.Opacity) * 10f);
             return false;
         }
 
@@ -89,7 +91,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
         {
             // Do funny screen stuff.
             Main.LocalPlayer.Infernum().CurrentScreenShakePower = 12f;
-            //sus ScreenEffectSystem.SetFlashEffect(projectile.Center, 2f, 45);
+            ScreenEffectSystem.SetFlashEffect(projectile.Center, 2f, 45);
 
             Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SCalSounds/BrimstoneGigablastImpact"), projectile.Center);
 

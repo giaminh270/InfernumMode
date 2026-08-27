@@ -14,8 +14,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
         public override int NPCOverrideType => NPCID.TheDestroyerBody;
 
         public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI;
+		
+        public override bool PreAI(NPC npc) => DoBehavior(npc);		
 
-        public override bool PreAI(NPC npc)
+        public static bool DoBehavior(NPC npc)
         {
             NPC aheadSegment = Main.npc[(int)npc.ai[1]];
             if (!aheadSegment.active || npc.realLife <= -1)
@@ -29,11 +31,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
                 npc.netUpdate = true;
             }
 
-            NPC head = Main.npc[npc.realLife];
-            npc.Calamity().DR = 0.2f;
+            // Reset the segment scale if necessary.
+            ResetScale(npc);
 
             // Inherit various attributes from the ahead segment.
             // This code will go upstream across every segment, until it reaches the head.
+            NPC head = Main.npc[npc.realLife];
             npc.Opacity = aheadSegment.Opacity;
             npc.chaseable = true;
             npc.friendly = false;
@@ -42,6 +45,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
             npc.Calamity().DR = 0.5f;
             npc.defense = 12;
 
+            // Completely disable the pink light effect that Calamity's rev+ destroyer AI uses.
             npc.Calamity().newAI[1] = 600f;
 
             npc.buffImmune[ModContent.BuffType<CrushDepth>()] = true;
@@ -62,19 +66,25 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
                 return false;
             }
 
-            float segmentNumber = npc.localAI[0];
+            float segmentNumber = npc.Infernum().ExtraAI[0];
             float headAttackTimer = head.ai[2];
             Player target = Main.player[head.target];
+            if (head.ai[1] == (int)DestroyerAttackType.DiveBombing && headAttackTimer - 45f == segmentNumber && segmentNumber % 6f == 5f)
+            {
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                    Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(target.Center) * 30f, ModContent.ProjectileType<EnergySpark2>(), DestroyerHeadBehaviorOverride.EnergySparkDamage, 0f);
+            }
+
             if (head.ai[1] == (int)DestroyerAttackType.EnergyBlasts && head.Infernum().ExtraAI[0] == 2f && headAttackTimer - 45f == segmentNumber)
             {
                 if (Main.netMode != NetmodeID.MultiplayerClient)
-                    Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(target.Center) * 42f, ModContent.ProjectileType<EnergySpark2>(), 140, 0f);
+                    Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(target.Center) * 42f, ModContent.ProjectileType<EnergySpark2>(), DestroyerHeadBehaviorOverride.EnergySparkDamage, 0f);
             }
 
             if (head.ai[1] == (int)DestroyerAttackType.LaserSpin && head.Infernum().ExtraAI[0] == segmentNumber && headAttackTimer % 8f == 7f && headAttackTimer > 45f)
             {
                 if (Main.netMode != NetmodeID.MultiplayerClient)
-                    Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(target.Center) * 26f, ModContent.ProjectileType<EnergySpark2>(), 140, 0f);
+                    Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(target.Center) * 26f, ModContent.ProjectileType<EnergySpark2>(), DestroyerHeadBehaviorOverride.EnergySparkDamage, 0f);
             }
             return false;
         }

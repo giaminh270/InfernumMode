@@ -1,6 +1,7 @@
 using CalamityMod;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using CalamityMod.NPCs;
 using System;
 using System.IO;
 using Terraria;
@@ -70,11 +71,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
         {
             // Fade away if Polter is gone or not performing the relevant attack.
             int fadeoutTime = 40;
-            int polterghastIndex = NPC.FindFirstNPC(ModContent.NPCType<PolterNPC>());
-            if (polterghastIndex == -1 && projectile.timeLeft > fadeoutTime)
-                projectile.timeLeft = fadeoutTime;
-
-            if (polterghastIndex >= 0 && Main.npc[polterghastIndex].ai[0] != (int)PolterghastBehaviorOverride.PolterghastAttackType.WispCircleCharges && projectile.timeLeft > fadeoutTime)
+            int polterghastIndex = CalamityGlobalNPC.ghostBoss;
+            if (!Main.npc.IndexInRange(polterghastIndex) || !Main.npc[polterghastIndex].active)
+            {
+                if (projectile.timeLeft > fadeoutTime)
+                    projectile.timeLeft = fadeoutTime;
+            }
+            else if (Main.npc[polterghastIndex].ai[0] != (int)PolterghastBehaviorOverride.PolterghastAttackType.WispCircleCharges && projectile.timeLeft > fadeoutTime)
                 projectile.timeLeft = fadeoutTime;
 
             if (projectile.timeLeft < fadeoutTime)

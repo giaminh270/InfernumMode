@@ -1,3 +1,5 @@
+using CalamityMod;
+using InfernumMode.Sounds;
 using InfernumMode.Miscellaneous;
 using Microsoft.Xna.Framework;
 using System;
@@ -7,7 +9,6 @@ using Terraria.Graphics.Effects;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.World.Generation;
-using CalamityMod;
 using LeviathanNPC = CalamityMod.NPCs.Leviathan.Leviathan;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
@@ -38,15 +39,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
             if (projectile.Opacity > 1f)
                 projectile.Opacity = 1f;
 
+            // Play a rumble sound.
             if (projectile.timeLeft == 340)
             {
-                var sound = Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/LeviathanSummonBase"), projectile.Center);
+                var sound = Main.PlaySound(InfernumSoundRegistry.LeviathanRumbleSound, projectile.Center);
                 if (sound != null)
                     sound.Volume = MathHelper.Clamp(sound.Volume * 1.5f, 0f, 1f);
             }
 
-            Main.LocalPlayer.Infernum().CurrentScreenShakePower = (float)Math.Pow(Utils.InverseLerp(180f, 290f, Time, true), 0.3D) * 20f;
-			Main.LocalPlayer.Infernum().CurrentScreenShakePower += CalamityUtils.Convert01To010((float)Math.Pow(Utils.InverseLerp(300f, 440f, Time, true), 0.5D)) * 10f;
+            Main.LocalPlayer.Infernum().CurrentScreenShakePower = (float)Math.Pow(Utils.InverseLerp(180f, 290f, Time, true), 0.3f) * 20f;
+			Main.LocalPlayer.Infernum().CurrentScreenShakePower += CalamityUtils.Convert01To010((float)Math.Pow(Utils.InverseLerp(300f, 440f, Time, true), 0.5f)) * 35f;
 
             if (projectile.timeLeft == 45)
             {

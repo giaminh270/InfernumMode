@@ -1,4 +1,6 @@
-using CalamityMod.Events;
+﻿using CalamityMod.Events;
+using CalamityMod.Particles;
+using InfernumMode.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -28,6 +30,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             projectile.timeLeft = 300;
             projectile.Opacity = 0f;
             projectile.extraUpdates = BossRushEvent.BossRushActive ? 1 : 0;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -52,6 +55,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             else if (projectile.velocity.Length() < 17f)
                 projectile.velocity *= 1.0075f;
 
+            if (Time % 10 == 0)
+            {
+                // Leave a trail of particles.
+                Particle iceParticle = new SnowyIceParticle(projectile.Center, projectile.velocity * 0.5f, Color.White, Main.rand.NextFloat(0.75f, 0.95f), 30);
+                GeneralParticleHandler.SpawnParticle(iceParticle);
+            }
+
+
+
             Time++;
         }
 
@@ -63,7 +75,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type]);
+            Utilities.DrawAfterimagesCentered(projectile, Color.White * projectile.Opacity, ProjectileID.Sets.TrailingMode[projectile.type]);
             return false;
         }
     }

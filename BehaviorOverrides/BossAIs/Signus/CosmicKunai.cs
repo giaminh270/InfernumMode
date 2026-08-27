@@ -1,6 +1,7 @@
 using CalamityMod;
 using CalamityMod.Buffs.StatDebuffs;
 using CalamityMod.Events;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -33,7 +34,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Signus
             projectile.Opacity = Utils.InverseLerp(0f, 6f, Time, true) * Utils.InverseLerp(0f, 6f, projectile.timeLeft, true);
 
             Player closestPlayer = Main.player[Player.FindClosest(projectile.Center, 1, 1)];
-            if (Time < 20f)
+            if (Time < 26f)
             {
                 float spinSlowdown = Utils.InverseLerp(18f, 5f, Time, true);
                 projectile.velocity *= 0.7f;
@@ -42,14 +43,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Signus
                     projectile.rotation = projectile.rotation.AngleLerp(projectile.AngleTo(closestPlayer.Center) + MathHelper.PiOver2, (1f - spinSlowdown) * 0.6f);
             }
 
-            if (Time == 20f)
+            if (Time == 26f)
             {
                 projectile.velocity = projectile.SafeDirectionTo(closestPlayer.Center) * 18f;
                 if (BossRushEvent.BossRushActive)
                     projectile.velocity *= 1.75f;
-                Main.PlaySound(SoundID.Item73, projectile.Center);
+                Main.PlaySound(InfernumSoundRegistry.SignusWeaponFireSound, projectile.Center);
             }
-            if (Time > 20f && projectile.velocity.Length() < (BossRushEvent.BossRushActive ? 50f : 30f))
+            if (Time > 26f && projectile.velocity.Length() < (BossRushEvent.BossRushActive ? 50f : 26f))
                 projectile.velocity *= BossRushEvent.BossRushActive ? 1.03f : 1.021f;
 
             Lighting.AddLight(projectile.Center, Vector3.One * projectile.Opacity * 0.4f);
@@ -72,22 +73,27 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Signus
             Vector2 drawPosition = projectile.Center - Main.screenPosition;
 
             // Draw afterimages.
-            for (int i = 0; i < 5; i++)
+            if (projectile.velocity.Length() > 2.5f)
             {
-                Vector2 afterimageOffset = projectile.velocity.SafeNormalize(Vector2.Zero) * i * -20f;
-                Color afterimageColor = new Color(198, 118, 204, 0) * (1f - i / 5f) * 0.7f;
-                spriteBatch.Draw(texture, drawPosition + afterimageOffset, null, projectile.GetAlpha(afterimageColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale * 0.7f, SpriteEffects.None, 0f);
+                for (int i = 0; i < 5; i++)
+                {
+                	Vector2 afterimageOffset = projectile.velocity.SafeNormalize(Vector2.Zero) * i * -20f;
+                    Color afterimageColor = new Color(198, 118, 204, 0) * (1f - i / 5f) * 0.7f;
+                	spriteBatch.Draw(texture, drawPosition + afterimageOffset, null, projectile.GetAlpha(afterimageColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale * 0.7f, SpriteEffects.None, 0f);
+                }
+            }
+            // Draw backglow effects.
+            for (int i = 0; i < 12; i++)
+            {
+                Vector2 afterimageOffset = (MathHelper.TwoPi * i / 12f).ToRotationVector2() * 4f;
+                Color afterimageColor = new Color(1f, 1f, 1f, 0f) * 0.7f;
+                Main.spriteBatch.Draw(texture, drawPosition + afterimageOffset, null, projectile.GetAlpha(afterimageColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
             }
 
-            spriteBatch.Draw(texture, drawPosition, null, projectile.GetAlpha(lightColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(texture, drawPosition, null, projectile.GetAlpha(lightColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
             return false;
         }
 
         public override bool CanDamage() => projectile.alpha < 20;
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            target.Calamity().lastProjectileHit = projectile;
-        }
     }
 }

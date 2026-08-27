@@ -53,7 +53,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 return;
 
             Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<SuicideBomberDemonExplosion>(), 0, 0f);
-            Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<SuicideBomberDemonHostile>(), 650, 0f);
+            Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<SuicideBomberDemonHostile>(), SupremeCalamitasBehaviorOverride.SuicideBomberDemonDamage, 0f);
         }
 
         public override Color? GetAlpha(Color lightColor) => Color.White * projectile.Opacity;

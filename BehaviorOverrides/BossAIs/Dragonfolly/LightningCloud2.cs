@@ -1,4 +1,4 @@
-using CalamityMod.Items.Weapons.DraedonsArsenal;
+﻿using CalamityMod.Items.Weapons.DraedonsArsenal;
 using CalamityMod.Projectiles.Boss;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -24,8 +24,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             projectile.width = projectile.height = 64;
             projectile.hostile = false;
             projectile.friendly = false;
-            projectile.tileCollide = true;
+            projectile.tileCollide = false;
             projectile.timeLeft = 60;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -66,12 +67,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                 Vector2 spawnPosition = projectile.Center + Vector2.UnitX * Main.rand.NextFloat(-7f, 7f);
                 spawnPosition.Y -= 2800f;
 
-                int lightning = Utilities.NewProjectileBetter(spawnPosition, Vector2.UnitY * 15f, ModContent.ProjectileType<TwinsRedLightning>(), 305, 0f);
-                if (Main.projectile.IndexInRange(lightning))
-                {
-                    Main.projectile[lightning].ai[0] = Main.projectile[lightning].velocity.ToRotation();
-                    Main.projectile[lightning].ai[1] = Main.rand.Next(100);
-                }
+                Utilities.NewProjectileBetter(spawnPosition, Vector2.UnitY * 15f, ModContent.ProjectileType<TwinsRedLightning>(), DragonfollyBehaviorOverride.RedLightningDamage, 0f, -1, MathHelper.PiOver2, Main.rand.Next(100));
             }
         }
     }

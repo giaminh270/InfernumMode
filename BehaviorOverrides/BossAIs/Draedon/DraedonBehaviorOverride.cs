@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Apollo;
 using CalamityMod.NPCs.ExoMechs.Ares;
@@ -6,13 +6,24 @@ using CalamityMod.NPCs.ExoMechs.Artemis;
 using CalamityMod.NPCs.ExoMechs.Thanatos;
 using CalamityMod.World;
 using InfernumMode.ILEditingStuff;
+using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
+using InfernumMode.Projectiles;
+using InfernumMode;
+using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using Terraria.Graphics.Effects;
 using Terraria.ID;
 using Terraria.ModLoader;
 using static CalamityMod.NPCs.ExoMechs.Draedon;
+using static InfernumMode.BehaviorOverrides.BossAIs.Draedon.ExoMechAIUtilities;
 using DraedonNPC = CalamityMod.NPCs.ExoMechs.Draedon;
+using InfernumMode.TrackedMusic;
+using System.Linq;
+using InfernumMode.Effects;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
 {
@@ -20,29 +31,38 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
     {
         public override int NPCOverrideType => ModContent.NPCType<DraedonNPC>();
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCFindFrame;
+		public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCFindFrame;
 
         public const int IntroSoundLength = 106;
 
         public const int PostBattleMusicLength = 5120;
 
         // Projectile damage values.
-        public const int NormalShotDamage = 520;
+        public const int NormalShotDamage = 540;
 
-        public const int StrongerNormalShotDamage = 540;
+        public const int StrongerNormalShotDamage = 560;
+
+        public const int AresEnergySlashDamage = 640;
 
         public const int PowerfulShotDamage = 850;
 
         // Contact damage values.
-        public const int AresChargeContactDamage = 650;
-
-        public const int AresPhotonRipperContactDamage = 600;
+        public const int AresEnergyKatanaContactDamage = 650;
 
         public const int TwinsChargeContactDamage = 600;
-        
+
         public const int ThanatosHeadDamage = 800;
 
         public const int ThanatosHeadDamageMaximumOverdrive = 960;
+
+        // Exo Mech text colors.
+        public static readonly Color ApolloTextColor = new Color(44, 172, 36);
+
+        public static readonly Color ArtemisTextColor = new Color(246, 137, 24);
+
+        public static readonly Color AresTextColor = new Color(197, 72, 64);
+
+        public static readonly Color ThanatosTextColor = new Color(72, 104, 196);
 
         public override bool PreAI(NPC npc)
         {
@@ -57,6 +77,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             ref float hologramEffectTimer = ref npc.localAI[1];
             ref float killReappearDelay = ref npc.localAI[3];
             ref float musicDelay = ref npc.Infernum().ExtraAI[0];
+            ref float isPissed = ref npc.Infernum().ExtraAI[1];
 
             // Decide an initial target and play a teleport sound on the first frame.
             Player playerToFollow = Main.player[npc.target];
@@ -82,6 +103,48 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                 }
             }
 
+            // Kill the player if pissed.
+            if (isPissed == 1f)
+            {
+                npc.ModNPC<DraedonNPC>().ShouldStartStandingUp = true;
+                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/LaserCannon"), playerToFollow.Center);
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    Vector2 laserSpawnPosition = npc.Center - Vector2.UnitY * 80f;
+                    laserSpawnPosition.X += 40f;
+                    if (npc.spriteDirection == 1)
+                        laserSpawnPosition.X -= 70f;
+
+                    Utilities.NewProjectileBetter(laserSpawnPosition, (playerToFollow.Center - laserSpawnPosition).SafeNormalize(Vector2.UnitY), ModContent.ProjectileType<AresPrecisionBlast>(), StrongerNormalShotDamage, 0f);
+                }
+
+                // Stay within the world.
+                npc.position.Y = MathHelper.Clamp(npc.position.Y, 150f, Main.maxTilesY * 16f - 150f);
+                npc.spriteDirection = (playerToFollow.Center.X < npc.Center.X).ToDirectionInt();
+
+                // Fly near the target.
+                Vector2 hoverDestination = playerToFollow.Center + Vector2.UnitX * (playerToFollow.Center.X < npc.Center.X).ToDirectionInt() * 325f;
+
+                // Decide sprite direction based on movement if not close enough to the desination.
+                // Not deciding this here results in Draedon using the default of looking at the target he's following.
+                if (npc.WithinRange(hoverDestination, 300f))
+                {
+                    npc.velocity *= 0.96f;
+
+                    float moveSpeed = MathHelper.Lerp(2f, 8f, Utils.InverseLerp(45f, 275f, npc.Distance(hoverDestination), true));
+                    npc.Center = npc.Center.MoveTowards(hoverDestination, moveSpeed);
+                }
+                else
+                {
+                    float flySpeed = 32f;
+                    Vector2 idealVelocity = npc.SafeDirectionTo(hoverDestination) * flySpeed;
+                    npc.SimpleFlyMovement(idealVelocity, flySpeed / 400f);
+                    npc.velocity = Vector2.Lerp(npc.velocity, idealVelocity, 0.045f);
+                }
+
+                return false;
+            }
+
             if (!ExoMechIsPresent)
             {
                 if (npc.ModNPC<DraedonNPC>().DefeatTimer <= 0f)
@@ -99,6 +162,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             // Stay within the world.
             npc.position.Y = MathHelper.Clamp(npc.position.Y, 150f, Main.maxTilesY * 16f - 150f);
             npc.spriteDirection = (playerToFollow.Center.X < npc.Center.X).ToDirectionInt();
+
+            // Handle delays when re-appearing after being killed.
+            if (killReappearDelay > 0f)
+            {
+                npc.Opacity = 0f;
+                killReappearDelay--;
+                if (killReappearDelay <= 0f)
+                    CalamityUtils.DisplayLocalizedText("Mods.CalamityMod.DraedonEndKillAttemptText", TextColor);
+                return false;
+            }
 
             // Synchronize the hologram effect and talk timer at the beginning.
             // Also calculate opacity.
@@ -162,7 +235,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             }
 
             // Wait for the player to select an exo mech.
-            if (talkTimer >= ExoMechChooseDelay && talkTimer < ExoMechChooseDelay + 8f && CalamityWorld.DraedonMechToSummon == ExoMech.None)
+            if (talkTimer >= ExoMechChooseDelay && talkTimer < ExoMechChooseDelay + 8f && CalamityWorld.DraedonMechToSummon == ExoMech.None && ExoMechManagement.TotalMechs <= 0)
             {
                 playerToFollow.Calamity().AbleToSelectExoMech = true;
                 talkTimer = ExoMechChooseDelay;
@@ -190,7 +263,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                     var sound = Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/FlareSound"), playerToFollow.Center);
                     if (sound != null)
                         sound.Volume = MathHelper.Clamp(sound.Volume * 1.55f, 0f, 1f);
-                    sound = Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ExoMechIntro"), playerToFollow.Center);
+                    sound = Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ExoMechs/ExoMechIntro"), playerToFollow.Center);
                     if (sound != null)
                         sound.Volume = MathHelper.Clamp(sound.Volume * 1.5f, 0f, 1f);
                 }
@@ -220,7 +293,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                     break;
 
                 case 3:
-
                     if (Main.netMode != NetmodeID.MultiplayerClient && talkTimer == ExoMechPhaseDialogueTime)
                     {
                         Utilities.DisplayText("Your efforts are very intriguing.", TextColor);
@@ -236,7 +308,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                     break;
 
                 case 4:
-
                     if (Main.netMode != NetmodeID.MultiplayerClient && talkTimer == ExoMechPhaseDialogueTime)
                     {
                         CalamityUtils.DisplayLocalizedText("Mods.CalamityMod.DraedonExoPhase5Text1", TextColor);
@@ -284,13 +355,123 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                 npc.ModNPC<DraedonNPC>().DefeatTimer++;
             }
 
+            // Set the screenshader based on the current song section.
+            if (ExoMechIsPresent && Main.netMode != NetmodeID.Server)
+            {
+                if (TrackedMusicManager.TryGetSongInformation(out var songInfo) && songInfo.SongSections.Any(s => s.Key.WithinRange(TrackedMusicManager.SongElapsedTime)))
+                {
+                    if (!InfernumEffectsRegistry.ScreenBorderShader.IsActive() && !InfernumConfig.Instance.ReducedGraphicsConfig)
+                    {
+                        Vector2 focusPoint = Main.screenPosition + new Vector2(Main.screenWidth, Main.screenHeight) * 0.5f;
+                        Filters.Scene.Activate("InfernumMode:ScreenBorder", focusPoint);
+
+                        // Get the section(s) where the current elapsed time is in.
+                        var section = songInfo.SongSections.Keys.Where(s => s.WithinRange(TrackedMusicManager.SongElapsedTime));
+
+                        // Get the type of section we are in from the first (as it could potentially be more than one) key found above in the Dictonary.
+                        int mechType = 0;
+                        if (songInfo.SongSections.TryGetValue(section.FirstOrDefault(), out int mech))
+                            mechType = mech;
+
+                        float intensity = 0.5f;
+                        float saturation = 1f;
+
+                        // The hue of the colors. These use HSL for needing to sync a single value as opposed to 3.
+                        // These don't really need to be so precise but it is what windows calculator gave me so.
+                        float blue = 0.666666667f;
+                        float green = 0.25f;
+                        float orange = 0.0444444444f;
+                        float rgb = (1 + Main.GlobalTime * 0.3f + 35 * 0.54f) % 1f;
+                        float transitionLength = 10f;
+                        ref float currentHue = ref npc.Infernum().ExtraAI[ExoMechManagement.CurrentHueIndex];
+                        ref float previousHue = ref npc.Infernum().ExtraAI[ExoMechManagement.PreviousHueIndex];
+                        ref float hueTimer = ref npc.Infernum().ExtraAI[ExoMechManagement.HueTimerIndex];
+
+                        float timerInterpolant = hueTimer / transitionLength;
+
+                        float newHue;
+						switch (mechType)
+						{
+						    case (int)ExoMechMusicPhases.Thanatos:
+						        newHue = blue;
+						        break;
+						    case (int)ExoMechMusicPhases.Twins:
+						        newHue = green;
+						        break;
+						    case (int)ExoMechMusicPhases.Ares:
+						        newHue = orange;
+						        break;
+						    case (int)ExoMechMusicPhases.AllThree:
+						        newHue = rgb;
+						        break;
+						    default:
+						        newHue = 0f;
+						        break;
+						}
+
+                        // Transition to the new hue.
+                        if (hueTimer < transitionLength && currentHue != newHue)
+                        {
+                            currentHue = MathHelper.Lerp(previousHue, newHue, timerInterpolant);
+
+                            // If the mech type is draedon, also change the saturation. This is because white has a saturation of 0, while the
+                            // other colors share one of 1.
+                            if ((ExoMechMusicPhases)mechType is ExoMechMusicPhases.Draedon)
+                                saturation = currentHue;
+                            hueTimer++;
+                        }
+                        // When the transition time has elapsed, update the hue variables to the current hue.
+                        else
+                        {
+                            previousHue = newHue;
+                            currentHue = newHue;
+                            // Also keep setting the saturation at 0 if needed.
+                            if ((ExoMechMusicPhases)mechType is ExoMechMusicPhases.Draedon)
+                                saturation = 0f;
+                            // Reset the timer.
+                            hueTimer = 0;
+                        }
+
+                        // The draedon all mechs mech type should have a lower luminosity.
+                        float luminosity = 0.5f;
+                        if ((ExoMechMusicPhases)mechType == ExoMechMusicPhases.AllThree)
+                            luminosity = 0.36f;
+
+                        // Set the shader color, opactiy, image, and intensity.
+                        InfernumEffectsRegistry.ScreenBorderShader.GetShader().UseColor(Main.hslToRgb(currentHue, saturation, luminosity));
+                        InfernumEffectsRegistry.ScreenBorderShader.GetShader().UseOpacity(1f);
+                        InfernumEffectsRegistry.ScreenBorderShader.GetShader().UseImage(ModContent.GetTexture("InfernumMode/ExtraTextures/GreyscaleGradients/TechyNoise"), 0, SamplerState.AnisotropicWrap);
+                        InfernumEffectsRegistry.ScreenBorderShader.GetShader().UseIntensity(intensity);
+                    }
+                }
+
+                // For some reason, screen shaders have a several frames delay after deactivating before they actually vanish. This is fucking annoying.
+                // Setting the shader's opacity to 0 if it should be gone seems to "fix" it, but its still actually being ran so its more of a bandaid fix.
+                else
+                {
+                    if (Main.netMode != NetmodeID.Server)
+                    {
+                        InfernumEffectsRegistry.ScreenBorderShader.GetShader().UseOpacity(0f);
+                        InfernumEffectsRegistry.ScreenBorderShader.GetShader().UseIntensity(0f);
+                    }
+                    // Reset the previous hue.
+                    npc.Infernum().ExtraAI[ExoMechManagement.PreviousHueIndex] = 0;
+                }
+            }
+
             talkTimer++;
             return false;
         }
 
         public static void SummonExoMech(Player playerToFollow)
         {
-            int secondaryMech = (int)DrawDraedonSelectionUIWithAthena.DestroyerTypeToSummon;
+            /*if (Main.netMode == NetmodeID.MultiplayerClient && Main.myPlayer == playerToFollow.whoAmI)
+            {
+                PacketManager.SendPacket<ExoMechSelectionPacket>();
+                return;
+            }*/
+
+            int secondaryMech = (int)CustomExoMechSelectionSystem.DestroyerTypeToSummon;
             if (secondaryMech == (int)ExoMech.Destroyer)
                 secondaryMech = ModContent.NPCType<ThanatosHead>();
             if (secondaryMech == (int)ExoMech.Prime)
@@ -298,7 +479,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
             if (secondaryMech == (int)ExoMech.Twins)
                 secondaryMech = ModContent.NPCType<Apollo>();
 
-            switch (DrawDraedonSelectionUIWithAthena.PrimaryMechToSummon)
+            switch (CustomExoMechSelectionSystem.PrimaryMechToSummon)
             {
                 // Summon Thanatos underground.
                 case ExoMech.Destroyer:
@@ -307,6 +488,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                     if (thanatos != null)
                     {
                         thanatos.velocity = thanatos.SafeDirectionTo(playerToFollow.Center) * 40f;
+                        thanatos.Infernum().ExtraAI[ExoMechManagement.InitialMechNPCTypeIndex] = thanatos.type;
                         thanatos.Infernum().ExtraAI[ExoMechManagement.SecondaryMechNPCTypeIndex] = secondaryMech;
                     }
                     break;
@@ -316,7 +498,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                     Vector2 aresSpawnPosition = playerToFollow.Center - Vector2.UnitY * 1400f;
                     NPC ares = CalamityUtils.SpawnBossBetter(aresSpawnPosition, ModContent.NPCType<AresBody>());
                     if (ares != null)
+                    {
+                        ares.Infernum().ExtraAI[ExoMechManagement.InitialMechNPCTypeIndex] = ares.type;
                         ares.Infernum().ExtraAI[ExoMechManagement.SecondaryMechNPCTypeIndex] = secondaryMech;
+                    }
                     break;
 
                 // Summon Apollo and Artemis above the player to their sides.
@@ -326,7 +511,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                     CalamityUtils.SpawnBossBetter(artemisSpawnPosition, ModContent.NPCType<Artemis>());
                     NPC apollo = CalamityUtils.SpawnBossBetter(apolloSpawnPosition, ModContent.NPCType<Apollo>());
                     if (apollo != null)
+                    {
+                        apollo.Infernum().ExtraAI[ExoMechManagement.InitialMechNPCTypeIndex] = apollo.type;
                         apollo.Infernum().ExtraAI[ExoMechManagement.SecondaryMechNPCTypeIndex] = secondaryMech;
+                    }
                     break;
             }
         }
@@ -335,6 +523,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
         {
             // Become vulnerable after being defeated after a certain point.
             bool hasBeenKilled = npc.localAI[2] == 1f;
+            //bool earnedHyperplaneMatrix = HasEarnedHyperplaneMatrix();
             ref float hologramEffectTimer = ref npc.localAI[1];
             npc.dontTakeDamage = defeatTimer < TalkDelay * 2f + 50f || hasBeenKilled;
             npc.Calamity().CanHaveBossHealthBar = !npc.dontTakeDamage;
@@ -410,7 +599,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon
                 frame = 0;
 
             int frameChangeDelay = 7;
-            bool shouldNotSitDown = npc.ModNPC<DraedonNPC>().DefeatTimer > DelayBeforeDefeatStandup && npc.ModNPC<DraedonNPC>().DefeatTimer < TalkDelay * 3f + 10f;
+            bool shouldNotSitDown = npc.ModNPC<DraedonNPC>().DefeatTimer > DelayBeforeDefeatStandup && npc.ModNPC<DraedonNPC>().DefeatTimer < (TalkDelay * 3f + 10f) || npc.Infernum().ExtraAI[1] == 1f;
 
             npc.frameCounter++;
             if (npc.frameCounter >= frameChangeDelay)

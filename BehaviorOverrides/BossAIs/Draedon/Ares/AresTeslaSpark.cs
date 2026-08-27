@@ -24,7 +24,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
         public override void AI()
         {
-            projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.1f, 0f, 1f);
+            // Set correct lifetime.
+            if (projectile.ai[1] == 0f)
+            {
+                // This is 1 if being fired during the ares cage.
+                if (projectile.ai[0] == 1f)
+                    projectile.timeLeft = 200;
+
+                projectile.ai[1] = 1f;
+            }
+
+            // Fade in and out.
+            if (projectile.timeLeft <= 10)
+                projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.1f, 0f, 1f);
+            else
+                projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.1f, 0f, 1f);
+
             projectile.rotation = projectile.velocity.ToRotation() + MathHelper.PiOver2;
 
             if (projectile.velocity.Length() < 14f)

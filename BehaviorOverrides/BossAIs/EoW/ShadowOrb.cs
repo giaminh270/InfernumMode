@@ -17,6 +17,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EoW
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.timeLeft = 120;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -28,7 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EoW
             projectile.Opacity = Utils.InverseLerp(0f, 30f, projectile.timeLeft, true) * Utils.InverseLerp(120f, 90f, projectile.timeLeft, true);
         }
 
-        // Summon a random enemy after disappearing.
+        // Summon a random enemy after disappearing. Nah, get trolled play a sound instead lol
         public override void Kill(int timeLeft)
         {
             Main.PlaySound(SoundID.Item8, projectile.Center);

@@ -1,3 +1,4 @@
+﻿using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -30,7 +31,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
             projectile.rotation = projectile.velocity.ToRotation() + MathHelper.PiOver2;
 
             if (projectile.timeLeft == 330)
-                Main.PlaySound(SoundID.Item12, projectile.Center);
+                Main.PlaySound(InfernumSoundRegistry.ExoLaserShootSound, projectile.Center);
         }
 
         public override Color? GetAlpha(Color lightColor)

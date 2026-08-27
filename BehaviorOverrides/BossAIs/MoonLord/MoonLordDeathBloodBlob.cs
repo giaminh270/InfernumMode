@@ -26,6 +26,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.scale = Main.rand?.NextFloat(0.7f, 1.3f) ?? 1f;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)
@@ -97,7 +98,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                     float scale2 = 0.8f;
                     float scale3 = 2f;
                     Vector2 dustVelocity = (projectile.rotation - MathHelper.PiOver2).ToRotationVector2() * projectile.velocity.Length();
-                    for (int num53 = 0; num53 < 10; num53++)
+                    for (int i = 0; i < 10; i++)
                     {
                         Dust greenBlood = Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, 273, 0f, 0f, 200, default, scale);
                         greenBlood.position = projectile.Center + Vector2.UnitY.RotatedByRandom(MathHelper.Pi) * (float)Main.rand.NextDouble() * projectile.width / 2f;
@@ -114,7 +115,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                         greenBlood.fadeIn = 1f;
                         greenBlood.velocity += dustVelocity * Main.rand.NextFloat();
                     }
-                    for (int num55 = 0; num55 < 5; num55++)
+                    for (int i = 0; i < 5; i++)
                     {
                         Dust greenBlood = Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, 273, 0f, 0f, 0, default, scale3);
                         greenBlood.position = projectile.Center + Vector2.UnitX.RotatedByRandom(MathHelper.Pi).RotatedBy(projectile.velocity.ToRotation()) * projectile.width / 3f;

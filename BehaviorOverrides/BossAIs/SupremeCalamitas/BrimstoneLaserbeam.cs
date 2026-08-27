@@ -1,6 +1,9 @@
 using CalamityMod;
 using CalamityMod.NPCs;
+using CalamityMod.Particles;
 using CalamityMod.Projectiles.Magic;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -9,13 +12,16 @@ using System.IO;
 using System.Linq;
 using Terraria;
 using Terraria.Graphics.Shaders;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
-    public class BrimstoneLaserbeam : ModProjectile
+    public class BrimstoneLaserbeam : ModProjectile, IPixelPrimitiveDrawer
     {
-        public PrimitiveTrail RayDrawer = null;
+		public bool DrawBeforeNPCs => false;
+		
+        public PrimitiveTrailCopy RayDrawer;
 
         public ref float LaserLength => ref projectile.ai[1];
 
@@ -35,7 +41,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.tileCollide = false;
             projectile.ignoreWater = true;
             projectile.hide = true;
+            projectile.timeLeft = 7200;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer) => writer.Write(projectile.rotation);
@@ -55,8 +63,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.scale = MathHelper.Clamp(projectile.scale + 0.15f, 0.05f, 2f);
 
             // Decide where to position the laserbeam.
-            Projectile jewel = Main.projectile[(int)Main.npc[CalamityGlobalNPC.SCal].Infernum().ExtraAI[0]];
-            Vector2 circlePointDirection = jewel.rotation.ToRotationVector2();
+            Vector2 circlePointDirection = Main.npc[CalamityGlobalNPC.SCal].Infernum().ExtraAI[2].ToRotationVector2();
             projectile.velocity = circlePointDirection;
             projectile.Center = Main.npc[CalamityGlobalNPC.SCal].Center;
 
@@ -80,9 +87,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public void CreateArmsOnSurfaces()
         {
-            Vector2 endOfLaser = projectile.Center + projectile.velocity * LaserLength + Main.rand.NextVector2Circular(80f, 8f);
-            Vector2 idealCenter = endOfLaser;
-            Utilities.NewProjectileBetter(idealCenter, Vector2.Zero, ModContent.ProjectileType<AcceleratingDarkMagicFlame>(), 525, 0f, projectile.owner);
+            if (Main.netMode == NetmodeID.Server)
+                return;
+
+            Vector2 endOfLaser = projectile.Center + projectile.velocity * LaserLength ;
+            FusableParticleManager.GetParticleSetByType<RancorGroundLavaParticleSet>().SpawnParticle(endOfLaser + Main.rand.NextVector2Circular(10f, 10f) + projectile.velocity * 40f, 320f);
         }
 
         public void CreateTileHitEffects()
@@ -108,14 +117,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             Color vibrantColor = Color.Lerp(Color.Blue, Color.Red, (float)Math.Cos(Main.GlobalTime * 0.67f - completionRatio / LaserLength * 29f) * 0.5f + 0.5f);
             float opacity = projectile.Opacity * Utils.InverseLerp(0.97f, 0.9f, completionRatio, true) *
                 Utils.InverseLerp(0f, MathHelper.Clamp(15f / LaserLength, 0f, 0.5f), completionRatio, true) *
-                (float)Math.Pow(Utils.InverseLerp(60f, 270f, LaserLength, true), 3D);
-            return Color.Lerp(vibrantColor, Color.White, 0.5f) * opacity * 2f;
+                (float)Math.Pow(Utils.InverseLerp(60f, 270f, LaserLength, true), 3f);
+            return Color.Lerp(vibrantColor, Color.White, 0.3f) * opacity * 2f;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (RayDrawer is null)
-                RayDrawer = new PrimitiveTrail(PrimitiveWidthFunction, PrimitiveColorFunction, specialShader: GameShaders.Misc["CalamityMod:Flame"]);
+                RayDrawer = new PrimitiveTrailCopy(PrimitiveWidthFunction, PrimitiveColorFunction, null, true, specialShader: GameShaders.Misc["CalamityMod:Flame"]);
 
             GameShaders.Misc["CalamityMod:Flame"].UseImage("Images/Misc/Perlin");
 
@@ -124,8 +135,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                 basePoints[i] = projectile.Center + projectile.velocity * i / (basePoints.Length - 1f) * LaserLength;
 
             Vector2 overallOffset = -Main.screenPosition;
-            RayDrawer.Draw(basePoints, overallOffset, 62);
-            return false;
+            RayDrawer.DrawPixelated(basePoints, overallOffset, 62);
         }
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
@@ -140,8 +150,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             drawCacheProjsBehindNPCsAndTiles.Add(index);
         }
 
-        public override void OnHitNPC(NPC target, int damage, float knockback, bool crit) { }
-
         public override bool ShouldUpdatePosition() => false;
+
+        public override bool CanDamage() => projectile.timeLeft < 7198;
     }
 }

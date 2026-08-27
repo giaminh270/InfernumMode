@@ -12,26 +12,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
     {
         public override int NPCOverrideType => NPCID.WallofFleshEye;
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw;
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCCheckDead;
 
         public const int IsDetachedFlagIndex = 2;
-
-        public static bool HandleDeathEffects(NPC npc)
-        {
-            // Do direct damage to the wall and have the eye "pop" out, as though it's detatching.
-            if (Main.netMode != NetmodeID.MultiplayerClient)
-            {
-                if (Main.npc.IndexInRange(Main.wof))
-                    Main.npc[Main.wof].StrikeNPC(1550, 0f, 0);
-            }
-
-            npc.life = 1;
-            npc.ai[1] = 0f;
-            npc.Infernum().ExtraAI[IsDetachedFlagIndex] = 1f;
-            npc.active = true;
-            npc.netUpdate = true;
-            return false;
-        }
+		
+		public const int DetachDamage = 1550;
 
         #region AI
 
@@ -72,10 +57,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
                 Vector2 hoverDestination = target.Center + hoverOffset;
                 if (!doCircleAttack)
                 {
-                    hoverSpeedFactor = 1.6f;
+                    hoverSpeedFactor = 1.3f;
                     hoverDestination = new Vector2(Main.npc[Main.wof].Center.X, target.Center.Y);
-                    hoverDestination.Y += (float)Math.Sin(wallAttackTimer / 70f + npc.Infernum().ExtraAI[1] * MathHelper.E) * 350f;
+                    hoverDestination.Y += (float)Math.Sin(wallAttackTimer / 70f + npc.Infernum().ExtraAI[1] * (float)Math.E) * 350f;
                 }
+
                 if (!Main.npc[Main.wof].WithinRange(target.Center, 4000f))
                     hoverDestination = Main.npc[Main.wof].Center;
 
@@ -115,7 +101,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
                         Main.PlaySound(SoundID.Item12, npc.Center);
                         if (Main.netMode != NetmodeID.MultiplayerClient)
                         {
-                            int laser = Utilities.NewProjectileBetter(laserShootPosition, laserShootVelocity, ProjectileID.ScutlixLaser, 105, 0f);
+                            int laser = Utilities.NewProjectileBetter(laserShootPosition, laserShootVelocity, ProjectileID.EyeLaser, WallOfFleshMouthBehaviorOverride.EyeLaserDamage, 0f);
                             if (Main.projectile.IndexInRange(laser))
                             {
                                 Main.projectile[laser].hostile = true;
@@ -126,13 +112,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
                 }
                 else
                 {
-                    if (wallAttackTimer % 28f == 27f && npc.WithinRange(hoverDestination, 80f) && wallAttackTimer % 1200f > 680f)
+                    if (wallAttackTimer % 36f == 35f && npc.WithinRange(hoverDestination, 80f) && wallAttackTimer % 1200f > 680f)
                     {
                         Main.PlaySound(SoundID.Item12, npc.Center);
                         if (Main.netMode != NetmodeID.MultiplayerClient)
                         {
                             float laserShootSpeed = 8.5f;
-                            int laser = Utilities.NewProjectileBetter(npc.Center, Vector2.UnitX * Math.Sign(Main.npc[Main.wof].velocity.X) * laserShootSpeed, ProjectileID.DeathLaser, 105, 0f);
+                            int laser = Utilities.NewProjectileBetter(npc.Center, Vector2.UnitX * Math.Sign(Main.npc[Main.wof].velocity.X) * laserShootSpeed, ProjectileID.EyeLaser, WallOfFleshMouthBehaviorOverride.EyeLaserDamage, 0f);
                             if (Main.projectile.IndexInRange(laser))
                             {
                                 Main.projectile[laser].hostile = true;
@@ -149,16 +135,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
             destinationOffset += MathHelper.Lerp(0f, 215f, (float)Math.Sin(npc.whoAmI % 4f / 4f * MathHelper.Pi + attackTimer / 16f) * 0.5f + 0.5f);
             destinationOffset += npc.Distance(target.Center) * 0.1f;
 
-            float destinationAngularOffset = MathHelper.Lerp(-1.5f, 1.5f, npc.ai[0]);
+            float destinationAngularOffset = MathHelper.Lerp(-1.04f, 1.04f, npc.ai[0]);
             destinationAngularOffset += (float)Math.Sin(attackTimer / 32f + npc.whoAmI % 4f / 4f * MathHelper.Pi) * 0.16f;
 
             // Move in sharp, sudden movements while releasing things at the target.
             Vector2 destination = Main.npc[Main.wof].Center;
-            destination += Main.npc[Main.wof].velocity.SafeNormalize(Vector2.UnitX).RotatedBy(destinationAngularOffset) * destinationOffset;
+            destination += Main.npc[Main.wof].velocity.SafeNormalize(Vector2.UnitX).RotatedBy(destinationAngularOffset) * new Vector2(1f, 0.65f) * destinationOffset;
 
             float maxSpeed = Utilities.AnyProjectiles(ModContent.ProjectileType<FireBeamWoF>()) ? 1.5f : 15f;
 
-            npc.velocity = (destination - npc.Center).SafeNormalize(Vector2.Zero) * MathHelper.Min(npc.Distance(destination) * 0.5f, maxSpeed);
+            npc.velocity = (destination - npc.Center).SafeNormalize(Vector2.Zero) * Math.Min(npc.Distance(destination) * 0.5f, maxSpeed);
             if (!npc.WithinRange(Main.npc[Main.wof].Center, 750f))
                 npc.Center = Main.npc[Main.wof].Center + Main.npc[Main.wof].SafeDirectionTo(npc.Center) * 750f;
 
@@ -210,7 +196,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
                     {
                         Vector2 drawOffset = Vector2.UnitX.RotatedBy(rotation) * (float)Math.Cos(MathHelper.TwoPi * i / 4f) * 4f;
                         Color color = Lighting.GetColor((int)(drawPosition + drawOffset).X / 16, (int)(drawPosition + drawOffset).Y / 16);
-                        spriteBatch.Draw(fleshRopeTexture, drawPosition + drawOffset - Main.screenPosition, null, color, rotation, fleshRopeTexture.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
+                        Main.spriteBatch.Draw(fleshRopeTexture, drawPosition + drawOffset - Main.screenPosition, null, color, rotation, fleshRopeTexture.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
                     }
                 }
             }
@@ -229,5 +215,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
             return true;
         }
         #endregion
+		
+		#region Death Effects
+        public override bool CheckDead(NPC npc)
+        {
+            // Do direct damage to the wall and have the eye "pop" out, as though it's detatching.
+            if (Main.netMode != NetmodeID.MultiplayerClient)
+            {
+                if (Main.npc.IndexInRange(Main.wof))
+                    Main.npc[Main.wof].StrikeNPC(DetachDamage, 0f, 0);
+            }
+
+            npc.life = 1;
+            npc.ai[1] = 0f;
+            npc.Infernum().ExtraAI[IsDetachedFlagIndex] = 1f;
+            npc.active = true;
+            npc.netUpdate = true;
+            return false;
+        }
+        #endregion Death Effects
     }
 }

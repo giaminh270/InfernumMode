@@ -1,6 +1,8 @@
+﻿using CalamityMod;
 using CalamityMod.NPCs.OldDuke;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ModLoader;
 
@@ -91,6 +93,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.OldDuke
                 }
             }
             return false;
+        }
+
+        public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor)
+        {
+            npc.DrawBackglow(Color.Lime, 4f, 0, npc.frame, Main.screenPosition);
+            return true;
         }
     }
 }

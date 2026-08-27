@@ -1,4 +1,5 @@
-using CalamityMod;
+﻿using CalamityMod;
+using InfernumMode.DataStructures;
 using InfernumMode.ILEditingStuff;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -9,9 +10,12 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 {
-    public class AresTeslaGasField : ModProjectile
+    public class AresTeslaGasField : ModProjectile, IAdditiveDrawer
     {
         public ref float LightPower => ref projectile.ai[0];
+
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/NebulaGas1";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Electric Cloud");
 
         public override void SetDefaults()
@@ -19,7 +23,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             projectile.width = projectile.height = 50;
             projectile.penetrate = -1;
             projectile.tileCollide = false;
-            projectile.timeLeft = 180;
+            projectile.timeLeft = 210;
             projectile.scale = 1.5f;
             projectile.hide = true;
             projectile.hostile = true;
@@ -41,27 +45,34 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
             // Calculate light power. This checks below the position of the fog to check if this fog is underground.
             // Without this, it may render over the fullblack that the game renders for obscured tiles.
-            float lightPowerBelow = Lighting.GetColor((int)projectile.Center.X / 16, (int)projectile.Center.Y / 16 + 6).ToVector3().Length() / (float)Math.Sqrt(3D);
+            float lightPowerBelow = Lighting.GetColor((int)projectile.Center.X / 16, (int)projectile.Center.Y / 16 + 6).ToVector3().Length() / (float)Math.Sqrt(3f);
             LightPower = MathHelper.Lerp(LightPower, lightPowerBelow, 0.15f);
             projectile.Opacity = Utils.InverseLerp(210f, 195f, projectile.timeLeft, true) * Utils.InverseLerp(0f, 60f, projectile.timeLeft, true);
             projectile.rotation += projectile.velocity.X * 0.004f;
             projectile.velocity *= 0.985f;
-        }
 
-        public override void DrawBehind(int index, List<int> drawCacheProjsBehindNPCsAndTiles, List<int> drawCacheProjsBehindNPCs, List<int> drawCacheProjsBehindProjectiles, List<int> drawCacheProjsOverWiresUI)
-        {
-            DrawBlackEffectHook.DrawCacheAdditiveLighting.Add(index);
+            // Release electric sparks.
+            if (Main.rand.NextFloat() < Math.Pow(projectile.Opacity, 2f) * 0.05f)
+            {
+                Dust spark = Dust.NewDustPerfect(projectile.Center + Main.rand.NextVector2Circular(60f, 60f), 226);
+                spark.velocity = Main.rand.NextVector2Circular(7f, 7f);
+                spark.fadeIn = 0.7f;
+                spark.scale *= 1.2f;
+                spark.noGravity = true;
+            }
         }
 
         public override bool CanDamage() => projectile.Opacity > 0.6f;
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void AdditiveDraw(SpriteBatch spriteBatch)
         {
             Vector2 screenArea = new Vector2(Main.screenWidth, Main.screenHeight);
             Rectangle screenRectangle = Utils.CenteredRectangle(Main.screenPosition + screenArea * 0.5f, screenArea * 1.33f);
 
             if (!projectile.Hitbox.Intersects(screenRectangle))
-                return false;
+                return;
 
             Texture2D texture = Main.projectileTexture[projectile.type];
             Vector2 origin = texture.Size() * 0.5f;
@@ -72,7 +83,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
             for (int i = 0; i < 2; i++)
                 Main.spriteBatch.Draw(texture, drawPosition, null, drawColor, projectile.rotation, origin, scale, SpriteEffects.None, 0f);
-            return false;
         }
     }
 }

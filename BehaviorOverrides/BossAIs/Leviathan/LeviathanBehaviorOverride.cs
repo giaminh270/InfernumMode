@@ -28,7 +28,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
             VomitBlasts,
             HorizontalCharges,
             MeteorBelch,
-            
+
             // Alone and enraged attacks.
             AberrationCharges
         }
@@ -68,7 +68,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
             CalamityGlobalNPC.leviathan = npc.whoAmI;
 
             // Inherit attributes from the leader.
-            ComboAttackManager.InheritAttributesFromLeader(npc);
+            LeviathanComboAttackManager.InheritAttributesFromLeader(npc);
 
             ref float attackTimer = ref npc.ai[1];
             ref float frameState = ref npc.localAI[0];
@@ -83,7 +83,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
             npc.dontTakeDamage = false;
 
             // Don't take damage if the target leaves the ocean.
-            bool outOfOcean = target.position.X > AnahitaBehaviorOverride.OceanDistanceLeniancy && 
+            bool outOfOcean = target.position.X > AnahitaBehaviorOverride.OceanDistanceLeniancy &&
                 target.position.X < Main.maxTilesX * 16 - AnahitaBehaviorOverride.OceanDistanceLeniancy && !BossRushEvent.BossRushActive;
             if (outOfOcean)
             {
@@ -91,7 +91,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                 npc.Calamity().CurrentlyEnraged = true;
             }
 
-            bool enraged = ComboAttackManager.FightState == LeviAnahitaFightState.AloneEnraged;
+            bool enraged = LeviathanComboAttackManager.FightState == LeviAnahitaFightState.AloneEnraged;
 
             Vector2 mouthPosition = npc.Center + new Vector2(npc.spriteDirection * 380f, -45f);
 
@@ -127,7 +127,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                     DoBehavior_AberrationCharges(npc, target, ref attackTimer);
                     break;
             }
-            ComboAttackManager.DoComboAttacks(npc, target, ref attackTimer);
+            LeviathanComboAttackManager.DoComboAttacks(npc, target, ref attackTimer);
 
             attackTimer++;
             return false;
@@ -170,7 +170,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                     {
                         float offsetAngle = MathHelper.Lerp(-0.67f, 0.67f, i / (float)(vomitShootCount - 1f));
                         Vector2 shootVelocity = (target.Center - mouthPosition).SafeNormalize(Vector2.UnitY).RotatedBy(offsetAngle) * vomitShootSpeed;
-                        Utilities.NewProjectileBetter(mouthPosition, shootVelocity, ModContent.ProjectileType<LeviathanVomit>(), 175, 0f);
+                        Utilities.NewProjectileBetter(mouthPosition, shootVelocity, ModContent.ProjectileType<LeviathanVomit>(), LeviathanComboAttackManager.LeviathanVomitDamage, 0f);
                     }
                 }
             }
@@ -205,7 +205,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                 npc.damage = 0;
 
                 Vector2 destination = target.Center - Vector2.UnitX * Math.Sign(target.Center.X - npc.Center.X) * 1000f;
+
                 npc.Center = Vector2.Lerp(npc.Center, new Vector2(npc.Center.X, destination.Y), 0.075f);
+
                 npc.SimpleFlyMovement(npc.SafeDirectionTo(destination) * 14f, 0.27f);
                 npc.velocity.Y = MathHelper.Lerp(npc.velocity.Y, npc.SafeDirectionTo(destination).Y * 30f, 0.18f);
                 npc.spriteDirection = npc.direction;
@@ -272,7 +274,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     Vector2 shootVelocity = (target.Center - mouthPosition).SafeNormalize(Vector2.UnitY) * meteorShootSpeed;
-                    Utilities.NewProjectileBetter(mouthPosition, shootVelocity, ModContent.ProjectileType<LeviathanMeteor>(), 200, 0f);
+                    Utilities.NewProjectileBetter(mouthPosition, shootVelocity, ModContent.ProjectileType<LeviathanMeteor>(), LeviathanComboAttackManager.LeviathanMeteorDamage, 0f);
                 }
             }
 
@@ -316,7 +318,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                     {
                         Vector2 aberrationSpawnPosition = target.Center + new Vector2((i == 0f).ToDirectionInt() * 1050f, verticalSpawnOffset - 900f);
                         Vector2 aberrationVelocity = (target.Center - aberrationSpawnPosition).SafeNormalize(Vector2.UnitY) * 13.5f;
-                        Utilities.NewProjectileBetter(aberrationSpawnPosition, aberrationVelocity, ModContent.ProjectileType<AquaticAberrationProj>(), 200, 0f);
+                        Utilities.NewProjectileBetter(aberrationSpawnPosition, aberrationVelocity, ModContent.ProjectileType<AquaticAberrationProj>(), LeviathanComboAttackManager.AquaticAberrationDamage, 0f);
                     }
                 }
             }
@@ -334,7 +336,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
         {
             npc.ai[3]++;
 
-            bool enraged = ComboAttackManager.FightState == LeviAnahitaFightState.AloneEnraged;
+            bool enraged = LeviathanComboAttackManager.FightState == LeviAnahitaFightState.AloneEnraged;
             LeviathanAttackType[] patternToUse = new LeviathanAttackType[]
             {
                 LeviathanAttackType.VomitBlasts,
@@ -347,7 +349,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
 
             // Go to the next AI state.
             npc.ai[0] = (int)nextAttackType;
-            ComboAttackManager.SelectNextAttackSpecific(npc);
+            LeviathanComboAttackManager.SelectNextAttackSpecific(npc);
 
             // Reset the attack timer.
             npc.ai[1] = 0f;

@@ -1,5 +1,7 @@
 using CalamityMod;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -21,16 +23,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.QueenBee
             projectile.ignoreWater = true;
             projectile.timeLeft = 240;
             projectile.scale = 1f;
-            projectile.alpha = 255;
+            projectile.Opacity = 255;
             projectile.tileCollide = false;
             projectile.friendly = false;
             projectile.hostile = true;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
         {
-            projectile.alpha = Utils.Clamp(projectile.alpha - 50, 0, 255);
+            projectile.Opacity = Utils.Clamp(projectile.Opacity + 0.03f, 0f, 1f);
             projectile.rotation = MathHelper.Clamp(projectile.velocity.X * 0.15f, -0.7f, 0.7f);
             projectile.spriteDirection = (projectile.velocity.X < 0f).ToDirectionInt();
 
@@ -53,6 +56,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.QueenBee
                 if (Main.rand.NextBool(2))
                     honey.scale *= 1.4f;
             }
+        }
+
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        {
+            projectile.DrawProjectileWithBackglowTemp(Color.White * (float)Math.Pow(projectile.Opacity, 2f), lightColor, projectile.Opacity * 6f);
+            return false;
         }
     }
 }

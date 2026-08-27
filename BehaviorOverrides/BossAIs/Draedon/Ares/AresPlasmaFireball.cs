@@ -1,5 +1,6 @@
 using CalamityMod;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
@@ -15,7 +16,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
         {
             get;
             set;
-        } = false;
+        }
 
         public override void SetStaticDefaults()
         {
@@ -132,9 +133,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
             projectile.Center = projectile.position;
             projectile.Damage();
 
-            Main.PlaySound(SoundID.Item93, projectile.Center);
+            Main.PlaySound(InfernumSoundRegistry.ExoPlasmaExplosion, projectile.Center);
 
-            // Release plasma bolts.
+            // Release plasma.
             if (Main.netMode != NetmodeID.MultiplayerClient && projectile.ai[1] != -1f)
             {
                 int totalProjectiles = 10;
@@ -142,9 +143,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 {
                     totalProjectiles = 6;
                     int plasmaGasID = ModContent.ProjectileType<PlasmaGas>();
-                    for (int i = 0; i < 50; i++)
+                    for (int i = 0; i < 30; i++)
                     {
-                        Vector2 plasmaVelocity = Main.rand.NextVector2Circular(13f, 13f);
+                        Vector2 plasmaVelocity = Main.rand.NextVector2Circular(8f, 8f);
                         Projectile.NewProjectile(projectile.Center, plasmaVelocity, plasmaGasID, projectile.damage, 0f, Main.myPlayer);
                     }
                 }
@@ -193,11 +194,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 plasma.scale = scale;
                 plasma.noGravity = true;
             }
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
         }
     }
 }

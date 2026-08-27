@@ -14,28 +14,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
     {
         public override int NPCOverrideType => ModContent.NPCType<Bumblefuck2>();
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw;
-
-        #region Enumerations
-        public enum DragonfollyAttackType
-        {
-            SpawnEffects,
-            FeatherSpreadRelease,
-            OrdinaryCharge,
-            FakeoutCharge,
-            ThunderCharge,
-            SummonSwarmers,
-            NormalLightningAura,
-            PlasmaBursts,
-            LightningSupercharge
-        }
-
-        public enum DragonfollyFrameDrawingType
-        {
-            FlapWings,
-            Screm
-        }
-        #endregion
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCCheckDead;
 
         #region AI
 
@@ -304,7 +283,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
                     npc.active = false;
                     npc.netUpdate = true;
                 }
-                
+
                 // Release lightning clouds when charging if in phase 3.
                 if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer > fadeTime + chargeDelay && attackTimer % 7f == 6f && inPhase3)
                     Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<VolatileLightning>(), 0, 0f);
@@ -357,5 +336,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
             return false;
         }
         #endregion
+		
+		#region Death Effects
+        public override bool CheckDead(NPC npc)
+        {
+            // Enter the explosion staate if killed.
+            if (npc.ai[0] != 3f && npc.ai[3] > 0f)
+            {
+                npc.life = npc.lifeMax;
+                npc.dontTakeDamage = true;
+                npc.ai[0] = 3f;
+                npc.ai[1] = 0f;
+                npc.ai[2] = 0f;
+                npc.netUpdate = true;
+            }
+            return false;
+        }
+        #endregion Death Effects
     }
 }

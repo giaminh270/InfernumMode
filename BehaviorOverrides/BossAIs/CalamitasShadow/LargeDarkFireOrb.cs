@@ -1,6 +1,9 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.NPCs;
-
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Sounds;
+using InfernumMode.Graphics.Interfaces;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -8,14 +11,10 @@ using System.IO;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-using Terraria.Graphics.Effects;
-using Terraria.Graphics.Shaders;
-using static System.Math;
-using static Microsoft.Xna.Framework.MathHelper;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 {
-    public class LargeDarkFireOrb : ModProjectile
+    public class LargeDarkFireOrb : ModProjectile, ISpecializedDrawRegion
     {
         public ref float Time => ref projectile.ai[1];
 
@@ -69,20 +68,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             Time++;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
-		{
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void SpecialDraw(SpriteBatch spriteBatch)
+        {
             float circleFadeinInterpolant = Utils.InverseLerp(0f, 36f, Time, true);
-            float colorPulse = ((float)Cos(Main.GlobalTime * 7.2f + projectile.identity) * 0.5f + 0.5f) * 0.6f;
+            float colorPulse = ((float)Math.Cos(Main.GlobalTime * 7.2f + projectile.identity) * 0.5f + 0.5f) * 0.6f;
             colorPulse += (float)(Math.Cos(Main.GlobalTime * 6.1f + projectile.identity * 1.3f) * 0.5f + 0.5f) * 0.4f;
 
             Color explosionTelegraphColor = Color.Lerp(Color.Red, Color.Purple, colorPulse * 0.3f + 0.4f) * circleFadeinInterpolant;
 
-            Texture2D invisible = ModContent.GetTexture("InfernumMode/ExtraTextures/Invisible");
-            Texture2D noise = ModContent.GetTexture("InfernumMode/ExtraTextures/VoronoiShapes2");
-            Effect fireballShader = Filters.Scene["Infernum:FireballShader"].GetShader().Shader;
-			
-            Main.spriteBatch.End();
-            Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.Additive, Main.DefaultSamplerState, DepthStencilState.None, Main.instance.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);			
+            Texture2D invisible = InfernumTextureRegistry.Invisible;
+            Texture2D noise = ModContent.GetTexture("InfernumMode/ExtraTextures/GreyscaleGradients/VoronoiShapes2");
+            Effect fireballShader = InfernumEffectsRegistry.FireballShader.GetShader().Shader;
 
             Vector2 scale = Vector2.One * MaxFireOrbRadius / invisible.Size() * circleFadeinInterpolant * projectile.Opacity * projectile.scale * 2f;
             fireballShader.Parameters["sampleTexture2"].SetValue(noise);
@@ -108,14 +106,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                 fireballShader.CurrentTechnique.Passes[0].Apply();
                 Main.spriteBatch.Draw(invisible, drawPosition, null, Color.White, projectile.rotation, invisible.Size() * 0.5f, scale * scaleFactors[i], 0, 0f);
             }
-			Main.spriteBatch.ExitShaderRegion();			
-            return false;			
-		}
+        }
 
         public override bool OnTileCollide(Vector2 oldVelocity)
         {
             if (projectile.timeLeft >= 25)
             {
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceLavaEruptionSound.WithVolume(0.7f).WithPitchVariance(-0.4f), projectile.Center);
                 projectile.timeLeft = 25;
                 projectile.netUpdate = true;
             }

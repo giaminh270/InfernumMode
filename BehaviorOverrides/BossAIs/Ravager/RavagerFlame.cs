@@ -21,6 +21,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
             projectile.penetrate = -1;
             projectile.extraUpdates = 1;
             projectile.timeLeft = 540;
+            cooldownSlot = 1;
         }
 
         public override void AI()

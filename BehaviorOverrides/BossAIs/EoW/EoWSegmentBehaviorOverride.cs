@@ -46,7 +46,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EoW
             if (head.damage == 0)
                 npc.damage = 0;
 
-            // What the actual fuck why is this needed.
+            // What the actual fuck why is this needed?
             if (npc.life <= 0)
                 npc.active = false;
 

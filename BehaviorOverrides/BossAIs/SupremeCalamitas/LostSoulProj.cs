@@ -27,6 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.penetrate = -1;
             projectile.Opacity = 0f;
             projectile.timeLeft = 300;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -36,6 +37,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.spriteDirection = (Math.Cos(projectile.rotation) > 0f).ToDirectionInt();
             if (projectile.spriteDirection == -1)
                 projectile.rotation += MathHelper.Pi;
+
             projectile.frameCounter++;
             projectile.frame = projectile.frameCounter / 5 % Main.projFrames[projectile.type];
 

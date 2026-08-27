@@ -19,6 +19,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Destroyer
             projectile.timeLeft = 360;
             projectile.Opacity = 0f;
             projectile.hide = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()

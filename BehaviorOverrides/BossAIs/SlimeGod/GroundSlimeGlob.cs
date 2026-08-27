@@ -30,6 +30,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             projectile.ignoreWater = true;
             projectile.tileCollide = false;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)

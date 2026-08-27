@@ -26,6 +26,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.penetrate = -1;
             projectile.timeLeft = 90000;
             projectile.Opacity = 0f;
+            cooldownSlot = 1;
         }
 
         // Ensure that rotation is synced. It is very important for SCal's attacks.
@@ -50,7 +51,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.05f, 0f, 1f);
 
             // Frequently sync.
-            if (Main.netMode != NetmodeID.MultiplayerClient && projectile.timeLeft % 12 == 11)
+            if (Main.netMode != NetmodeID.MultiplayerClient && projectile.timeLeft % 3 == 2)
             {
                 projectile.netUpdate = true;
                 projectile.netSpam = 0;

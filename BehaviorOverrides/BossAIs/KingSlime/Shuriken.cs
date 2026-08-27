@@ -26,6 +26,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
             projectile.ignoreWater = true;
             projectile.timeLeft = 360;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()

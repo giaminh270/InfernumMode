@@ -24,6 +24,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             projectile.hide = true;
             projectile.timeLeft = 45;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -82,7 +83,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 Vector2 drawPosition = projectile.Center - Main.screenPosition;
                 spriteBatch.Draw(telegraphTexture, drawPosition, null, ringColor, 0f, telegraphTexture.Size() * 0.5f, TelegraphRingScale * 1.6f, SpriteEffects.None, 0f);
 
-                float explosionTelegraphFade = Utils.InverseLerp(0f, 20f, ExplosionTelegraphFade, true) * 0.16f;
+                float explosionTelegraphFade = Utils.InverseLerp(0f, 20f, ExplosionTelegraphFade, true) * 0.3f;
                 spriteBatch.Draw(telegraphTexture, drawPosition, null, ringColor * explosionTelegraphFade, 0f, telegraphTexture.Size() * 0.5f, TelegraphRingScale * 5f, SpriteEffects.None, 0f);
                 return false;
             }

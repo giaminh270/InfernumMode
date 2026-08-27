@@ -1,13 +1,18 @@
+using CalamityMod.DataStructures;
+using CalamityMod.Sounds;
+using InfernumMode.ExtraTextures;
 using CalamityMod.Projectiles.Boss;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using InfernumMode.GlobalInstances;
 using Terraria.ID;
 using Terraria.ModLoader;
+using InfernumMode.DataStructures;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
 {
-    public class RealityBreakPortalLaserWall : ModProjectile
+    public class RealityBreakPortalLaserWall : ModProjectile, IAdditiveDrawer
     {
         public ref float Time => ref projectile.ai[0];
         public override void SetStaticDefaults() => DisplayName.SetDefault("Portal");
@@ -21,12 +26,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             projectile.alpha = 255;
             projectile.penetrate = -1;
             projectile.timeLeft = 100;
+            projectile.hide = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
         {
-            projectile.rotation += 0.325f;
-
             Time++;
 
             // Release the laser burst a second after spawning.
@@ -44,36 +49,39 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
                     for (int i = 0; i < laserCount; i++)
                     {
                         Vector2 shootVelocity = projectile.SafeDirectionTo(target.Center).RotatedBy(MathHelper.Lerp(-0.6f, 0.6f, i / (float)(laserCount - 1f))) * shootSpeed;
-                        int laser = Projectile.NewProjectile(projectile.Center, shootVelocity, ModContent.ProjectileType<DoGDeathInfernum>(), 96, 0f, projectile.owner);
-                        if (Main.projectile.IndexInRange(laser))
-                            Main.projectile[laser].MaxUpdates = 2;
+
+                        ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(laser =>
+                        {
+                            laser.MaxUpdates = 2;
+                        });
+                        Utilities.NewProjectileBetter(projectile.Center, shootVelocity, ModContent.ProjectileType<DoGDeathInfernum>(), DoGPhase1HeadBehaviorOverride.DeathLaserDamage, 0f, projectile.owner);
                     }
                 }
             }
 
             projectile.Opacity = Utils.InverseLerp(0f, 50f, Time, true) * Utils.InverseLerp(0f, 30f, projectile.timeLeft, true);
+            projectile.rotation += projectile.Opacity * 0.15f;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public void AdditiveDraw(SpriteBatch spriteBatch)
         {
-            spriteBatch.SetBlendState(BlendState.Additive);
             Texture2D portalTexture = Main.projectileTexture[projectile.type];
+            Texture2D lightTexture = InfernumTextureRegistry.LaserCircle;
             Vector2 drawPosition = projectile.Center - Main.screenPosition;
             Vector2 origin = portalTexture.Size() * 0.5f;
             Color baseColor = Color.White;
 
             // Black portal.
-            Color color = Color.Lerp(baseColor, Color.Black, 0.55f) * projectile.Opacity * 1.8f;
-            spriteBatch.Draw(portalTexture, drawPosition, null, color, projectile.rotation, origin, projectile.scale * 1.2f, SpriteEffects.None, 0f);
-            spriteBatch.Draw(portalTexture, drawPosition, null, color, -projectile.rotation, origin, projectile.scale * 1.2f, SpriteEffects.None, 0f);
+            Color portalColor = baseColor * projectile.Opacity;
 
-            color = Color.Lerp(baseColor, Color.Cyan, 0.55f) * projectile.Opacity * 1.6f;
-            spriteBatch.Draw(portalTexture, drawPosition, null, color, projectile.rotation * 0.6f, origin, projectile.scale * 1.2f, SpriteEffects.None, 0f);
-            // Magenta portal.
-            color = Color.Lerp(baseColor, Color.Fuchsia, 0.55f) * projectile.Opacity * 1.6f;
-            spriteBatch.Draw(portalTexture, drawPosition, null, color, projectile.rotation * -0.6f, origin, projectile.scale * 1.2f, SpriteEffects.None, 0f);
-            Main.spriteBatch.ResetBlendState();
-			return false;
+            for (int i = 0; i < 2; i++)
+            {
+                spriteBatch.Draw(portalTexture, drawPosition, null, portalColor, projectile.rotation, origin, projectile.scale, 0, 0f);
+                spriteBatch.Draw(portalTexture, drawPosition, null, portalColor, -projectile.rotation, origin, projectile.scale, 0, 0f);
+            }
+
+            // Point of light.
+            spriteBatch.Draw(lightTexture, drawPosition, null, baseColor * 0.8f, -projectile.rotation, lightTexture.Size() * 0.5f, projectile.scale * projectile.Opacity * 0.85f, 0, 0f);
         }
     }
 }

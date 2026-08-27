@@ -45,9 +45,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Dragonfolly
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             Utilities.DrawAfterimagesCentered(projectile, Color.White, ProjectileID.Sets.TrailingMode[projectile.type], 1, Main.projectileTexture[projectile.type], false);
-            return false; 
+            return false;
         }
-        
+
         public override void Kill(int timeLeft)
         {
             projectile.position = projectile.Center;

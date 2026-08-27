@@ -49,13 +49,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
         public override void Kill(int timeLeft)
         {
             Main.PlaySound(SoundID.Item20, projectile.Center);
-            for (int dust = 0; dust < 2; dust++)
+            for (int dust = 0; dust < 4; dust++)
                 Dust.NewDust(projectile.position + projectile.velocity, projectile.width, projectile.height, (int)CalamityDusts.Nightwither, 0f, 0f);
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
         }
     }
 }

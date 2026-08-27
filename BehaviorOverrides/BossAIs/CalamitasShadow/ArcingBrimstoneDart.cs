@@ -62,7 +62,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            //Utilities.DrawBackglow(Color.HotPink, projectile.Opacity * 2f);
+            projectile.DrawBackglow(Color.HotPink, projectile.Opacity * 2f);
             CalamityUtils.DrawAfterimagesCentered(projectile, ProjectileID.Sets.TrailingMode[projectile.type], lightColor);
             return false;
         }

@@ -1,14 +1,22 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
+using System.IO;
 using Terraria;
+using Terraria.GameContent;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 {
     public class ExolaserSpark : ModProjectile
     {
-        public override void SetStaticDefaults() => DisplayName.SetDefault("Exolaser Spark");
+        public override void SetStaticDefaults()
+        {
+            DisplayName.SetDefault("Exolaser Spark");
+            Main.projFrames[projectile.type] = 8;
+
+        }
 
         public override void SetDefaults()
         {
@@ -17,11 +25,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             projectile.penetrate = -1;
             projectile.tileCollide = false;
             projectile.hostile = true;
-            projectile.timeLeft = 240;
+            projectile.timeLeft = 200;
             projectile.Opacity = 0f;
             projectile.hide = true;
             cooldownSlot = 1;
         }
+
+        public override void SendExtraAI(BinaryWriter writer) => writer.Write(projectile.MaxUpdates);
+
+        public override void ReceiveExtraAI(BinaryReader reader) => projectile.MaxUpdates = reader.ReadInt32();
 
         public override void AI()
         {
@@ -37,6 +49,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
 
             if (projectile.velocity.Length() < 5f)
                 projectile.velocity *= 1.0225f;
+
+            // Frames
+            projectile.frameCounter++;
+            if (projectile.frameCounter >= 8)
+            {
+                projectile.frame = (projectile.frame + 1) % Main.projFrames[projectile.type];
+                projectile.frameCounter = 0;
+            }
         }
 
         public override Color? GetAlpha(Color lightColor)
@@ -47,24 +67,27 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             Texture2D texture = Main.projectileTexture[projectile.type];
-            Vector2 origin = texture.Size() * 0.5f;
+            Rectangle sourceRectangle = texture.Frame(1, Main.projFrames[projectile.type], frameY: projectile.frame);
 
+            Vector2 origin = sourceRectangle.Size() * 0.5f;
             Color frontAfterimageColor = projectile.GetAlpha(lightColor) * 0.45f;
             frontAfterimageColor.A = 120;
-            for (int i = 0; i < 7; i++)
+            int frontCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 3 : 7;
+            for (int i = 0; i < frontCount; i++)
             {
-                Vector2 drawOffset = (MathHelper.TwoPi * i / 7f + projectile.rotation - MathHelper.PiOver2).ToRotationVector2() * projectile.scale * 4f;
+                Vector2 drawOffset = (MathHelper.TwoPi * i / frontCount + projectile.rotation - MathHelper.PiOver2).ToRotationVector2() * projectile.scale * 4f;
                 Vector2 afterimageDrawPosition = projectile.Center + drawOffset - Main.screenPosition;
-                Main.spriteBatch.Draw(texture, afterimageDrawPosition, null, frontAfterimageColor, projectile.rotation, origin, projectile.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(texture, afterimageDrawPosition, sourceRectangle, frontAfterimageColor, projectile.rotation, origin, projectile.scale, SpriteEffects.None, 0f);
             }
 
-            for (int i = 0; i < 12; i++)
+            int backCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 6 : 14;
+            for (int i = 0; i < backCount; i++)
             {
                 Vector2 drawOffset = -projectile.velocity.SafeNormalize(Vector2.Zero) * i * projectile.scale * 4f;
                 Vector2 afterimageDrawPosition = projectile.Center + drawOffset - Main.screenPosition;
-                Color backAfterimageColor = projectile.GetAlpha(lightColor) * ((12f - i) / 12f);
+                Color backAfterimageColor = projectile.GetAlpha(lightColor) * ((backCount - i) / (float)backCount);
                 backAfterimageColor.A = 0;
-                Main.spriteBatch.Draw(texture, afterimageDrawPosition, null, backAfterimageColor, projectile.rotation, origin, projectile.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(texture, afterimageDrawPosition, sourceRectangle, backAfterimageColor, projectile.rotation, origin, projectile.scale, SpriteEffects.None, 0f);
             }
             return false;
         }

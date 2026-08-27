@@ -147,6 +147,9 @@ namespace InfernumMode.ILEditingStuff
             cursor.Emit(OpCodes.Ldarg_0);
             cursor.EmitDelegate(new Func<NPC, bool>(npc =>
             {
+                if (OverridingListManager.InfernumCheckDeadOverrideList.ContainsKey(npc.type) && InfernumMode.CanUseCustomAIs)
+                    return OverridingListManager.InfernumCheckDeadOverrideList[npc.type](npc);
+
                 bool result = true;
                 if (npc.modNPC != null)
                 {
@@ -156,8 +159,8 @@ namespace InfernumMode.ILEditingStuff
                 GlobalNPC[] arr = hookListArrayField.GetValue(instance) as GlobalNPC[];
                 foreach (GlobalNPC g in arr)
                 {
-                    if (g is GlobalNPCOverrides)
-                        return g.Instance(npc).CheckDead(npc);
+                    //if (g is GlobalNPCOverrides)
+                    //    return g.Instance(npc).CheckDead(npc);
                     result &= g.Instance(npc).CheckDead(npc);
                 }
                 return result;

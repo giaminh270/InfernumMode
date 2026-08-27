@@ -52,11 +52,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.OldDuke
             if (Main.netMode != NetmodeID.MultiplayerClient && Time % 10f == 9f)
             {
                 Vector2 sharkVelocity = (MathHelper.TwoPi * Time / 120f).ToRotationVector2() * 8f;
-                int shark = NPC.NewNPC((int)projectile.Center.X, (int)projectile.Center.Y, ModContent.NPCType<OldDukeSharkron>());
+                int shark = NPC.NewNPC((int)projectile.Center.X, (int)projectile.Center.Y, ModContent.NPCType<OldDukeSharkron>(), 0, 0f, 1f);
                 if (Main.npc.IndexInRange(shark))
                 {
                     Main.npc[shark].velocity = sharkVelocity;
-                    Main.npc[shark].ai[1] = 1f;
                     Main.npc[shark].netUpdate = true;
                 }
             }

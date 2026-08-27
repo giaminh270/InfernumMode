@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -16,7 +16,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
         public override void SetDefaults()
         {
             npc.lifeMax = 1;
-            npc.defDamage = npc.damage = 75;
+            npc.defDamage = npc.damage = 125;
             npc.dontTakeDamage = true;
             npc.width = 40;
             npc.height = 40;
@@ -27,6 +27,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
 
         public override bool PreAI() => GolemFistLeft.DoFistAI(npc, false);
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color drawColor) => GolemFistLeft.DrawFist(npc, spriteBatch, drawColor, false);
+        public override bool PreDraw(SpriteBatch spriteBatch, Color drawColor) => GolemFistLeft.DrawFist(npc, Main.spriteBatch, drawColor, false);
+
+        public override bool CanHitPlayer(Player target, ref int cooldownSlot)
+        {
+            cooldownSlot = 1;
+            return base.CanHitPlayer(target, ref cooldownSlot);
+        }
     }
 }

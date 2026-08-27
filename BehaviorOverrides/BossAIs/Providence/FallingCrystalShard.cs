@@ -1,8 +1,10 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using Terraria.Audio;
 using Terraria.ID;
 using Terraria.ModLoader;
+using System;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 {
@@ -24,6 +26,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             projectile.penetrate = -1;
             projectile.Opacity = 0f;
             projectile.timeLeft = 300;
+            
+            cooldownSlot = 1;
         }
 
         public override void AI()

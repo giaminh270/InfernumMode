@@ -1,9 +1,13 @@
-using CalamityMod.Buffs.StatDebuffs;
+﻿using CalamityMod.Buffs.StatDebuffs;
 using CalamityMod.Events;
 using CalamityMod.NPCs.NormalNPCs;
+using CalamityMod.Particles;
 using InfernumMode.Miscellaneous;
+using InfernumMode.Sounds;
+using InfernumMode.Particles;
 using InfernumMode.OverridingSystem;
 using InfernumMode.Projectiles;
+using InfernumMode.GlobalInstances;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -20,7 +24,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
     {
         public override int NPCOverrideType => NPCID.KingSlime;
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw;
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCCheckDead;
 
         #region Enumerations
         public enum KingSlimeAttackType
@@ -33,6 +37,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
         #endregion
 
         #region AI
+
+        public static int ShurikenDamage => 65;
+
+        public static int JewelBeamDamage => 70;
 
         public static readonly KingSlimeAttackType[] AttackPattern = new KingSlimeAttackType[]
         {
@@ -47,6 +55,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
 
         public const float Phase3LifeRatio = 0.3f;
 
+        public const float DespawnDistance = 4700f;
+
+        public const float MaxScale = 2.3f;
+
+        public const float MinScale = 1.1f;
+
+        public static Vector2 HitboxScaleFactor => new Vector2(128f, 88f);
+
         public override float[] PhaseLifeRatioThresholds => new float[]
         {
             Phase2LifeRatio,
@@ -59,15 +75,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
             npc.TargetClosestIfTargetIsInvalid();
             Player target = Main.player[npc.target];
             npc.direction = (target.Center.X > npc.Center.X).ToDirectionInt();
-            npc.damage = npc.defDamage;
+            npc.damage = npc.defDamage - 15;
             npc.dontTakeDamage = false;
+            npc.noTileCollide = false;
 
             ref float attackTimer = ref npc.ai[2];
             ref float hasSummonedNinjaFlag = ref npc.localAI[0];
             ref float jewelSummonTimer = ref npc.localAI[1];
             ref float teleportDirection = ref npc.Infernum().ExtraAI[5];
+            ref float deathTimer = ref npc.Infernum().ExtraAI[6];
+            ref float stuckTimer = ref npc.Infernum().ExtraAI[7];
 
-            bool shouldNotChangeScale = false;
             float lifeRatio = npc.life / (float)npc.lifeMax;
 
             // Constantly give the target Weak Pertrification in boss rush.
@@ -77,41 +95,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
                     target.AddBuff(ModContent.BuffType<WeakPetrification>(), 15);
             }
 
-            if (!Main.player[npc.target].active || Main.player[npc.target].dead || !npc.WithinRange(Main.player[npc.target].Center, 4700f))
+            // Despawn if the target is gone or too far away.
+            if (!Main.player[npc.target].active || Main.player[npc.target].dead || !npc.WithinRange(Main.player[npc.target].Center, DespawnDistance))
             {
                 npc.TargetClosest();
                 if (!Main.player[npc.target].active || Main.player[npc.target].dead)
                 {
-                    npc.velocity.X *= 0.8f;
-                    if (Math.Abs(npc.velocity.X) < 0.1f)
-                        npc.velocity.X = 0f;
-
-                    npc.dontTakeDamage = true;
-                    npc.damage = 0;
-
-                    // Release slime dust to accompany the teleport.
-                    for (int i = 0; i < 30; i++)
-                    {
-                        Dust slime = Dust.NewDustDirect(npc.position + Vector2.UnitX * -20f, npc.width + 40, npc.height, 4, npc.velocity.X, npc.velocity.Y, 150, new Color(78, 136, 255, 80), 2f);
-                        slime.noGravity = true;
-                        slime.velocity *= 0.5f;
-                    }
-
-                    npc.scale *= 0.97f;
-                    if (npc.timeLeft > 30)
-                        npc.timeLeft = 30;
-                    npc.position.X += npc.width / 2;
-                    npc.position.Y += npc.height / 2;
-                    npc.width = (int)(108f * npc.scale);
-                    npc.height = (int)(88f * npc.scale);
-                    npc.position.X -= npc.width / 2;
-                    npc.position.Y -= npc.height / 2;
-
-                    if (npc.scale < 0.7f || !npc.WithinRange(Main.player[npc.target].Center, 4700f))
-                    {
-                        npc.active = false;
-                        npc.netUpdate = true;
-                    }
+                    DoBehavior_Despawn(npc);
                     return false;
                 }
             }
@@ -119,7 +109,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
                 npc.timeLeft = 3600;
 
             float oldScale = npc.scale;
-            float idealScale = MathHelper.Lerp(1.85f, 3f, lifeRatio);
+            float idealScale = MathHelper.Lerp(MaxScale, MinScale, 1f - lifeRatio);
             npc.scale = idealScale;
 
             if (npc.localAI[2] == 0f)
@@ -128,13 +118,20 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
                 npc.localAI[2] = 1f;
             }
 
-            if (Main.netMode != NetmodeID.MultiplayerClient && npc.life < npc.lifeMax * Phase3LifeRatio && hasSummonedNinjaFlag == 0f)
+            // Disable natural despawning.
+            npc.Infernum().DisableNaturalDespawning = true;
+
+            if (npc.life < npc.lifeMax * Phase3LifeRatio && hasSummonedNinjaFlag == 0f)
             {
-                NPC.NewNPC((int)npc.Center.X, (int)npc.Center.Y, ModContent.NPCType<Ninja>());
-                hasSummonedNinjaFlag = 1f;
-                npc.netUpdate = true;
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    NPC.NewNPC((int)npc.Center.X, (int)npc.Center.Y, ModContent.NPCType<Ninja>());
+                    hasSummonedNinjaFlag = 1f;
+                    npc.netUpdate = true;
+                }
             }
 
+            // Summon the jewel for the first time when King Slime enters the first phase. This waits until King Slime isn't teleporting to happen.
             if (npc.life < npc.lifeMax * Phase2LifeRatio && jewelSummonTimer == 0f && npc.scale >= 0.8f)
             {
                 Vector2 jewelSpawnPosition = target.Center - Vector2.UnitY * 350f;
@@ -144,8 +141,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                     NPC.NewNPC((int)jewelSpawnPosition.X, (int)jewelSpawnPosition.Y, ModContent.NPCType<KingSlimeJewel>());
                 jewelSummonTimer = 1f;
+                npc.netUpdate = true;
             }
 
+            // Resummon the jewel if it's gone and enough time has passed.
             if (!NPC.AnyNPCs(ModContent.NPCType<KingSlimeJewel>()) && jewelSummonTimer >= 1f)
             {
                 jewelSummonTimer++;
@@ -164,29 +163,58 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
                     npc.position.Y += 4f;
             }
 
+            if (deathTimer > 0)
+            {
+                DoBehavior_DeathAnimation(npc, target, ref deathTimer);
+                deathTimer++;
+                return false;
+            }
+
+            if (Vector2.Distance(npc.position, npc.oldPosition) <= 2f)
+            {
+                stuckTimer++;
+                if (stuckTimer >= 300f)
+                {
+                    npc.ai[1] = (int)KingSlimeAttackType.Teleport;
+                    stuckTimer = 0f;
+                    npc.netUpdate = true;
+                }
+            }
+            else
+                stuckTimer = 0f;
+
             switch ((KingSlimeAttackType)(int)npc.ai[1])
             {
                 case KingSlimeAttackType.SmallJump:
-                    DoBehavior_SmallJump(npc, ref target, ref attackTimer);
-                    break;
                 case KingSlimeAttackType.LargeJump:
-                    DoBehavior_LargeJump(npc, ref target, ref attackTimer);
+                    DoBehavior_Jump(npc, ref target, npc.ai[1] == (int)KingSlimeAttackType.LargeJump);
                     break;
                 case KingSlimeAttackType.Teleport:
                     DoBehavior_Teleport(npc, target, idealScale, ref attackTimer, ref teleportDirection);
                     break;
             }
 
-            if (!shouldNotChangeScale && oldScale != npc.scale)
+            // Update the hitbox based on the current scale if it changed.
+            if (oldScale != npc.scale)
             {
-                npc.position = npc.Bottom;
-                npc.width = (int)(108f * npc.scale);
-                npc.height = (int)(88f * npc.scale);
-                npc.Bottom = npc.position;
+                npc.position = npc.Center;
+                npc.Size = HitboxScaleFactor * npc.scale;
+                npc.Center = npc.position;
             }
 
             if (npc.Opacity > 0.7f)
                 npc.Opacity = 0.7f;
+
+            // Don't get stuck.
+            for (int i = 0; i < 2; i++)
+            {
+                if (Collision.SolidCollision(npc.BottomLeft - Vector2.UnitY * 8f, npc.width, 4) && !npc.noTileCollide)
+                {
+                    npc.position.Y -= 8f;
+                    npc.frame.Y = 0;
+                    npc.velocity.Y = 0f;
+                }
+            }
 
             npc.gfxOffY = (int)(npc.scale * -14f);
 
@@ -194,59 +222,250 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
             return false;
         }
 
-        public static void DoBehavior_SmallJump(NPC npc, ref Player target, ref float attackTimer)
+        public static void DoBehavior_DeathAnimation(NPC npc, Player target, ref float deathTimer)
         {
-            if (npc.velocity.Y == 0f)
+            int deathAnimationLength = 230;
+
+            // Constantly get the ninja.
+            NPC ninjaNPC = null;
+            for (int i = 0; i < Main.npc.Length; i++)
             {
-                npc.velocity.X *= 0.8f;
-                if (Math.Abs(npc.velocity.X) < 0.1f)
-                    npc.velocity.X = 0f;
-
-                if (attackTimer == 25f && npc.collideY)
+                if (Main.npc[i].type == ModContent.NPCType<Ninja>())
                 {
-                    target = Main.player[npc.target];
-                    float jumpSpeed = MathHelper.Lerp(8.25f, 11.6f, Utils.InverseLerp(40f, 700f, Math.Abs(target.Center.Y - npc.Center.Y), true));
-                    jumpSpeed *= Main.rand.NextFloat(1f, 1.15f);
+                    ninjaNPC = Main.npc[i];
+                    break;
+                }
+            }
 
-                    npc.velocity = new Vector2(npc.direction * 8.5f, -jumpSpeed);
-                    if (BossRushEvent.BossRushActive)
-                        npc.velocity *= 2.4f;
-
-                    npc.netUpdate = true;
+            if (deathTimer == 1)
+            {
+                DespawnAllSlimeEnemies();
+                // Despawn the jewel
+                for (int i = 0; i < Main.npc.Length; i++)
+                {
+                    if (Main.npc[i].type == ModContent.NPCType<KingSlimeJewel>())
+                    {
+                        Main.npc[i].active = false;
+                        break;
+                    }
                 }
 
-                if (attackTimer > 25f && (npc.collideY || attackTimer >= 180f))
-                    SelectNextAttack(npc);
+                // If the ninja doesnt exist, spawn it!
+                if (ninjaNPC is null)
+                {
+                    NPC.NewNPC((int)npc.Center.X, (int)npc.Center.Y, ModContent.NPCType<Ninja>());
+                    npc.netUpdate = true;
+                    return;
+                }
+
+                // Set the ninjas synced death timer, allowing them to sync with us when needed.
+                ninjaNPC.Infernum().ExtraAI[7] = 1;
             }
-            else
-                attackTimer--;
+
+            // Don't do or take damage.
+            npc.damage = 0;
+            npc.dontTakeDamage = true;
+
+            // Make the camera focus on King Slime.
+            if (Main.LocalPlayer.WithinRange(npc.Center, 3700f))
+            {
+                Main.LocalPlayer.Infernum().ScreenFocusPosition = npc.Center;
+                Main.LocalPlayer.Infernum().ScreenFocusInterpolant = Utils.InverseLerp(0f, 15f, deathTimer, true);
+                Main.LocalPlayer.Infernum().ScreenFocusInterpolant *= Utils.InverseLerp(210f, 202f, deathTimer, true);
+            }
+
+            // Perform a large jump.
+            DoBehavior_Jump(npc, ref target, true, true);
+
+            // Stay above ground.
+            if (Collision.SolidCollision(npc.TopLeft, npc.width, npc.height))
+            {
+                npc.velocity.Y = 0f;
+                npc.position.Y -= 12f;
+            }
+
+            // Check if the ninja has initialized their local timer, which happens after they create the projectile, plus the length which is ~30.
+            if (deathTimer > 70)
+            {
+                if (deathTimer == 71)
+                    Main.PlaySound(InfernumSoundRegistry.KingSlimeDeathAnimation, npc.position);
+
+                float interpolant = (deathTimer - 70) / (deathAnimationLength - 70);
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = MathHelper.Lerp(0, 13, interpolant);
+                for (int i = 0; i < MathHelper.Lerp(2, 4, interpolant); i++)
+                {
+                    Dust slime = Dust.NewDustPerfect(npc.Center + Main.rand.NextVector2Circular(100f, 70f), 4);
+                    slime.color = new Color(78, 136, 255, 80);
+                    slime.noGravity = true;
+                    slime.velocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(6f, 20.5f);
+                    slime.scale = 1.6f;
+                }
+
+                Vector2 position = npc.Center + Main.rand.NextVector2Circular(100f, 70f);
+                Vector2 velocity = Vector2.Normalize(position - npc.Center);
+                Particle slimeParticle = new EoCBloodParticle(position, velocity * Main.rand.NextFloat(4f, 12.5f), 60, Main.rand.NextFloat(0.75f, 1.1f), Main.rand.NextBool() ? Color.Blue : Color.CadetBlue, 3);
+                GeneralParticleHandler.SpawnParticle(slimeParticle);
+
+            }
+            if (deathTimer >= deathAnimationLength || BossRushEvent.BossRushActive)
+            {
+                // Die
+                KillKingSlime(npc, target);
+            }
         }
 
-        public static void DoBehavior_LargeJump(NPC npc, ref Player target, ref float attackTimer)
+        public static void KillKingSlime(NPC npc, Player target)
         {
-            if (npc.velocity.Y == 0f)
+            for (int i = 0; i < 50; i++)
             {
-                npc.velocity.X *= 0.8f;
-                if (Math.Abs(npc.velocity.X) < 0.1f)
-                    npc.velocity.X = 0f;
+                Dust slime = Dust.NewDustPerfect(npc.Center + Main.rand.NextVector2Circular(100f, 70f), 4);
+                slime.color = new Color(78, 136, 255, 80);
+                slime.noGravity = true;
+                slime.velocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(11f, 25.5f);
+                slime.scale = 3.6f;
 
-                if (attackTimer == 35f)
+                Vector2 position = npc.Center + Main.rand.NextVector2Circular(100f, 70f);
+                Vector2 velocity = Vector2.Normalize(position - npc.Center);
+                Particle slimeParticle = new EoCBloodParticle(position, velocity * Main.rand.NextFloat(6f, 16.5f), 60, Main.rand.NextFloat(0.75f, 1.1f), Main.rand.NextBool() ? Color.Blue : Color.CadetBlue, 3);
+                GeneralParticleHandler.SpawnParticle(slimeParticle);
+            }
+            // Spawn slimes that just fall to the ground.
+            for (int i = 0; i < Main.rand.Next(4, 8); i++)
+            {
+                Vector2 position = npc.Center + Main.rand.NextVector2Circular(100f, 70f);
+                NPC.NewNPC((int)position.X, (int)position.Y, Main.rand.NextBool() ? NPCID.BlueSlime : NPCID.SlimeSpiked);
+            }
+            // Spawn slimes that shoot away from him.
+            for (int i = 0; i < Main.rand.Next(4, 7); i++)
+            {
+                Vector2 position = npc.Center + Main.rand.NextVector2Circular(100f, 70f);
+                int slimeIndex = NPC.NewNPC((int)position.X, (int)position.Y, Main.rand.NextBool() ? NPCID.BlueSlime : NPCID.SlimeSpiked);
+                NPC slime = Main.npc[slimeIndex];
+                Vector2 velocity = Vector2.One.RotateRandom(MathHelper.TwoPi) * Main.rand.NextFloat(6.5f, 12.5f);
+                if (velocity.AngleBetween(npc.SafeDirectionTo(target.Center)) > 0.5f)
                 {
-                    target = Main.player[npc.target];
-                    float jumpSpeed = MathHelper.Lerp(10f, 23f, Utils.InverseLerp(40f, 360f, Math.Abs(target.Center.Y - npc.Center.Y), true));
-                    jumpSpeed *= Main.rand.NextFloat(1f, 1.15f);
+                    slime.velocity = velocity;
+                }
+                else
+                {
+                    velocity = velocity.RotatedBy(Main.rand.NextFloat(MathHelper.PiOver2, MathHelper.Pi));
+                    slime.velocity = velocity;
+                }
+            }
+            Utilities.CreateShockwave(npc.Center, 1, 4, 40, false);
+            npc.NPCLoot();
+            npc.active = false;
+        }
 
-                    npc.velocity = new Vector2(npc.direction * 10.25f, -jumpSpeed);
-                    if (BossRushEvent.BossRushActive)
-                        npc.velocity *= 1.5f;
+        public static void DoBehavior_Despawn(NPC npc)
+        {
+            // Rapidly cease any horizontal movement, to prevent weird sliding behaviors
+            npc.velocity.X *= 0.8f;
+            if (Math.Abs(npc.velocity.X) < 0.1f)
+                npc.velocity.X = 0f;
+
+            // Disable damage.
+            npc.dontTakeDamage = true;
+            npc.damage = 0;
+
+            // Release slime dust to accompany the despawn behavior.
+            for (int i = 0; i < 30; i++)
+            {
+                Dust slime = Dust.NewDustDirect(npc.position + Vector2.UnitX * -20f, npc.width + 40, npc.height, 43, npc.velocity.X, npc.velocity.Y, 150, new Color(78, 136, 255, 80), 2f);
+                slime.noGravity = true;
+                slime.velocity *= 0.5f;
+            }
+
+            // Shrink over time.
+            npc.scale *= 0.97f;
+            if (npc.timeLeft > 30)
+                npc.timeLeft = 30;
+
+            // Update the hitbox based on the current scale.
+            npc.position = npc.Center;
+            npc.Size = HitboxScaleFactor * npc.scale;
+            npc.Center = npc.position;
+
+            // Despawn if sufficiently small. This is bypassed if the target is sufficiently far away, in which case the despawn happens immediately.
+            if (npc.scale < 0.7f || !npc.WithinRange(Main.player[npc.target].Center, DespawnDistance))
+            {
+                npc.active = false;
+                npc.netUpdate = true;
+            }
+        }
+
+        public static void DoBehavior_Jump(NPC npc, ref Player target, bool bigJump, bool performingDeathAnimation = false)
+        {
+            int jumpCount = 3;
+            int jumpDelay = 25;
+            float jumpSpeedX = 8.5f;
+            float jumpSpeedY = Utilities.Remap(MathHelper.Distance(npc.Center.Y, target.Center.Y), 40f, 480f, 8.25f, 15f);
+            if (bigJump || performingDeathAnimation)
+            {
+                jumpCount = 1;
+                jumpDelay += 10;
+                jumpSpeedX += 1.75f;
+                jumpSpeedY = Utilities.Remap(MathHelper.Distance(npc.Center.Y, target.Center.Y), 40f, 500f, 10f, 20.5f);
+            }
+            if (performingDeathAnimation)
+                jumpCount = 0;
+
+            // Jump higher if there's an obstacle ahead.
+            if (!Collision.CanHit(npc.Center, 1, 1, npc.Center + Vector2.UnitX * (target.Center.X > npc.Center.X).ToDirectionInt() * 250f, 1, 1))
+                jumpSpeedY *= 1.75f;
+
+            ref float jumpTimer = ref npc.Infernum().ExtraAI[0];
+            ref float jumpCounter = ref npc.Infernum().ExtraAI[1];
+            ref float tileIgnoreCountdown = ref npc.Infernum().ExtraAI[2];
+
+            // Increment the jump timer if King Slime is atop solid blocks.
+            if (tileIgnoreCountdown >= 1f)
+            {
+                tileIgnoreCountdown--;
+                npc.noTileCollide = true;
+            }
+
+            else if (Utilities.ActualSolidCollisionTop(npc.BottomLeft - Vector2.UnitY * 32f, npc.width, 64) && npc.Bottom.Y >= target.Bottom.Y - 320f)
+            {
+                npc.velocity.X *= 0.9f;
+                jumpTimer++;
+            }
+
+            if (jumpTimer >= jumpDelay)
+            {
+                jumpCounter++;
+                if (jumpCounter >= jumpCount + 1f)
+                {
+                    SelectNextAttack(npc);
+                    if (performingDeathAnimation)
+                    {
+                        NPC ninjaNPC = null;
+                        for (int i = 0; i < Main.npc.Length; i++)
+                        {
+                            if (Main.npc[i].type == ModContent.NPCType<Ninja>())
+                            {
+                                ninjaNPC = Main.npc[i];
+                                break;
+                            }
+                        }
+
+                        if (ninjaNPC != null)
+                        {
+                            ninjaNPC.Infernum().ExtraAI[8] = npc.Center.X;
+                            ninjaNPC.Infernum().ExtraAI[9] = npc.Center.Y;
+                            ninjaNPC.netUpdate = true;
+                        }
+                    }
+                }
+                else
+                {
+                    jumpTimer = 0f;
+                    tileIgnoreCountdown = 10f;
+                    npc.velocity = new Vector2((target.Center.X > npc.Center.X).ToDirectionInt() * jumpSpeedX, -jumpSpeedY);
+                    npc.noTileCollide = true;
                     npc.netUpdate = true;
                 }
-
-                if (attackTimer > 35f && (npc.collideY || attackTimer >= 180f))
-                    SelectNextAttack(npc);
             }
-            else
-                attackTimer--;
         }
 
         public static void DoBehavior_Teleport(NPC npc, Player target, float idealScale, ref float attackTimer, ref float teleportDirection)
@@ -259,11 +478,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
 
             if (attackTimer < digTime)
             {
+                // Rapidly cease any horizontal movement, to prevent weird sliding behaviors
                 npc.velocity.X *= 0.8f;
                 if (Math.Abs(npc.velocity.X) < 0.1f)
                     npc.velocity.X = 0f;
 
-                npc.scale = MathHelper.Lerp(idealScale, 0.2f, MathHelper.Clamp((float)Math.Pow(attackTimer / digTime, 3D), 0f, 1f));
+                npc.scale = MathHelper.Lerp(idealScale, 0.2f, MathHelper.Clamp((float)Math.Pow(attackTimer / digTime, 3f), 0f, 1f));
                 npc.Opacity = Utils.InverseLerp(0.7f, 1f, npc.scale, true) * 0.7f;
                 npc.dontTakeDamage = true;
                 npc.damage = 0;
@@ -271,19 +491,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
                 // Release slime dust to accompany the teleport
                 for (int i = 0; i < 30; i++)
                 {
-                    Dust slime = Dust.NewDustDirect(npc.position + Vector2.UnitX * -20f, npc.width + 40, npc.height, 4, npc.velocity.X, npc.velocity.Y, 150, new Color(78, 136, 255, 80), 2f);
+                    Dust slime = Dust.NewDustDirect(npc.position + Vector2.UnitX * -20f, npc.width + 40, npc.height, 43, npc.velocity.X, npc.velocity.Y, 150, new Color(78, 136, 255, 80), 2f);
                     slime.noGravity = true;
                     slime.velocity *= 0.5f;
                 }
             }
 
+            // Perform the teleport. 
             if (attackTimer == digTime)
             {
+                // Initialize the teleport direction as on the right if it has not been defined yet.
                 if (teleportDirection == 0f)
                     teleportDirection = 1f;
 
                 digXPosition = target.Center.X + 600f * teleportDirection;
-                digYPosition = target.Top.Y - 800f;
+                digYPosition = target.Top.Y - 100f;
                 if (digYPosition < 100f)
                     digYPosition = 100f;
 
@@ -292,25 +514,37 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
 
                 WorldUtils.Find(new Vector2(digXPosition, digYPosition).ToTileCoordinates(), Searches.Chain(new Searches.Down(200), new GenCondition[]
                 {
-                    new CustomTileConditions.IsSolidOrSolidTop(),
-                    new CustomTileConditions.ActiveAndNotActuated()
+                    new CustomTileConditions.IsSolidOrSolidTop(), new CustomTileConditions.ActiveAndNotActuated(),
                 }), out Point newBottom);
 
+                // Decide the teleport position and prepare the teleport direction for next time by making it go to the other side.
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    npc.Bottom = newBottom.ToWorldCoordinates(8, -16);
+                    npc.Bottom = newBottom.ToWorldCoordinates();
+                    npc.velocity.Y = -2f;
                     teleportDirection *= -1f;
                     npc.netUpdate = true;
                 }
+                npc.scale = 0.2f;
                 npc.Opacity = 0.7f;
             }
 
             if (attackTimer > digTime && attackTimer <= digTime + reappearTime)
             {
                 npc.scale = MathHelper.Lerp(0.2f, idealScale, Utils.InverseLerp(digTime, digTime + reappearTime, attackTimer, true));
+                npc.position.Y -= 2f;
+                npc.velocity.Y = 0f;
                 npc.Opacity = 0.7f;
                 npc.dontTakeDamage = true;
                 npc.damage = 0;
+
+                // Release slime dust to accompany the teleport
+                for (int i = 0; i < 30; i++)
+                {
+                    Dust slime = Dust.NewDustDirect(npc.position + Vector2.UnitX * -20f, npc.width + 40, npc.height, 43, npc.velocity.X, npc.velocity.Y, 150, new Color(78, 136, 255, 80), 2f);
+                    slime.noGravity = true;
+                    slime.velocity *= 0.5f;
+                }
             }
 
             if (attackTimer > digTime + reappearTime + 25)
@@ -339,6 +573,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
             npc.netUpdate = true;
         }
 
+        public static void DespawnAllSlimeEnemies()
+        {
+            for (int i = 0; i < Main.maxNPCs; i++)
+            {
+                NPC npc = Main.npc[i];
+                if (npc.type == NPCID.BlueSlime || npc.type == NPCID.SlimeSpiked)
+                {
+                    npc.active = false;
+                }
+            }
+
+            // Also clear any projectiles.
+            Utilities.DeleteAllProjectiles(true, new int[]
+            {
+                ModContent.ProjectileType<JewelBeam>(),
+                ModContent.ProjectileType<Shuriken>()
+            });
+        }
         #endregion AI
 
         #region Draw Code
@@ -347,6 +599,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
         {
             Texture2D kingSlimeTexture = Main.npcTexture[npc.type];
             Vector2 kingSlimeDrawPosition = npc.Center - Main.screenPosition + Vector2.UnitY * npc.gfxOffY;
+
+            if (npc.ai[1] == (int)KingSlimeAttackType.Teleport)
+                npc.frame.Y = 0;
 
             // Draw the ninja, if it's still stuck.
             if (npc.life > npc.lifeMax * Phase3LifeRatio)
@@ -362,11 +617,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
                 if (npc.frame.Y == 480)
                     drawOffset.Y -= 6f;
 
+				Texture2D ninjaTexture = Main.ninjaTexture;
                 Vector2 ninjaDrawPosition = npc.Center - Main.screenPosition + drawOffset;
-                spriteBatch.Draw(Main.ninjaTexture, ninjaDrawPosition, null, lightColor, ninjaRotation, Main.ninjaTexture.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(ninjaTexture, ninjaDrawPosition, null, lightColor, ninjaRotation, ninjaTexture.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
             }
 
-            spriteBatch.Draw(kingSlimeTexture, kingSlimeDrawPosition, npc.frame, npc.GetAlpha(lightColor), npc.rotation, npc.frame.Size() * 0.5f, npc.scale, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(kingSlimeTexture, kingSlimeDrawPosition, npc.frame, npc.GetAlpha(lightColor), npc.rotation, npc.frame.Size() * 0.5f, npc.scale, SpriteEffects.None, 0f);
 
             float verticalCrownOffset = 0f;
             switch (npc.frame.Y / (Main.npcTexture[npc.type].Height / Main.npcFrameCount[npc.type]))
@@ -392,9 +648,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.KingSlime
             }
             Texture2D crownTexture = Main.extraTexture[39];
             Vector2 crownDrawPosition = npc.Center - Main.screenPosition + Vector2.UnitY * (npc.gfxOffY - (56f - verticalCrownOffset) * npc.scale);
-            spriteBatch.Draw(crownTexture, crownDrawPosition, null, lightColor, 0f, crownTexture.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(crownTexture, crownDrawPosition, null, lightColor, 0f, crownTexture.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
             return false;
         }
         #endregion Drawcode
+		
+		#region Death Effects
+
+        public override bool CheckDead(NPC npc)
+        {
+            npc.Infernum().ExtraAI[6] = 1;
+            npc.life = 1;
+            npc.dontTakeDamage = true;
+            npc.active = true;
+            npc.netUpdate = true;
+            return false;
+        }
+        #endregion Death Effects
     }
 }

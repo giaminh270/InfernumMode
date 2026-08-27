@@ -1,4 +1,4 @@
-using CalamityMod.NPCs;
+﻿using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs;
 using CalamityMod.Tiles.FurnitureProfaned;
 using InfernumMode.Tiles;
@@ -77,6 +77,12 @@ namespace InfernumMode
             InfernumMode = false;
         }
 		
+		public static Vector2 WayfinderGateLocation
+        {
+            get;
+            set;
+        } = Vector2.Zero;
+		
         #region Save
 		public override TagCompound Save()
 		{
@@ -101,7 +107,9 @@ namespace InfernumMode
 				["ProvidenceArenaY"] = ProvidenceArena.Y,
 				["ProvidenceArenaWidth"] = ProvidenceArena.Width,
 				["ProvidenceArenaHeight"] = ProvidenceArena.Height,
-				["ProvidenceDoorXPosition"] = ProvidenceDoorXPosition
+				["ProvidenceDoorXPosition"] = ProvidenceDoorXPosition,
+				["DreamgateLocationX"] = WayfinderGateLocation.X,
+				["DreamgateLocationY"] = WayfinderGateLocation.Y				
 			};
 			
 		}

@@ -31,7 +31,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
             projectile.Opacity = 0f;
             cooldownSlot = 1;
         }
-        
+
         public override void AI()
         {
             // Determine opacity and scale.

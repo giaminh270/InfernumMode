@@ -1,4 +1,6 @@
 using CalamityMod;
+using InfernumMode.ExtraTextures;
+using InfernumMode.GlobalInstances;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -31,6 +33,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Signus
             projectile.timeLeft = 300;
             projectile.MaxUpdates = 2;
             projectile.Opacity = 0f;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -57,12 +60,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Signus
 
             if (explosionInterpolant > 0f)
             {
-                Texture2D explosionTelegraphTexture = ModContent.GetTexture("InfernumMode/ExtraTextures/HollowCircleSoftEdge");
+                Texture2D explosionTelegraphTexture = InfernumTextureRegistry.HollowCircleSoftEdge;
                 Vector2 scale = Vector2.One * ExplosionRadius / explosionTelegraphTexture.Size();
                 Color explosionTelegraphColor = Color.Lerp(Color.Purple, Color.Black, colorPulse) * circleFadeinInterpolant;
 
                 Main.spriteBatch.SetBlendState(BlendState.Additive);
-                Main.spriteBatch.Draw(explosionTelegraphTexture, projectile.Center - Main.screenPosition, null, explosionTelegraphColor, 0f, explosionTelegraphTexture.Size() * 0.5f, scale, 0, 0f);
+
+                for (float dx = -6f; dx <= 6; dx += 3f)
+                {
+                    Main.spriteBatch.Draw(explosionTelegraphTexture, projectile.Center - Main.screenPosition + Vector2.UnitX * dx, null, explosionTelegraphColor * 0.36f, 0f, explosionTelegraphTexture.Size() * 0.5f, scale, 0, 0f);
+                    Main.spriteBatch.Draw(explosionTelegraphTexture, projectile.Center - Main.screenPosition + Vector2.UnitY * dx, null, explosionTelegraphColor * 0.36f, 0f, explosionTelegraphTexture.Size() * 0.5f, scale, 0, 0f);
+                }
                 Main.spriteBatch.ResetBlendState();
             }
 
@@ -76,20 +84,23 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Signus
             // Create an explosion and two cosmic kunai.
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
-                int explosion = Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<CosmicExplosion>(), 400, 0f);
-                if (Main.projectile.IndexInRange(explosion))
-                    Main.projectile[explosion].ModProjectile<CosmicExplosion>().MaxRadius = ExplosionRadius * 0.7f;
+                ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(explosion =>
+                {
+                    explosion.ModProjectile<CosmicExplosion>().MaxRadius = ExplosionRadius * 0.7f;
+                });
+
+                Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<CosmicExplosion>(), SignusBehaviorOverride.CosmicExplosionDamage, 0f);
 
                 for (int i = 0; i < 2; i++)
                 {
-                    Vector2 shootVelocity = Main.rand.NextVector2CircularEdge(20f, 20f);
-                    Utilities.NewProjectileBetter(projectile.Center + shootVelocity * 3f, shootVelocity, ModContent.ProjectileType<CosmicKunai>(), 250, 0f);
+                    Vector2 shootVelocity = Main.rand.NextVector2CircularEdge(12f, 12f);
+                    Utilities.NewProjectileBetter(projectile.Center + shootVelocity * 3f, shootVelocity, ModContent.ProjectileType<CosmicKunai>(), SignusBehaviorOverride.KunaiDamage, 0f);
                 }
             }
 
             // Do some some mild screen-shake effects to accomodate the explosion.
             // This effect is set instead of added to to ensure separate explosions do not together create an excessive amount of shaking.
-            float screenShakeFactor = Utilities.Remap(projectile.Distance(Main.LocalPlayer.Center), 2000f, 1300f, 0f, 5f);
+            float screenShakeFactor = Utilities.Remap(projectile.Distance(Main.LocalPlayer.Center), 2000f, 1300f, 0f, 9.6f);
             if (Main.LocalPlayer.Calamity().GeneralScreenShakePower < screenShakeFactor)
                 Main.LocalPlayer.Calamity().GeneralScreenShakePower = screenShakeFactor;
         }

@@ -1,4 +1,8 @@
 using CalamityMod;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -9,12 +13,20 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 {
-    public class FireBeam : ModProjectile
+    public class FireBeam : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
+		
         internal PrimitiveTrailCopy BeamDrawer;
+
         public ref float Time => ref projectile.ai[0];
+
         public ref float AngularVelocity => ref projectile.ai[1];
+
         public const float LaserLength = 4800f;
+
+        public static float LaserPulse => (float)Math.Sin(Main.GlobalTime * 36f);
+
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
         public override void SetStaticDefaults() => DisplayName.SetDefault("Flame Beam");
 
@@ -70,8 +82,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             return Collision.CheckAABBvLineCollision(targetHitbox.TopLeft(), targetHitbox.Size(), start, end, width, ref _);
         }
 
-        
-
         public float WidthFunction(float completionRatio)
         {
             float squeezeInterpolant = Utils.InverseLerp(0f, 0.05f, completionRatio, true) * Utils.InverseLerp(1f, 0.95f, completionRatio, true);
@@ -80,19 +90,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
         public Color ColorFunction(float completionRatio)
         {
-            Color color = Color.Lerp(Color.Orange, Color.DarkRed, (float)Math.Pow(completionRatio, 2D));
-            return color * projectile.Opacity;
+            Color color = Color.Lerp(Color.Orange, Color.DarkRed, (float)Math.Pow(completionRatio, 0.53f));
+            return color * (projectile.Opacity + (LaserPulse * 0.5f + 0.5f) * 1.1f);
         }
 
         public override bool ShouldUpdatePosition() => false;
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (BeamDrawer is null)
-                BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:Fire"]);
+                BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.FireVertexShader);
 
-            GameShaders.Misc["Infernum:Fire"].UseSaturation(1.4f);
-            GameShaders.Misc["Infernum:Fire"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/CultistRayMap"));
+            InfernumEffectsRegistry.FireVertexShader.UseSaturation(1.4f);
+            InfernumEffectsRegistry.FireVertexShader.SetShaderTexture(InfernumTextureRegistry.HarshNoise);
 
             List<float> originalRotations = new List<float>();
             List<Vector2> points = new List<Vector2>();
@@ -102,9 +114,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                 originalRotations.Add(MathHelper.PiOver2);
             }
 
-            BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, 80);
-
-            return false;
+            BeamDrawer.DrawPixelated(points, projectile.Size * 0.5f - Main.screenPosition, 80);
         }
     }
 }

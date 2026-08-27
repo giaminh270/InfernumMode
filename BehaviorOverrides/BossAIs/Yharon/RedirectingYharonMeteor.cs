@@ -110,10 +110,5 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
             if (projectile.velocity.Y >= -16f)
                 target.AddBuff(ModContent.BuffType<LethalLavaBurn>(), 180);
         }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
-        }
     }
 }

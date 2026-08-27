@@ -1,19 +1,17 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Tiles.FurnitureProfaned;
+using InfernumMode.Sounds;
+using InfernumMode.GlobalInstances;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using InfernumMode;
+using ReLogic.Utilities;
 using Terraria;
-using Terraria.ID;
 using CalamityMod.World;
 using Terraria.DataStructures;
 using Terraria.Enums;
 using Terraria.ModLoader;
 using Terraria.ObjectData;
-using System.Collections.Generic;
-using System;
-using System.IO;
 
 namespace InfernumMode.Tiles
 {
@@ -40,6 +38,7 @@ namespace InfernumMode.Tiles
             TileObjectData.newTile.LavaDeath = false;
             TileObjectData.addTile(Type);
             AddMapEntry(new Color(122, 66, 59));
+			
         }
 
         public override bool CanExplode(int i, int j) => false;
@@ -91,7 +90,11 @@ namespace InfernumMode.Tiles
                 shatterTimer = 0;
 
             if (shatterTimer == 2)
-				Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceDoorShatter"));
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceDoorShatterSound);
+
+            // Do some screen shake anticipation effects.
+            if (close && CalamityWorld.downedGuardians)
+                Main.LocalPlayer.Calamity().GeneralScreenShakePower = Utilities.Remap(shatterTimer, 240f, 360f, 1f, 16f);
 
             // Have the door shatter into a bunch of crystals.
             if (CalamityWorld.downedGuardians && shatterTimer >= 360f)
@@ -104,7 +107,7 @@ namespace InfernumMode.Tiles
                     if (!Collision.SolidCollision(crystalSpawnPosition, 1, 1))
                         Gore.NewGore(crystalSpawnPosition, crystalVelocity, mod.GetGoreSlot($"ProvidenceDoor{Main.rand.Next(1, 3)}"), 1.16f);
                 }
-                
+
                 for (int k = 0; k < verticalOffset; k += Main.rand.Next(4, 9))
                 {
                     Vector2 crystalShardSpawnPosition = bottom - Vector2.UnitY * k + Main.rand.NextVector2Circular(8f, 8f);
@@ -115,6 +118,7 @@ namespace InfernumMode.Tiles
                     shard.velocity.Y -= 5f;
                 }
                 PoDWorld.HasProvidenceDoorShattered = true;
+
                 CalamityNetcode.SyncWorld();
                 shatterTimer = 0;
             }
@@ -151,7 +155,7 @@ namespace InfernumMode.Tiles
             Texture2D door = ModContent.GetTexture("InfernumMode/Tiles/ProvidenceRoomDoor");
             Vector2 drawOffest = (Main.drawToScreen ? Vector2.Zero : new Vector2(Main.offScreenRange));
             Vector2 drawPosition = new Vector2((float)(i * 16) - Main.screenPosition.X, (float)(j * 16) - Main.screenPosition.Y) + drawOffest;
-            Color drawColour = Color.White;
+            Color drawColor = Color.White;
 
             int verticalOffset = 0;
             for (int k = 2; k < 200; k++)
@@ -166,7 +170,7 @@ namespace InfernumMode.Tiles
             for (int dy = verticalOffset; dy >= 0; dy -= 96)
             {
                 Vector2 drawOffset = new Vector2(-12f, -dy - 48f);
-                spriteBatch.Draw(door, drawPosition + drawOffset, null, drawColour, 0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0f);
+                spriteBatch.Draw(door, drawPosition + drawOffset, null, drawColor, 0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0f);
             }
         }
     }

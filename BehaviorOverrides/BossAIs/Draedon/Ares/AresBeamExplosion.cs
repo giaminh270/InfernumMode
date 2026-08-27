@@ -1,4 +1,6 @@
-using CalamityMod;
+﻿using CalamityMod;
+using InfernumMode.Sounds;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -9,8 +11,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
     public class AresBeamExplosion : ModProjectile
     {
         public ref float Identity => ref projectile.ai[0];
-        public PrimitiveTrail LightningDrawer;
-        public PrimitiveTrail LightningBackgroundDrawer;
+        public PrimitiveTrailCopy LightningDrawer;
+        public PrimitiveTrailCopy LightningBackgroundDrawer;
 
         public override void SetStaticDefaults()
         {
@@ -51,7 +53,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
 
         public override void Kill(int timeLeft)
         {
-            Main.PlaySound(SoundID.Item93, projectile.Center);
+            Main.PlaySound(InfernumSoundRegistry.ExoPlasmaExplosion, projectile.Center);
 
             if (Main.netMode == NetmodeID.MultiplayerClient)
                 return;
@@ -62,11 +64,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares
                 Vector2 sparkVelocity = Main.rand.NextVector2CircularEdge(10f, 10f);
                 Utilities.NewProjectileBetter(projectile.Center, sparkVelocity, ModContent.ProjectileType<ExoburstSpark>(), DraedonBehaviorOverride.StrongerNormalShotDamage, 0f);
             }
-        }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
-        {
-            
         }
     }
 }

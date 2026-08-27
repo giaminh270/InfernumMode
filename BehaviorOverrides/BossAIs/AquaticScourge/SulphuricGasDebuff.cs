@@ -1,0 +1,102 @@
+using CalamityMod;
+using CalamityMod.DataStructures;
+using InfernumMode.DataStructures;
+using InfernumMode.ExtraTextures;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+using Terraria;
+using Terraria.GameContent;
+using Terraria.ID;
+using Terraria.ModLoader;
+
+namespace InfernumMode.BehaviorOverrides.BossAIs.AquaticScourge
+{
+    public class SulphuricGasDebuff : ModProjectile, IAdditiveDrawer
+    {
+        public ref float LightPower => ref projectile.ai[0];
+
+        public ref float IdealScale => ref projectile.ai[1];
+
+        public static int Lifetime => 240;
+
+        public static float AcidWaterAccelerationFactor => 4f;
+
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/NebulaGas1";
+
+        public override void SetStaticDefaults() => DisplayName.SetDefault("Sulphuric Acid Gas");
+
+        public override void SetDefaults()
+        {
+            projectile.width = projectile.height = 50;
+            projectile.penetrate = -1;
+            projectile.tileCollide = false;
+            projectile.timeLeft = Lifetime;
+            projectile.scale = 0.03f;
+            projectile.hide = true;
+            projectile.hostile = true;
+            projectile.ignoreWater = true;
+            projectile.Calamity().canBreakPlayerDefense = true;
+            
+            cooldownSlot = 1;
+        }
+
+        public override void AI()
+        {
+            // Decide scale and initial rotation on the first frame this projectile exists.
+            if (IdealScale == 0f)
+            {
+                IdealScale = Main.rand.NextFloat(5f, 6.4f);
+                projectile.rotation = Main.rand.NextFloat(MathHelper.TwoPi);
+                projectile.netUpdate = true;
+            }
+
+            // Grow in scale.
+            float idealScale = IdealScale + Utilities.Remap(projectile.timeLeft, 72f, 0f, 0f, 12f);
+            projectile.scale = MathHelper.Lerp(projectile.scale, idealScale, 0.067f);
+
+            // Calculate light power. This checks below the position of the fog to check if this fog is underground.
+            // Without this, it may render over the fullblack that the game renders for obscured tiles.
+            float lightPowerBelow = Lighting.GetColor((int)projectile.Center.X / 16, (int)projectile.Center.Y / 16 + 6).ToVector3().Length() / (float)Math.Sqrt(3f);
+            if (CalamityUtils.ParanoidTileRetrieval((int)projectile.Center.X / 16, (int)projectile.Center.Y / 16).liquid >= 25)
+                lightPowerBelow = 1f;
+
+            LightPower = MathHelper.Lerp(LightPower, lightPowerBelow, 0.15f);
+            projectile.Opacity = Utils.InverseLerp(Lifetime, Lifetime - 20f, projectile.timeLeft, true) * Utils.InverseLerp(0f, 40f, projectile.timeLeft, true) * 0.72f;
+            projectile.rotation += projectile.velocity.X * 0.002f;
+            projectile.velocity *= 0.97f;
+
+            // Make the sulphuric water effects go up far more quickly when inside the area of the pulse.
+            if (projectile.Opacity >= 0.7f)
+                AquaticScourgeHeadBehaviorOverride.ApplySulphuricPoisoningBoostToPlayersInArea(projectile.Center, projectile.scale * 46f, AcidWaterAccelerationFactor);
+        }
+
+        public override bool CanDamage() => false;
+
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void AdditiveDraw(SpriteBatch spriteBatch)
+        {
+            Vector2 screenArea = new Vector2(Main.screenWidth, Main.screenHeight);
+            Rectangle screenRectangle = Utils.CenteredRectangle(Main.screenPosition + screenArea * 0.5f, screenArea * 1.33f);
+
+            if (!projectile.Hitbox.Intersects(screenRectangle))
+                return;
+
+            // Decide which gas texture to use.
+            Texture2D texture = Main.projectileTexture[projectile.type];
+            if (projectile.identity % 2 == 1)
+                texture = InfernumTextureRegistry.Cloud2;
+
+            // Calculate drawing variables for the mist.
+            Vector2 origin = texture.Size() * 0.5f;
+            Vector2 drawPosition = projectile.Center - Main.screenPosition;
+            float opacity = Utils.InverseLerp(0f, 0.08f, LightPower, true) * projectile.Opacity;
+
+            int b = 160 + (int)(Math.Sin(MathHelper.Pi * projectile.identity / 9f + Main.GlobalTime * 11f) * 75f);
+            Color drawColor = new Color(141, 255, b) * opacity;
+            Vector2 scale = Vector2.One * 50f / texture.Size() * projectile.scale * 1.35f;
+            spriteBatch.Draw(texture, drawPosition, null, drawColor, projectile.rotation, origin, scale, SpriteEffects.None, 0f);
+        }
+    }
+}

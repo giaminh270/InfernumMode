@@ -1,9 +1,11 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.Leviathan;
 using CalamityMod.Projectiles.Boss;
 using CalamityMod.Sounds;
+using InfernumMode.Sounds;
+using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -12,7 +14,7 @@ using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-using static InfernumMode.BehaviorOverrides.BossAIs.Leviathan.ComboAttackManager;
+using static InfernumMode.BehaviorOverrides.BossAIs.Leviathan.LeviathanComboAttackManager;
 using LeviathanNPC = CalamityMod.NPCs.Leviathan.Leviathan;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
@@ -260,9 +262,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                     for (int i = 0; i < illusionCount; i++)
                     {
                         float offsetAngle = MathHelper.TwoPi * i / illusionCount;
-                        int illusion = Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<AnahitaWaterIllusion>(), 0, 0f);
-                        if (Main.projectile.IndexInRange(illusion))
-                            Main.projectile[illusion].ai[1] = offsetAngle;
+                        Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<AnahitaWaterIllusion>(), 0, 0f, -1, 0f, offsetAngle);
                     }
                 }
                 return;
@@ -312,7 +312,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                             waterBoltShootVelocity = waterBoltShootVelocity.RotatedBy(shootOffsetAngle);
                         }
 
-                        Utilities.NewProjectileBetter(shootPosition, waterBoltShootVelocity, ModContent.ProjectileType<WaterBolt>(), 175, 0f);
+                        Utilities.NewProjectileBetter(shootPosition, waterBoltShootVelocity, ModContent.ProjectileType<WaterBolt>(), WaterSpearDamage, 0f);
                     }
                 }
             }
@@ -354,7 +354,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     Vector2 songShootVelocity = Vector2.UnitX * npc.spriteDirection * songShootSpeed;
-                    Utilities.NewProjectileBetter(headPosition, songShootVelocity, ModContent.ProjectileType<HeavenlyLullaby>(), 175, 0f);
+                    Utilities.NewProjectileBetter(headPosition, songShootVelocity, ModContent.ProjectileType<HeavenlyLullaby>(), LullabyDamage, 0f);
                 }
             }
 
@@ -402,11 +402,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                 // Periodically release mist.
                 if (attackTimer % mistReleaseRate == mistReleaseRate - 1f)
                 {
-                Main.PlaySound(SoundID.DD2_PhantomPhoenixShot, npc.Center);
+                	Main.PlaySound(SoundID.DD2_PhantomPhoenixShot, npc.Center);
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
                         Vector2 icicleShootVelocity = (target.Center - headPosition).SafeNormalize(Vector2.UnitY) * Main.rand.NextFloat(0.6f, 1f) * mistMaxSpeed;
-                        Utilities.NewProjectileBetter(headPosition + icicleShootVelocity * 4f, icicleShootVelocity, ModContent.ProjectileType<FrostMist>(), 175, 0f);
+                        Utilities.NewProjectileBetter(headPosition + icicleShootVelocity * 4f, icicleShootVelocity, ModContent.ProjectileType<FrostMist>(), FrostMistDamage, 0f);
                     }
                 }
             }
@@ -420,7 +420,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
             {
                 teleportTimer = 0f;
                 teleportCounter++;
-                
+
                 npc.Opacity = 1f;
                 npc.Center = target.Center + teleportOffset;
                 npc.velocity = Vector2.UnitY * -verticalTeleportOffset * 2f / teleportChargeTime;
@@ -498,7 +498,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                         {
                             Vector2 waterSpearVelocity = (MathHelper.TwoPi * i / waterSpearCount + j * 0.33f).ToRotationVector2() * waterSpearShootSpeed;
                             waterSpearVelocity *= MathHelper.Lerp(1f, 0.32f, j / (float)(ringCount - 1f));
-                            Utilities.NewProjectileBetter(npc.Center, waterSpearVelocity, ModContent.ProjectileType<WaterBolt>(), 180, 0f);
+                            Utilities.NewProjectileBetter(npc.Center, waterSpearVelocity, ModContent.ProjectileType<WaterBolt>(), WaterSpearDamage, 0f);
                         }
                     }
                 }
@@ -572,7 +572,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                         Vector2 dustVelocity = Main.rand.NextFloat(-MathHelper.PiOver2, MathHelper.PiOver2).ToRotationVector2() * Main.rand.NextFloat(6f, 16f);
                         dustSpawnOffset += dustVelocity * 0.5f;
 
-                        Dust water = Dust.NewDustDirect(npc.Center + dustSpawnOffset, 0, 0, 172, dustVelocity.X, dustVelocity.Y, 100, default, 1.4f);
+                        Dust water = Dust.NewDustDirect(npc.Center + dustSpawnOffset, 0, 0, DustID.DungeonWater, dustVelocity.X, dustVelocity.Y, 100, default, 1.4f);
                         water.velocity /= 4f;
                         water.velocity -= npc.velocity;
                         water.noGravity = true;
@@ -597,7 +597,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
                         for (float offset = 0f; offset < 110f; offset += 10f)
-                            Utilities.NewProjectileBetter(npc.Center + spearDirection * (15f + offset), spearDirection * (20f + offset * 0.4f), ModContent.ProjectileType<AtlantisSpear>(), 200, 0f);
+                            Utilities.NewProjectileBetter(npc.Center + spearDirection * (15f + offset), spearDirection * (20f + offset * 0.4f), ModContent.ProjectileType<AtlantisSpear>(), AtlantisSpearDamage, 0f);
                     }
                     atlantisCooldown = 30f;
                 }

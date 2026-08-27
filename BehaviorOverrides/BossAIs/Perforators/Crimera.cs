@@ -27,6 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Perforators
             projectile.friendly = false;
             projectile.hostile = true;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI() => projectile.rotation = projectile.velocity.ToRotation() - MathHelper.PiOver2;

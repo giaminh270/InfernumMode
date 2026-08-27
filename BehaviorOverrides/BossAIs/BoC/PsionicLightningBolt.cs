@@ -1,4 +1,7 @@
 using CalamityMod;
+using InfernumMode.Effects;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -13,8 +16,10 @@ using Terraria.Utilities;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
 {
-    public class PsionicLightningBolt : ModProjectile
+    public class PsionicLightningBolt : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
+		
         internal PrimitiveTrailCopy LightningDrawer;
 
         public const int Lifetime = 36;
@@ -46,6 +51,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             projectile.hostile = true;
             projectile.extraUpdates = 4;
             projectile.timeLeft = projectile.MaxUpdates * Lifetime;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)
@@ -67,7 +73,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             projectile.frameCounter++;
             projectile.oldPos[1] = projectile.oldPos[0];
 
-            projectile.scale = (float)Math.Sin(MathHelper.Pi * projectile.timeLeft / (Lifetime * projectile.MaxUpdates)) * 2f;
+            projectile.scale = (float)CalamityUtils.Convert01To010(projectile.timeLeft / (float)(Lifetime * projectile.MaxUpdates)) * 2f;
             if (projectile.scale > 1f)
                 projectile.scale = 1f;
 
@@ -76,7 +82,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             {
                 projectile.frameCounter = 0;
 
-                float originalSpeed = MathHelper.Min(15f, projectile.velocity.Length());
+                float originalSpeed = Math.Min(15f, projectile.velocity.Length());
                 UnifiedRandom unifiedRandom = new UnifiedRandom((int)BaseTurnAngleRatio);
                 int turnTries = 0;
                 Vector2 newBaseDirection = -Vector2.UnitY;
@@ -146,16 +152,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             return false;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (LightningDrawer is null)
-                LightningDrawer = new PrimitiveTrailCopy(PrimitiveWidthFunction, PrimitiveColorFunction, null, false, GameShaders.Misc["Infernum:AresLightningArc"]);
+                LightningDrawer = new PrimitiveTrailCopy(PrimitiveWidthFunction, PrimitiveColorFunction, null, false, InfernumEffectsRegistry.AresLightningVertexShader);
 
-            GameShaders.Misc["Infernum:AresLightningArc"].UseImage("Images/Misc/Perlin");
-            GameShaders.Misc["Infernum:AresLightningArc"].Apply();
+            InfernumEffectsRegistry.AresLightningVertexShader.UseImage("Images/Misc/Perlin");
+            InfernumEffectsRegistry.AresLightningVertexShader.Apply();
 
-            LightningDrawer.Draw(projectile.oldPos, projectile.Size * 0.5f - Main.screenPosition, 50);
-            return false;
+            LightningDrawer.DrawPixelated(projectile.oldPos, projectile.Size * 0.5f - Main.screenPosition, 17);
         }
     }
 }

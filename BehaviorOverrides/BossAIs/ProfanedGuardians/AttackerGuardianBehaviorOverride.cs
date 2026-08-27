@@ -1,60 +1,58 @@
-using CalamityMod.Events;
-using CalamityMod.Items.Armor;
+﻿using InfernumMode;
+using CalamityMod;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ProfanedGuardians;
-using CalamityMod.Projectiles.Boss;
+using Terraria.Graphics.Shaders;
+using InfernumMode.Effects;
+using static InfernumMode.PrimitiveTrailCopy;
+using InfernumMode.Projectiles;
+using InfernumMode.ExtraTextures;
 using InfernumMode.OverridingSystem;
-using InfernumMode.BehaviorOverrides.BossAIs.Providence;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Terraria;
+using Terraria.Graphics.Effects;
 using Terraria.ID;
 using Terraria.ModLoader;
+using static InfernumMode.PrimitiveTrailCopy;
+using static InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians.GuardianComboAttackManager;
+using ProvidenceBoss = CalamityMod.NPCs.Providence.Providence;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
 {
     public class AttackerGuardianBehaviorOverride : NPCBehaviorOverride
     {
-        public enum AttackGuardianAttackState
-        {
-            Phase1Charges,
-            Phase2Transition,
-            SpinCharge,
-            SpearBarrage,
-            MagicFingerBolts,
-            ThrowingHands
-        }
+        internal PrimitiveTrailCopy DashTelegraphDrawer;
 
         public static int TotalRemaininGuardians =>
             NPC.AnyNPCs(ModContent.NPCType<ProfanedGuardianBoss>()).ToInt() +
             NPC.AnyNPCs(ModContent.NPCType<ProfanedGuardianBoss2>()).ToInt() +
             NPC.AnyNPCs(ModContent.NPCType<ProfanedGuardianBoss3>()).ToInt();
 
-        public const float ImmortalUntilPhase2LifeRatio = 0.75f;
-        public const float Phase2LifeRatio = 0.6f;
-        public const float Phase3LifeRatio = 0.45f;
-        public const float Phase4LifeRatio = 0.25f;
-
         public override int NPCOverrideType => ModContent.NPCType<ProfanedGuardianBoss>();
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI;
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCCheckDead;
 
-        public override float[] PhaseLifeRatioThresholds => new float[]
-        {
-            ImmortalUntilPhase2LifeRatio,
-            Phase4LifeRatio
-        };
-
+        #region AI and Behaviors
         public override bool PreAI(NPC npc)
         {
             CalamityGlobalNPC.doughnutBoss = npc.whoAmI;
+            GuardianComboAttackManager.EnsureGuardianIndexes();
 
             // Summon the defender and healer guardian.
-            if (Main.netMode != NetmodeID.MultiplayerClient && npc.localAI[1] == 0f)
+            if (npc.localAI[1] == 0f)
             {
-                NPC.NewNPC((int)npc.Center.X, (int)npc.Center.Y, ModContent.NPCType<ProfanedGuardianBoss3>());
-                NPC.NewNPC((int)npc.Center.X, (int)npc.Center.Y, ModContent.NPCType<ProfanedGuardianBoss2>());
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    int defenderIndex = NPC.NewNPC((int)DefenderStartingHoverPosition.X + 20, (int)DefenderStartingHoverPosition.Y + 90, ModContent.NPCType<ProfanedGuardianBoss2>());
+                    int healerIndex = NPC.NewNPC((int)HealerStartingHoverPosition.X + 20, (int)HealerStartingHoverPosition.Y + 90, ModContent.NPCType<ProfanedGuardianBoss3>());
+                    CalamityGlobalNPC.doughnutBossDefender = defenderIndex;
+                    CalamityGlobalNPC.doughnutBossHealer = healerIndex;
+                }
+                DoPhaseTransitionEffects(npc, 1);
                 npc.localAI[1] = 1f;
             }
 
@@ -64,521 +62,563 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
             // Despawn if no valid target exists.
             npc.timeLeft = 3600;
             Player target = Main.player[npc.target];
-            if (!target.active || target.dead)
+            if (((!target.active || target.dead) || target.Center.X < PoDWorld.ProvidenceArena.X * 16) || !Main.dayTime)
             {
                 npc.velocity.Y = MathHelper.Clamp(npc.velocity.Y - 0.4f, -20f, 6f);
                 if (npc.timeLeft < 180)
                     npc.timeLeft = 180;
                 if (!npc.WithinRange(target.Center, 2000f) || target.dead)
                     npc.active = false;
+
+                Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<HolyFireWall>());
                 return false;
             }
 
-            // Don't take damage if below the second phase threshold and other guardianas are around.
+            float lifeRatio = (float)npc.life / npc.lifeMax;
+
+            // Don't take damage if other guardians are around.
             npc.dontTakeDamage = false;
-            if (npc.life < npc.lifeMax * ImmortalUntilPhase2LifeRatio && TotalRemaininGuardians >= 2f)
+            if (TotalRemaininGuardians == 3f || (TotalRemaininGuardians == 2f && lifeRatio < 0.75f))
                 npc.dontTakeDamage = true;
 
-            float lifeRatio = npc.life / (float)npc.lifeMax;
+            else if (TotalRemaininGuardians == 2f)
+            {
+                npc.Calamity().DR = 0.9999f;
+                npc.chaseable = false;
+            }
+            else
+            {
+                npc.Calamity().DR = 0.4f;
+                npc.chaseable = true;
+            }
+
+            // Deal damage.
+            npc.damage = npc.defDamage;
+
+            // Reset fields.
+            npc.Infernum().ExtraAI[DefenderShouldGlowIndex] = 0;
+
+            bool giveInfFlight = true;
+            // Wait before giving this at the start of the fight, to allow the camera time to pan back first.
+            if ((GuardiansAttackType)npc.ai[0] == GuardiansAttackType.SpawnEffects || ((GuardiansAttackType)npc.ai[0] == GuardiansAttackType.FlappyBird && npc.ai[1] < 105f))
+                giveInfFlight = false;
+
+            // Give the player infinite flight time, and keep them in the bounds.
+            if (giveInfFlight)
+            {
+                for (int i = 0; i < Main.player.Length; i++)
+                {
+                    Player player = Main.player[i];
+                    if (player.active && !player.dead)
+                    {
+                        if (player.WithinRange(npc.Center, 10000f))
+                            player.wingTime = player.wingTimeMax;
+
+                        if (player.WithinRange(new Vector2(PoDWorld.ProvidenceDoorXPosition, (PoDWorld.ProvidenceArena.Y + PoDWorld.ProvidenceArena.Height * 0.5f) * 16f), 10000f))
+                        {
+                            if (player.Center.X > PoDWorld.ProvidenceDoorXPosition)
+                                player.Center = new Vector2(PoDWorld.ProvidenceDoorXPosition, player.Center.Y);
+                        }
+                    }
+                }
+            }
+
             ref float attackState = ref npc.ai[0];
             ref float attackTimer = ref npc.ai[1];
-            ref float attackDelay = ref npc.ai[3];
-            ref float shouldHandsBeInvisibleFlag = ref npc.localAI[2];
 
-            // Wait before attacking.
-            if (attackDelay < 90f)
-            {
-                attackDelay++;
-                npc.velocity = Vector2.Lerp(npc.velocity, -Vector2.UnitY * 6f, 0.025f);
-                npc.dontTakeDamage = true;
-                return false;
-            }
+            // Reset opacities depending on whether they are being drawn or not.
+            ref float smearOpacity = ref npc.Infernum().ExtraAI[CommanderSpearSmearOpacityIndex];
+            if (npc.Infernum().ExtraAI[CommanderDrawSpearSmearIndex] == 1f)
+                smearOpacity = MathHelper.Clamp(smearOpacity + 0.1f, 0f, 1f);
+            else
+                smearOpacity = MathHelper.Clamp(smearOpacity - 0.1f, 0f, 1f);
 
-            shouldHandsBeInvisibleFlag = 0f;
-            switch ((AttackGuardianAttackState)attackState)
+            npc.Infernum().ExtraAI[CommanderDrawSpearSmearIndex] = 0f;
+
+            ref float fireBorderOpacity = ref npc.Infernum().ExtraAI[FireBorderInterpolantIndex];
+            if (npc.Infernum().ExtraAI[FireBorderShouldDrawIndex] == 1f)
+                fireBorderOpacity = MathHelper.Clamp(fireBorderOpacity + 0.1f, 0f, 1f);
+            else
+                fireBorderOpacity = MathHelper.Clamp(fireBorderOpacity - 0.1f, 0f, 1f);
+
+            // Decrease the extra sky opacity;
+            ref float skyOpacity = ref npc.Infernum().ExtraAI[GuardianSkyExtraIntensityIndex];
+            skyOpacity = MathHelper.Clamp(skyOpacity - 0.01f, 0f, 1f);
+
+            // Force the player into the area if the opacity is drawn.
+            if (fireBorderOpacity > 0f && Vector2.Distance(target.Center, npc.Center) > 1250f)
+                target.Center = Vector2.Lerp(target.Center, npc.Center + npc.Center.DirectionTo(target.Center) * 1250f, 0.2f);
+
+            //if (attackState >= (float)GuardiansAttackType.DefenderDeathAnimation)
+            //    npc.Infernum().ShouldUseSaturationBlur = true;
+
+            // Do attacks.
+            switch ((GuardiansAttackType)attackState)
             {
-                case AttackGuardianAttackState.Phase1Charges:
-                    DoBehavior_Phase1Charges(npc, target, ref attackTimer);
+                case GuardiansAttackType.SpawnEffects:
+                    DoBehavior_SpawnEffects(npc, target, ref attackTimer);
                     break;
-                case AttackGuardianAttackState.Phase2Transition:
-                    DoBehavior_Phase2Transition(npc, target, ref attackTimer);
+
+                case GuardiansAttackType.FlappyBird:
+                    DoBehavior_FlappyBird(npc, target, ref attackTimer, npc);
                     break;
-                case AttackGuardianAttackState.SpinCharge:
-                    DoBehavior_SpinCharge(npc, target, lifeRatio, ref attackTimer, ref shouldHandsBeInvisibleFlag);
+
+                case GuardiansAttackType.SoloHealer:
+                    DoBehavior_SoloHealer(npc, target, ref attackTimer, npc);
                     break;
-                case AttackGuardianAttackState.SpearBarrage:
-                    DoBehavior_SpearBarrage(npc, target, lifeRatio, ref attackTimer);
+
+                case GuardiansAttackType.SoloDefender:
+                    DoBehavior_SoloDefender(npc, target, ref attackTimer, npc);
                     break;
-                case AttackGuardianAttackState.MagicFingerBolts:
-                    DoBehavior_MagicFingerBolts(npc, target, lifeRatio, ref attackTimer);
+
+                case GuardiansAttackType.HealerAndDefender:
+                    DoBehavior_HealerAndDefender(npc, target, ref attackTimer, npc);
                     break;
-                case AttackGuardianAttackState.ThrowingHands:
-                    DoBehavior_ThrowingHands(npc, target, ref attackTimer);
+
+                case GuardiansAttackType.HealerDeathAnimation:
+                    DoBehavior_HealerDeathAnimation(npc, target, ref attackTimer, npc);
+                    break;
+
+                case GuardiansAttackType.SpearDashAndGroundSlam:
+                    DoBehavior_SpearDashAndGroundSlam(npc, target, ref attackTimer, npc);
+                    break;
+
+                case GuardiansAttackType.CrashRam:
+                    DoBehavior_CrashRam(npc, target, ref attackTimer, npc);
+                    break;
+
+                case GuardiansAttackType.FireballBulletHell:
+                    DoBehavior_FireballBulletHell(npc, target, ref attackTimer, npc);
+                    break;
+
+                case GuardiansAttackType.DefenderDeathAnimation:
+                    DoBehavior_DefenderDeathAnimation(npc, target, ref attackTimer, npc);
+                    break;
+
+                case GuardiansAttackType.LargeGeyserAndCharge:
+                    DoBehavior_LargeGeyserAndCharge(npc, target, ref attackTimer);
+                    break;
+
+                case GuardiansAttackType.DogmaLaserBall:
+                    DoBehavior_DogmaLaserBall(npc, target, ref attackTimer);
+                    break;
+
+                case GuardiansAttackType.BerdlySpears:
+                    DoBehavior_BerdlySpears(npc, target, ref attackTimer);
+                    break;
+
+                case GuardiansAttackType.SpearSpinThrow:
+                    DoBehavior_SpearSpinThrow(npc, target, ref attackTimer);
+                    break;
+
+                case GuardiansAttackType.RiftFireCharges:
+                    DoBehavior_RiftFireCharges(npc, target, ref attackTimer);
+                    break;
+
+                case GuardiansAttackType.CommanderDeathAnimation:
+                    DoBehavior_CommanderDeathAnimation(npc, target, ref attackTimer);
                     break;
             }
             attackTimer++;
-
             return false;
         }
 
-        public static void DoBehavior_Phase1Charges(NPC npc, Player target, ref float attackTimer)
+        public static void DoBehavior_CommanderDeathAnimation(NPC npc, Player target, ref float attackTimer)
         {
-            npc.spriteDirection = (npc.velocity.X > 0).ToDirectionInt();
-            npc.damage = npc.defDamage;
+            int widthExpandDelay = 90;
+            int firstExpansionTime = 20;
+            int secondExpansionDelay = 1;
+            int secondExpansionTime = 132;
+            ref float fadeOutFactor = ref npc.Infernum().ExtraAI[0];
+            ref float brightnessWidthFactor = ref npc.Infernum().ExtraAI[CommanderBrightnessWidthFactorIndex];
+            ref float spearStatus = ref npc.Infernum().ExtraAI[CommanderSpearStatusIndex];
 
-            float chargeSpeed = 18f;
-            float chargeAcceleration = 1.015f;
-            ref float attackSubstate = ref npc.Infernum().ExtraAI[0];
+            // Slow to a screeching halt.
+            npc.velocity *= 0.9f;
 
-            // Enter the next phase once alone.
-            if (TotalRemaininGuardians <= 1f)
+            // Disable damage.
+            npc.damage = 0;
+            npc.dontTakeDamage = true;
+
+            // Despawn the spear if it is active.
+            if ((DefenderShieldStatus)spearStatus != DefenderShieldStatus.Inactive || Main.projectile.Any((Projectile p) => p.active && p.type == ModContent.ProjectileType<CommanderSpear>()))
+                // Mark the spear for removal.
+                spearStatus = (float)DefenderShieldStatus.MarkedForRemoval;
+
+            // Close the boss bar.
+            npc.Calamity().ShouldCloseHPBar = true;
+
+            if (attackTimer == widthExpandDelay + firstExpansionTime - 10f)
+                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyRay"));
+
+            // Determine the brightness width factor.
+            float expansion1 = Utils.InverseLerp(widthExpandDelay, widthExpandDelay + firstExpansionTime, attackTimer, true) * 0.9f;
+            float expansion2 = Utils.InverseLerp(0f, secondExpansionTime, attackTimer - widthExpandDelay - firstExpansionTime - secondExpansionDelay, true) * 3.2f;
+            brightnessWidthFactor = expansion1 + expansion2;
+            fadeOutFactor = Utils.InverseLerp(0f, -25f, attackTimer - widthExpandDelay - firstExpansionTime - secondExpansionDelay - secondExpansionTime, true);
+
+            // Fade out over time.
+            npc.Opacity = Utils.InverseLerp(3f, 1.9f, brightnessWidthFactor, true);
+
+            // Disappear and drop loot.
+            if (attackTimer >= widthExpandDelay + firstExpansionTime + secondExpansionDelay + secondExpansionTime)
             {
-                npc.TargetClosest();
-                npc.ai[0] = (int)AttackGuardianAttackState.Phase2Transition;
-                npc.velocity = npc.velocity.ClampMagnitude(0f, 23f);
-                attackTimer = 0f;
-                npc.netUpdate = true;
+                npc.life = 0;
+                npc.Center = target.Center;
+                npc.checkDead();
+                npc.active = false;
             }
+        }
+        #endregion AI and Behaviors
 
-            // Line up for the charge.
-            if (attackSubstate == 0f)
+        #region Draw Effects
+        public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor)
+        {
+            int afterimageCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 3 : 7;
+            float brightnessWidthFactor = npc.Infernum().ExtraAI[CommanderBrightnessWidthFactorIndex];
+            float fadeToBlack = Utils.InverseLerp(1.84f, 2.66f, brightnessWidthFactor, true);
+            Texture2D texture = Main.npcTexture[npc.type];
+            Texture2D glowmask = ModContent.GetTexture("CalamityMod/NPCs/ProfanedGuardians/ProfanedGuardianBossGlow");
+            SpriteEffects direction = npc.spriteDirection == -1 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
+            Vector2 origin = npc.frame.Size() * 0.5f;
+
+            bool shouldDrawShield =
+                (GuardiansAttackType)npc.ai[0] == GuardiansAttackType.SoloHealer ||
+                (GuardiansAttackType)npc.ai[0] == GuardiansAttackType.SoloDefender ||
+                (GuardiansAttackType)npc.ai[0] == GuardiansAttackType.HealerAndDefender;
+            float shieldOpacity = (GuardiansAttackType)npc.ai[0] is GuardiansAttackType.SoloHealer ? 1f : 0.5f;
+
+            // Draw the pillar of light behind the guardian when ready.
+            if (brightnessWidthFactor > 0f)
             {
-                npc.damage = 0;
-
-                int xOffsetDirection = (target.Center.X < npc.Center.X).ToDirectionInt();
-                Vector2 destination = target.Center + Vector2.UnitX * 540f * xOffsetDirection;
-
-                float distanceFromDestination = npc.Distance(destination);
-                Vector2 linearVelocityToDestination = npc.SafeDirectionTo(destination) * MathHelper.Min(15f + target.velocity.Length() * 0.5f, distanceFromDestination);
-                npc.velocity = Vector2.Lerp(linearVelocityToDestination, (destination - npc.Center) / 15f, Utils.InverseLerp(180f, 420f, distanceFromDestination, true));
-
-                // Prepare to charge.
-                if (npc.WithinRange(destination, 12f + target.velocity.Length() * 0.5f))
+                if (!Main.dedServ)
                 {
-                    Main.PlaySound(SoundID.Item45, npc.Center);
-                    if (Main.netMode != NetmodeID.MultiplayerClient)
-                    {
-                        npc.velocity = npc.SafeDirectionTo(target.Center + target.velocity * 3.5f) * chargeSpeed;
+                    if (!Filters.Scene["CrystalDestructionColor"].IsActive())
+                        Filters.Scene.Activate("CrystalDestructionColor");
 
-                        // Release a burst of spears outward.
-                        int spearBurstCount = 3;
-                        float spearBurstSpread = MathHelper.ToRadians(21f);
-                        if (TotalRemaininGuardians <= 2)
-                        {
-                            spearBurstCount += 4;
-                            spearBurstSpread += MathHelper.ToRadians(15f);
-                        }
+                    Filters.Scene["CrystalDestructionColor"].GetShader().UseColor(Color.Orange.ToVector3());
+                    Filters.Scene["CrystalDestructionColor"].GetShader().UseIntensity(Utils.InverseLerp(0.96f, 1.92f, brightnessWidthFactor, true) * 0.9f);
+                }
 
-                        for (int i = 0; i < spearBurstCount; i++)
-                        {
-                            float offsetAngle = MathHelper.Lerp(-spearBurstSpread, spearBurstSpread, i / (float)spearBurstCount);
-                            Vector2 shootVelocity = npc.SafeDirectionTo(target.Center + target.velocity.Y * new Vector2(8f, 36f)).RotatedBy(offsetAngle) * 9f;
-                            Utilities.NewProjectileBetter(npc.Center + shootVelocity * 2f, shootVelocity, ModContent.ProjectileType<ProfanedSpear>(), 225, 0f);
-                        }
-
-                        attackTimer = 0f;
-                        attackSubstate = 1f;
-                        npc.netUpdate = true;
-                    }
+                Vector2 lightPillarPosition = npc.Center - Main.screenPosition + Vector2.UnitY * 3000f;
+				int lightPillarReduce = InfernumConfig.Instance.ReducedGraphicsConfig ? 4 : 16;
+                for (int i = 0; i < lightPillarReduce; i++)
+                {
+                    float intensity = MathHelper.Clamp(brightnessWidthFactor * 1.1f - i / 15f, 0f, 1f);
+                    Vector2 lightPillarOrigin = new Vector2(Main.magicPixel.Width / 2f, Main.magicPixel.Height);
+                    Vector2 lightPillarScale = new Vector2((float)Math.Sqrt(intensity + i) * brightnessWidthFactor * 200f, 6f);
+                    Color lightPillarColor = new Color(0.7f, 0.55f, 0.38f, 0f) * intensity * npc.Infernum().ExtraAI[0] * 0.4f;
+                    spriteBatch.Draw(Main.magicPixel, lightPillarPosition, null, lightPillarColor, 0f, lightPillarOrigin, lightPillarScale, 0, 0f);
                 }
             }
 
-            // Charge.
-            if (attackSubstate == 1f)
+            // Draw afterimages of the commander.
+            if (CalamityConfig.Instance.Afterimages)
             {
-                npc.velocity *= chargeAcceleration;
-                if (attackTimer >= 50f)
+                for (int i = 1; i < afterimageCount; i += 2)
                 {
-                    attackSubstate = 0f;
-                    attackTimer = 0f;
-                    npc.netUpdate = true;
+                    Color afterimageDrawColor = npc.GetAlpha(Color.Lerp(lightColor, Color.White, 0.5f)) * ((afterimageCount - i) / 15f);
+                    Vector2 afterimageDrawPosition = npc.oldPos[i] + npc.Size * 0.5f - Main.screenPosition;
+                    spriteBatch.Draw(texture, afterimageDrawPosition, npc.frame, afterimageDrawColor * (1f - fadeToBlack), npc.rotation, origin, npc.scale, direction, 0f);
+                }
+            }
+
+            // Draw back afterimages, indicating that the guardian is fading away into ashes.
+            Vector2 drawPosition = npc.Center - Main.screenPosition;
+            float radius = Utilities.Remap(npc.Opacity, 1f, 0f, 0f, 55f);
+			int shouldReduceGraphics = InfernumConfig.Instance.ReducedGraphicsConfig ? 10 : 24;
+            if (radius > 0.5f && npc.ai[0] == (int)GuardiansAttackType.CommanderDeathAnimation)
+            {
+                for (int i = 0; i < shouldReduceGraphics; i++)
+                {
+                    Vector2 drawOffset = (MathHelper.TwoPi * i / 24f).ToRotationVector2() * radius;
+                    Color backimageColor = Color.Black;
+                    backimageColor.A = (byte)MathHelper.Lerp(164f, 0f, npc.Opacity);
+                    spriteBatch.Draw(texture, drawPosition + drawOffset, npc.frame, backimageColor * npc.Opacity, npc.rotation, origin, npc.scale, direction, 0f);
+                }
+            }
+
+            if (TotalRemaininGuardians == 1 && npc.Infernum().ExtraAI[DefenderDrawDashTelegraphIndex] == 1f)
+                DrawDashTelegraph(npc);
+
+            if (shouldDrawShield)
+                DrawBackglowEffects(npc, spriteBatch, texture);
+
+            //if (npc.Infernum().ExtraAI[CommanderFireAfterimagesIndex] == 1)
+            //    PrepareFireAfterimages(npc, spriteBatch, direction);
+
+            if ((GuardiansAttackType)npc.ai[0] > GuardiansAttackType.HealerDeathAnimation)
+                DefenderGuardianBehaviorOverride.DrawBackglow(npc, spriteBatch, texture);
+
+            spriteBatch.Draw(texture, drawPosition, npc.frame, Color.Lerp(npc.GetAlpha(lightColor), Color.Black * npc.Opacity, fadeToBlack), npc.rotation, origin, npc.scale, direction, 0f);
+            spriteBatch.Draw(glowmask, drawPosition, npc.frame, Color.Lerp(Color.White, Color.Black, fadeToBlack) * npc.Opacity, npc.rotation, origin, npc.scale, direction, 0f);
+
+            // Draw a defensive overlay over the commander if the healer is dead, to help identify him from the defender.
+            if (TotalRemaininGuardians == 2 && (GuardiansAttackType)npc.ai[0] != GuardiansAttackType.DefenderDeathAnimation)
+                DefenderGuardianBehaviorOverride.DrawDefenseOverlay(npc, spriteBatch, texture);
+
+            // Draw an overlay.
+            ref float glowAmount = ref npc.Infernum().ExtraAI[CommanderAngerGlowAmountIndex];
+            if (glowAmount > 0f && (GuardiansAttackType)npc.ai[0] is GuardiansAttackType.HealerDeathAnimation)
+                DrawAngerOverlay(npc, spriteBatch, texture, glowmask, direction, glowAmount);
+
+            if (shouldDrawShield)
+                DrawHealerShield(npc, spriteBatch, 3.5f, shieldOpacity);
+
+            if (npc.Infernum().ExtraAI[FireBorderInterpolantIndex] > 0f)
+                DrawFireBorder(npc, spriteBatch);
+
+            if (PoDWorld.HasProvidenceDoorShattered)
+                DrawTempleBorder(npc, spriteBatch);
+            return false;
+        }
+
+        public void DrawDashTelegraph(NPC npc)
+        {
+            if (DashTelegraphDrawer == null)
+                DashTelegraphDrawer = new PrimitiveTrailCopy(c => 65f,
+                	c => DefenderGuardianBehaviorOverride.DashTelegraphColor(),
+                    null, true, InfernumEffectsRegistry.SideStreakVertexShader);
+
+            InfernumEffectsRegistry.SideStreakVertexShader.SetShaderTexture(InfernumTextureRegistry.CultistRayMap);
+            InfernumEffectsRegistry.SideStreakVertexShader.UseOpacity(0.3f);
+
+            Vector2 startPos = npc.Center;
+            float distance = Vector2.Distance(npc.Center, Main.player[npc.target].Center);
+            Vector2 direction = npc.DirectionTo(Main.player[npc.target].Center);
+            Vector2 endPos = npc.Center + direction * distance;
+            Vector2[] drawPositions = new Vector2[8];
+            for (int i = 0; i < drawPositions.Length; i++)
+                drawPositions[i] = Vector2.Lerp(startPos, endPos, (float)i / drawPositions.Length);
+
+            DashTelegraphDrawer.Draw(drawPositions, -Main.screenPosition, 30);
+
+            // Draw arrows.
+            Texture2D arrowTexture = InfernumTextureRegistry.Arrow;
+
+            Color drawColor = Color.Orange;
+            drawColor.A = 0;
+            Vector2 drawPosition = (startPos + direction * 120f) - Main.screenPosition;
+            for (int i = 1; i < distance / 125f; i++)
+            {
+                Vector2 arrowOrigin = arrowTexture.Size() * 0.5f;
+                float arrowRotation = direction.ToRotation() + MathHelper.PiOver2;
+                float sineValue = (1f + (float)Math.Sin(Main.GlobalTime * 10.5f - i)) / 2f;
+                float finalOpacity = Utilities.SineInOutEasing(sineValue, 1);
+                Main.spriteBatch.Draw(arrowTexture, drawPosition, null, drawColor * finalOpacity, arrowRotation, arrowOrigin, 0.75f, SpriteEffects.None, 0f);
+                drawPosition += direction * 75f;
+            }
+        }
+
+        public static void DrawBackglowEffects(NPC npc, SpriteBatch spriteBatch, Texture2D npcTexture)
+        {
+            ref float commanderHasAlreadyDoneBoom = ref npc.Infernum().ExtraAI[CommanderHasSpawnedBlenderAlreadyIndex];
+            ref float opacity = ref npc.Infernum().ExtraAI[CommanderBlenderBackglowOpacityIndex];
+            ref float spawnedLasers = ref npc.Infernum().ExtraAI[1];
+            bool initialWaitIsOver = commanderHasAlreadyDoneBoom == 0 && spawnedLasers == 1;
+
+            if (commanderHasAlreadyDoneBoom == 1 || initialWaitIsOver)
+            {
+                opacity = MathHelper.Clamp(opacity + 0.05f, 0f, 1f);
+                // Glow effect.
+                Texture2D glow = ModContent.GetTexture("CalamityMod/Particles/BloomCircle");
+                Vector2 drawPosition = npc.Center - Main.screenPosition;
+                Color drawColor = Color.Lerp(WayfinderSymbol.Colors[1], WayfinderSymbol.Colors[2], 0.5f);
+                drawColor.A = 0;
+                Vector2 origin = glow.Size() * 0.5f;
+                spriteBatch.Draw(glow, drawPosition, null, drawColor, 0f, origin, 3.5f, SpriteEffects.None, 0f);
+
+                // Draw a glow effect.
+                Texture2D glowBloom = ModContent.GetTexture("InfernumMode/ExtraTextures/BloomFlare");
+                Vector2 glowPosition = npc.Center - Main.screenPosition;
+                Color glowColor = Color.Lerp(WayfinderSymbol.Colors[0], WayfinderSymbol.Colors[1], 0.3f);
+                glowColor.A = 0;
+                float glowRotation = Main.GlobalTime * 3;
+                float scaleInterpolant = (1f + (float)Math.Sin(Main.GlobalTime * 5f)) / 2f;
+                float scale = MathHelper.Lerp(3.6f, 4.1f, scaleInterpolant);
+                Main.spriteBatch.Draw(glowBloom, glowPosition, null, glowColor * opacity, glowRotation, glowBloom.Size() * 0.5f, scale * 0.5f, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(glowBloom, glowPosition, null, glowColor * opacity, glowRotation * -1, glowBloom.Size() * 0.5f, scale * 0.5f, SpriteEffects.None, 0f);
+
+                // Backglow
+                int backglowAmount = InfernumConfig.Instance.ReducedGraphicsConfig ? 3 : 12;
+                float sine = (1f + (float)Math.Sin(Main.GlobalTime * 2f)) / 2f;
+                float backglowDistance = MathHelper.Lerp(4.5f, 6.5f, sine);
+                for (int i = 0; i < backglowAmount; i++)
+                {
+                    Vector2 backglowOffset = (MathHelper.TwoPi * i / backglowAmount).ToRotationVector2() * backglowDistance;
+                    Color backglowColor = WayfinderSymbol.Colors[1];
+                    backglowColor.A = 0;
+                    SpriteEffects direction = npc.spriteDirection == -1 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
+                    spriteBatch.Draw(npcTexture, npc.Center + backglowOffset - Main.screenPosition, npc.frame, backglowColor * npc.Opacity, npc.rotation, npc.frame.Size() * 0.5f, npc.scale, direction, 0);
                 }
             }
         }
 
-        public static void DoBehavior_Phase2Transition(NPC npc, Player target, ref float attackTimer)
+        public static void DrawAngerOverlay(NPC npc, SpriteBatch spriteBatch, Texture2D texture, Texture2D glowmask, SpriteEffects direction, float glowAmount)
         {
-            float phase2TransitionTime = 180f;
-            if (attackTimer < phase2TransitionTime)
-            {
-                npc.velocity *= 0.9f;
+            Color color1 = npc.GetAlpha(Color.OrangeRed);
+			color1.A = 0;
+			spriteBatch.Draw(texture, npc.Center - Main.screenPosition, npc.frame, color1 * glowAmount * npc.Opacity, npc.rotation, npc.frame.Size() * 0.5f, npc.scale, direction, 0f);
+			Color color2 = WayfinderSymbol.Colors[0];
+			color2.A = 0;
+			spriteBatch.Draw(glowmask, npc.Center - Main.screenPosition, npc.frame, color2 * glowAmount * npc.Opacity, npc.rotation, npc.frame.Size() * 0.5f, npc.scale, direction, 0f);
+        }
 
-                if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % 45 == 0)
-                {
-                    float shootSpeed = BossRushEvent.BossRushActive ? 17f : 12f;
-                    for (int i = 0; i < 12; i++)
-                    {
-                        Vector2 shootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.TwoPi * i / 11f) * shootSpeed;
-                        Utilities.NewProjectileBetter(npc.Center, shootVelocity, ModContent.ProjectileType<ProfanedSpear>(), 230, 0f);
-                    }
-                }
-                if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer == phase2TransitionTime - 45)
-                {
-                    NPC.NewNPC((int)npc.Center.X - 160, (int)npc.Center.Y, ModContent.NPCType<EtherealHand>(), 0, -1);
-                    NPC.NewNPC((int)npc.Center.X + 160, (int)npc.Center.Y, ModContent.NPCType<EtherealHand>(), 0, 1);
-                }
-                return;
+        public static void DrawHealerShield(NPC npc, SpriteBatch spriteBatch, float scaleFactor, float opacity)
+        {
+            Vector2 drawPosition = npc.Center - Main.screenPosition;
+
+            float scale = MathHelper.Lerp(0.15f, 0.155f, (float)Math.Sin(Main.GlobalTime * 0.5f) * 0.5f + 0.5f) * scaleFactor;
+            float noiseScale = MathHelper.Lerp(0.4f, 0.8f, (float)Math.Sin(Main.GlobalTime * 0.3f) * 0.5f + 0.5f);
+
+            Effect shieldEffect = InfernumEffectsRegistry.Shield.GetShader().Shader;
+            shieldEffect.Parameters["time"].SetValue(Main.GlobalTime * 0.24f);
+            shieldEffect.Parameters["blowUpPower"].SetValue(2.5f);
+            shieldEffect.Parameters["blowUpSize"].SetValue(0.5f);
+            shieldEffect.Parameters["noiseScale"].SetValue(noiseScale);
+
+            // Prepare the forcefield opacity.
+            float baseShieldOpacity = 0.9f + 0.1f * (float)Math.Sin(Main.GlobalTime * 2f);
+            shieldEffect.Parameters["shieldOpacity"].SetValue(baseShieldOpacity * (opacity * 0.9f + 0.1f));
+            shieldEffect.Parameters["shieldEdgeBlendStrenght"].SetValue(4f);
+
+            Color edgeColor = Color.DeepPink;
+            Color shieldColor = Color.LightPink;
+
+            // Prepare the forcefield colors.
+            shieldEffect.Parameters["shieldColor"].SetValue(shieldColor.ToVector3());
+            shieldEffect.Parameters["shieldEdgeColor"].SetValue(edgeColor.ToVector3());
+
+            spriteBatch.End();
+            spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.Additive, Main.DefaultSamplerState, DepthStencilState.None, Main.instance.Rasterizer, shieldEffect, Main.GameViewMatrix.TransformationMatrix);
+
+            // Draw the forcefield. This doesn't happen if the lighting behind is too low, to ensure that it doesn't draw if underground or in a darkly lit area.
+            Texture2D noise = InfernumTextureRegistry.CultistRayMap;
+            if (shieldColor.ToVector4().Length() > 0.02f)
+                spriteBatch.Draw(noise, drawPosition, null, Color.White * opacity, 0, noise.Size() / 2f, scale * 2f, 0, 0);
+
+            spriteBatch.ExitShaderRegion();
+        }
+
+        public static void DrawFireBorder(NPC npc, SpriteBatch spriteBatch)
+        {
+            spriteBatch.End();
+            spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.Additive, Main.DefaultSamplerState, DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.GameViewMatrix.TransformationMatrix);
+
+            // Get variables.
+            List<VertexPosition2DColor> vertices = new List<VertexPosition2DColor>();
+            float totalPoints = 200;
+            float width = 300f;
+            float radius = 1300f;
+            Color color = Color.Lerp(WayfinderSymbol.Colors[0], WayfinderSymbol.Colors[1], 0.75f);
+            float distanceFromCenter = radius - Vector2.Distance(Main.player[npc.target].Center, npc.Center);
+            float alpha = MathHelper.Clamp(1f - distanceFromCenter / (radius * 1.5f), 0f, 1f);
+            color *= alpha * npc.Infernum().ExtraAI[FireBorderInterpolantIndex];
+
+            for (int i = 0; i <= totalPoints; i++)
+            {
+                float interpolant = i / totalPoints;
+                Vector2 position = npc.Center - Main.screenPosition + (i * MathHelper.TwoPi / totalPoints).ToRotationVector2() * radius;
+                Vector2 position2 = npc.Center - Main.screenPosition + (i * MathHelper.TwoPi / totalPoints).ToRotationVector2() * (radius + width);
+
+                Vector2 textureCoords = new Vector2(interpolant, 0f);
+                Vector2 textureCoords2 = new Vector2(interpolant, 1f);
+
+                vertices.Add(new VertexPosition2DColor(position, color, textureCoords));
+                vertices.Add(new VertexPosition2DColor(position2, color, textureCoords2));
             }
 
-            npc.TargetClosest();
-            npc.ai[0] = (int)AttackGuardianAttackState.SpinCharge;
-            attackTimer = 0f;
+            CalamityUtils.CalculatePerspectiveMatricies(out var view, out var projection);
+            InfernumEffectsRegistry.AreaBorderVertexShader.UseOpacity(alpha * npc.Infernum().ExtraAI[FireBorderInterpolantIndex]);
+            InfernumEffectsRegistry.AreaBorderVertexShader.UseColor(WayfinderSymbol.Colors[2]);
+            InfernumEffectsRegistry.AreaBorderVertexShader.SetShaderTexture(InfernumTextureRegistry.HarshNoise);
+            InfernumEffectsRegistry.AreaBorderVertexShader.Shader.Parameters["uWorldViewProjection"].SetValue(view * projection);
+            InfernumEffectsRegistry.AreaBorderVertexShader.Shader.Parameters["noiseSpeed"].SetValue(new Vector2(0.1f, 0.1f));
+            InfernumEffectsRegistry.AreaBorderVertexShader.Shader.Parameters["timeFactor"].SetValue(2f);
+            InfernumEffectsRegistry.AreaBorderVertexShader.Apply();
+
+            Main.graphics.GraphicsDevice.Textures[0] = ModContent.GetTexture("InfernumMode/ExtraTextures/GreyscaleObjects/SolidEdgeGradient");
+            Main.graphics.GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, vertices.ToArray(), 0, vertices.Count - 2);
+            spriteBatch.ExitShaderRegion();
+        }
+
+        public static void DrawTempleBorder(NPC npc, SpriteBatch spriteBatch)
+        {
+            spriteBatch.End();
+            spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.Additive, Main.DefaultSamplerState, DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.GameViewMatrix.TransformationMatrix);
+
+            // Get variables.
+            List<VertexPosition2DColor> vertices = new List<VertexPosition2DColor>();
+            float totalPoints = 50;
+            float width = 300f;
+            Color color = Color.Lerp(WayfinderSymbol.Colors[0], WayfinderSymbol.Colors[1], 0.75f);
+            Vector2 startPos = new Vector2(PoDWorld.ProvidenceDoorXPosition, CenterOfGarden.Y - 600f);
+            Vector2 endPos = startPos + new Vector2(0f, 1570f);
+            float fadeDistance = 500f;
+            float distanceFromBorder = Vector2.Distance(new Vector2(Main.player[npc.target].Center.X, startPos.Y), startPos);
+            float alpha = MathHelper.Clamp(1f - distanceFromBorder / (fadeDistance * 1.5f), 0f, 1f);
+            color *= alpha;
+
+            for (int i = 0; i < totalPoints; i++)
+            {
+                float interpolant = i / totalPoints;
+                Vector2 position = Vector2.Lerp(startPos, endPos, interpolant) - Main.screenPosition;
+                Vector2 position2 = (Vector2.Lerp(startPos, endPos, interpolant) - Main.screenPosition);
+                Vector2 textureCoords = new Vector2(interpolant, 0f);
+                Vector2 textureCoords2 = new Vector2(interpolant, 1f);
+                vertices.Add(new VertexPosition2DColor(position, color, textureCoords));
+                vertices.Add(new VertexPosition2DColor(position2 + new Vector2(width, 0f), color, textureCoords2));
+            }
+
+            CalamityUtils.CalculatePerspectiveMatricies(out var view, out var projection);
+            InfernumEffectsRegistry.AreaBorderVertexShader.UseOpacity(alpha);
+            InfernumEffectsRegistry.AreaBorderVertexShader.UseColor(WayfinderSymbol.Colors[2]);
+            InfernumEffectsRegistry.AreaBorderVertexShader.SetShaderTexture(InfernumTextureRegistry.HarshNoise);
+            InfernumEffectsRegistry.AreaBorderVertexShader.Shader.Parameters["uWorldViewProjection"].SetValue(view * projection);
+            InfernumEffectsRegistry.AreaBorderVertexShader.Shader.Parameters["noiseSpeed"].SetValue(new Vector2(0.1f, 0.1f));
+            InfernumEffectsRegistry.AreaBorderVertexShader.Shader.Parameters["timeFactor"].SetValue(2f);
+            InfernumEffectsRegistry.AreaBorderVertexShader.Apply();
+
+            Main.graphics.GraphicsDevice.Textures[0] = ModContent.GetTexture("InfernumMode/ExtraTextures/GreyscaleObjects/SolidEdgeGradient");
+            Main.graphics.GraphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, vertices.ToArray(), 0, vertices.Count - 2);
+            spriteBatch.ExitShaderRegion();
+
+        }
+        #endregion Draw Effects
+
+		#region Death Effects
+        public override bool CheckDead(NPC npc)
+        {
+            // Reset the crystal shader. This is necessary since the vanilla values are only stored once.
+            if (Main.netMode != NetmodeID.Server)
+                Filters.Scene["CrystalDestructionColor"].GetShader().UseColor(1f, 0f, 0.75f);
+
+            // Just die as usual if the Profaned Guardian is killed during the death animation. This is done so that Cheat Sheet and other butcher effects can kill it quickly.
+            if (npc.ai[0] == (int)GuardiansAttackType.CommanderDeathAnimation)
+                return true;
+
+            npc.ai[0] = (int)GuardiansAttackType.CommanderDeathAnimation;
+            npc.ai[1] = 0f;
+            for (int i = 0; i < 5; i++)
+                npc.Infernum().ExtraAI[i] = 0f;
+
+            // Get rid of the silly hands.
+            int handID = ModContent.NPCType<EtherealHand>();
+            for (int i = 0; i < Main.maxNPCs; i++)
+            {
+                if (Main.npc[i].type == handID && Main.npc[i].active)
+                {
+                    Main.npc[i].active = false;
+                    Main.npc[i].netUpdate = true;
+                }
+            }
+
+            DespawnTransitionProjectiles();
+
+            npc.life = npc.lifeMax;
             npc.netUpdate = true;
+            return false;
         }
-
-        public static void DoBehavior_SpinCharge(NPC npc, Player target, float lifeRatio, ref float attackTimer, ref float shouldHandsBeInvisibleFlag)
-        {
-            ref float arcDirection = ref npc.ai[2];
-
-            shouldHandsBeInvisibleFlag = (attackTimer > 45f).ToInt();
-
-            // Fade out.
-            if (attackTimer <= 30f)
-                npc.velocity *= 0.96f;
-
-            // Reel back.
-            if (attackTimer == 30f)
-            {
-                npc.Center = target.Center + (MathHelper.PiOver2 * Main.rand.Next(4)).ToRotationVector2() * 600f;
-                npc.velocity = -npc.SafeDirectionTo(target.Center);
-                npc.rotation = npc.AngleTo(target.Center);
-                npc.spriteDirection = (target.Center.X > npc.Center.X).ToDirectionInt();
-                if (npc.spriteDirection == -1)
-                    npc.rotation += MathHelper.Pi;
-
-                npc.netUpdate = true;
-            }
-
-            // Move back and re-appear.
-            if (attackTimer > 30f && attackTimer < 75f)
-            {
-                npc.velocity = npc.velocity.SafeNormalize(Vector2.UnitY) * MathHelper.Lerp(1f, 6f, Utils.InverseLerp(30f, 75, attackTimer, true));
-                npc.alpha = Utils.Clamp(npc.alpha - 15, 0, 255);
-            }
-
-            // Charge and fire a spear.
-            if (attackTimer == 75f)
-            {
-                arcDirection = (Math.Cos(npc.AngleTo(target.Center)) > 0).ToDirectionInt();
-                npc.velocity = npc.SafeDirectionTo(target.Center) * 24f;
-                if (BossRushEvent.BossRushActive)
-                    npc.velocity *= 1.5f;
-
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    Vector2 spawnPosition = npc.Center - npc.velocity.SafeNormalize(Vector2.Zero) * 40f;
-                    Utilities.NewProjectileBetter(spawnPosition, npc.velocity.SafeNormalize(Vector2.Zero) * 40f, ModContent.ProjectileType<ProfanedSpear>(), 210, 0f);
-                    Utilities.NewProjectileBetter(spawnPosition, npc.velocity.SafeNormalize(Vector2.Zero) * 47f, ModContent.ProjectileType<ProfanedSpear>(), 200, 0f);
-                    int telegraph = Utilities.NewProjectileBetter(spawnPosition, npc.velocity.SafeNormalize(Vector2.UnitY), ModContent.ProjectileType<CrystalTelegraphLine>(), 0, 0f);
-                    if (Main.projectile.IndexInRange(telegraph))
-                        Main.projectile[telegraph].ai[1] = 30f;
-                }
-
-                npc.netUpdate = true;
-            }
-
-            // Arc around a bit.
-            if (attackTimer >= 75f && attackTimer < 150f)
-            {
-                npc.velocity = npc.velocity.RotatedBy(arcDirection * MathHelper.TwoPi / 75f);
-
-                if (!npc.WithinRange(target.Center, 180f))
-                    npc.Center += npc.SafeDirectionTo(target.Center) * (12f + target.velocity.Length() * 0.15f);
-
-                npc.rotation = npc.velocity.ToRotation();
-                if (npc.spriteDirection == -1)
-                    npc.rotation += MathHelper.Pi;
-
-                int lightReleaseTime = 21;
-                int spearReleaseTime = -1;
-                if (lifeRatio < Phase2LifeRatio)
-                    lightReleaseTime -= 4;
-                if (lifeRatio < Phase3LifeRatio)
-                {
-                    lightReleaseTime -= 4;
-                    spearReleaseTime = 50;
-                }
-                if (lifeRatio < Phase4LifeRatio)
-                    lightReleaseTime -= 5;
-
-                // Release crystal lights when spinning.
-                if (attackTimer % lightReleaseTime == 0)
-                {
-                    Main.PlaySound(SoundID.DD2_KoboldIgnite, npc.Center);
-                    if (Main.netMode != NetmodeID.MultiplayerClient)
-                    {
-                        Vector2 shootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.PiOver2 * Main.rand.NextFloatDirection()) * 9f;
-                        int shot = Utilities.NewProjectileBetter(npc.Center + shootVelocity * 3f, shootVelocity, ModContent.ProjectileType<MagicCrystalShot>(), 220, 0f);
-                        Main.projectile[shot].ai[1] = Main.rand.NextFloat();
-                    }
-                }
-
-                if (Main.netMode != NetmodeID.MultiplayerClient && spearReleaseTime >= 1f && attackTimer % spearReleaseTime == 0f)
-                {
-                    for (int i = 0; i < 18; i++)
-                    {
-                        Vector2 shootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.TwoPi * i / 18f) * 19f;
-                        Utilities.NewProjectileBetter(npc.Center, shootVelocity, ModContent.ProjectileType<ProfanedSpear>(), 220, 0f);
-                    }
-                }
-            }
-
-            // Slow down and fade out again.
-            if (attackTimer >= 150f)
-            {
-                npc.velocity *= 0.94f;
-                npc.alpha = Utils.Clamp(npc.alpha + 30, 0, 255);
-            }
-
-            // Prepare for the next attack.
-            if (attackTimer >= 180f)
-            {
-                attackTimer = 0f;
-                npc.Center = target.Center - Vector2.UnitY * 500f;
-
-                npc.ai[0] = (int)AttackGuardianAttackState.SpearBarrage;
-                arcDirection = 0f;
-
-                npc.TargetClosest();
-                npc.alpha = 0;
-                npc.rotation = 0f;
-                npc.velocity = Vector2.Zero;
-                npc.spriteDirection = (target.Center.X > npc.Center.X).ToDirectionInt();
-                npc.netUpdate = true;
-            }
-        }
-
-        public static void DoBehavior_SpearBarrage(NPC npc, Player target, float lifeRatio, ref float attackTimer)
-        {
-            int teleportDelay = 30;
-            int reelbackTime = 38;
-            int chargeTime = 50;
-            int slowdownTime = 25;
-            int frontSpearCount = 5;
-            int spearBurstCount = 8;
-            int spearBurstShootRate = 22;
-            int totalCharges = 4;
-            float spearBurstSpread = MathHelper.ToRadians(25f);
-            float spearBurstSpeed = 14f;
-            float chargeSpeed = MathHelper.Lerp(19f, 23f, Utils.InverseLerp(ImmortalUntilPhase2LifeRatio, 0f, lifeRatio, true));
-            float chargeAcceleration = 1.018f;
-
-            if (lifeRatio < Phase2LifeRatio)
-            {
-                reelbackTime -= 5;
-                spearBurstCount += 2;
-            }
-            if (lifeRatio < Phase3LifeRatio)
-            {
-                totalCharges--;
-                spearBurstCount += 2;
-            }
-            if (lifeRatio < Phase4LifeRatio)
-            {
-                spearBurstCount++;
-                spearBurstSpeed *= 1.25f;
-            }
-
-            ref float chargeCounter = ref npc.ai[2];
-
-            // Fade out and slow down.
-            if (attackTimer <= teleportDelay)
-            {
-                npc.Opacity = 1f - attackTimer / teleportDelay;
-                npc.velocity *= 0.92f;
-            }
-
-            // Teleport above the player in a burst of fire.
-            if (attackTimer == teleportDelay)
-            {
-                // Play the fire sound.
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SilvaDispel"), target.Center);
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastShoot"), target.Center);
-
-                // And create the fire dust visuals.
-                for (int i = 0; i < 75; i++)
-                {
-                    bool fireIsHoly = Main.rand.NextBool();
-                    Dust fire = Dust.NewDustPerfect(npc.Center + Main.rand.NextVector2Circular(80f, 80f), fireIsHoly ? 244 : 6);
-                    fire.velocity = -Vector2.UnitY.RotatedByRandom(0.71f) * Main.rand.NextFloat(3f, 8f) + Main.rand.NextVector2Circular(3f, 3f);
-                    fire.scale = Main.rand.NextFloat(1.25f, 1.6f);
-                    fire.noGravity = true;
-
-                    if (fireIsHoly)
-                    {
-                        fire.velocity.Y -= 3f;
-                        fire.scale *= 1.3f;
-                        fire.fadeIn = 0.3f;
-                    }
-                }
-
-                npc.Opacity = 1f;
-                npc.Center = target.Center + Vector2.UnitX * Main.rand.NextBool().ToDirectionInt() * 700f;
-                npc.direction = (target.Center.X > npc.Center.X).ToDirectionInt();
-                npc.spriteDirection = npc.direction;
-                npc.velocity = Vector2.Zero;
-                npc.netUpdate = true;
-            }
-
-            // Reel back in anticipation of a charge.
-            if (attackTimer > teleportDelay && attackTimer < teleportDelay + reelbackTime)
-            {
-                float reelbackInterpolant = Utils.InverseLerp(teleportDelay, teleportDelay + reelbackTime, attackTimer, true);
-                float reelbackSpeed = Utils.InverseLerp(0f, 0.75f, reelbackInterpolant, true) * Utils.InverseLerp(1f, 0.75f, reelbackInterpolant, true) * 12f;
-                npc.velocity = Vector2.UnitX * npc.direction * reelbackSpeed;
-            }
-
-            // Charge and release spears.
-            if (attackTimer == teleportDelay + reelbackTime)
-            {
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastImpact"), target.Center);
-
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    for (int i = 0; i < frontSpearCount; i++)
-                    {
-                        float offsetAngle = MathHelper.Lerp(-spearBurstSpread, spearBurstSpread, i / (float)(frontSpearCount - 1f));
-                        Vector2 shootVelocity = npc.SafeDirectionTo(target.Center + target.velocity.Y * new Vector2(8f, 36f)).RotatedBy(offsetAngle) * 9f;
-                        Utilities.NewProjectileBetter(npc.Center + shootVelocity * 2f, shootVelocity, ModContent.ProjectileType<ProfanedSpear>(), 225, 0f);
-                    }
-
-                    npc.spriteDirection = (target.Center.X > npc.Center.X).ToDirectionInt();
-                    npc.velocity = npc.SafeDirectionTo(target.Center + target.velocity * 4f) * chargeSpeed;
-                    npc.netUpdate = true;
-                }
-            }
-
-            // Release bursts of spears after charging. This doesn't happen if the guardian is close to the target, to prevent cheap hits.
-            bool slowingDown = attackTimer >= teleportDelay + reelbackTime + chargeTime;
-            bool charging = attackTimer >= teleportDelay + reelbackTime && !slowingDown;
-            bool readyToShootSpearBurst = charging && attackTimer % spearBurstShootRate == spearBurstShootRate - 1f;
-            if (readyToShootSpearBurst && !npc.WithinRange(target.Center, 300f))
-            {
-                Main.PlaySound(SoundID.Item73, npc.Center);
-
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    for (int i = 0; i < spearBurstCount; i++)
-                    {
-                        Vector2 shootVelocity = (MathHelper.TwoPi * i / spearBurstCount).ToRotationVector2() * Main.rand.NextFloat(0.6f, 1f) * spearBurstSpeed;
-                        Utilities.NewProjectileBetter(npc.Center, shootVelocity, ModContent.ProjectileType<ProfanedSpear>(), 225, 0f);
-                    }
-                    npc.netUpdate = true;
-                }
-            }
-
-            // Accelerate while charging.
-            if (charging)
-                npc.velocity *= chargeAcceleration;
-
-            // Slow down to a halt after charging.
-            if (slowingDown)
-                npc.velocity = npc.velocity.ClampMagnitude(0f, 24f) * 0.9f;
-
-            // Either go to the next attack state or charge again, depending on if the charge counter has reached its limit.
-            if (attackTimer > teleportDelay + reelbackTime + chargeTime + slowdownTime)
-            {
-                if (chargeCounter < totalCharges - 1f)
-                {
-                    attackTimer = teleportDelay + 1f;
-                    chargeCounter++;
-                }
-                else
-                {
-                    npc.TargetClosest();
-                    npc.ai[0] = (int)AttackGuardianAttackState.MagicFingerBolts;
-                    attackTimer = 0f;
-                    chargeCounter = 0f;
-                }
-                npc.netUpdate = true;
-            }
-        }
-
-        public static void DoBehavior_MagicFingerBolts(NPC npc, Player target, float lifeRatio, ref float attackTimer)
-        {
-            int spearShootRate = 55;
-
-            if (lifeRatio < Phase2LifeRatio)
-                spearShootRate -= 6;
-            if (lifeRatio < Phase3LifeRatio)
-                spearShootRate -= 4;
-            if (lifeRatio < Phase4LifeRatio)
-                spearShootRate -= 6;
-
-            ref float horizontalOffset = ref npc.ai[2];
-
-            if (horizontalOffset == 0f)
-                horizontalOffset = Math.Sign((npc.Center - target.Center).X);
-
-            Vector2 destination = target.Center + new Vector2(horizontalOffset * 600f, -300f);
-            Vector2 flyVelocity = (destination - npc.Center).SafeNormalize(Vector2.UnitY) * 17f;
-
-            // Hover in place to the top left/right of the target. Firing is handled by the hand's AI.
-            npc.spriteDirection = (target.Center.X > npc.Center.X).ToDirectionInt();
-            if (npc.Distance(destination) > 12f)
-                npc.velocity = Vector2.Lerp(npc.velocity, flyVelocity, 0.14f);
-            else
-                npc.Center = destination;
-
-            // Release spears periodically.
-            if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % spearShootRate == spearShootRate - 1f)
-            {
-                for (int i = 0; i < 6; i++)
-                {
-                    Vector2 shootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(MathHelper.TwoPi * i / 6f) * 9f;
-                    Utilities.NewProjectileBetter(npc.Center, shootVelocity, ModContent.ProjectileType<ProfanedSpear>(), 230, 0f);
-                }
-            }
-
-            if (attackTimer >= 270f)
-            {
-                attackTimer = 0f;
-                horizontalOffset = 0f;
-                npc.ai[0] = (int)AttackGuardianAttackState.SpinCharge;
-                if (lifeRatio < Phase4LifeRatio)
-                    npc.ai[0] = (int)AttackGuardianAttackState.ThrowingHands;
-
-                npc.TargetClosest();
-                npc.alpha = 0;
-                npc.rotation = 0f;
-                npc.velocity = Vector2.Zero;
-                npc.netUpdate = true;
-            }
-        }
-
-        public static void DoBehavior_ThrowingHands(NPC npc, Player target, ref float attackTimer)
-        {
-            Vector2 hoverDestination = target.Center + new Vector2(npc.spriteDirection * -125f, -10f);
-            Vector2 offsetToTarget = hoverDestination - npc.Center;
-            float idealMoveSpeed = MathHelper.Lerp(8f, 21f, Utils.InverseLerp(50f, 400f, offsetToTarget.Length(), true));
-            idealMoveSpeed *= Utils.InverseLerp(0f, 45f, attackTimer, true);
-
-            Vector2 idealVelocity = Vector2.Zero.MoveTowards(offsetToTarget, idealMoveSpeed);
-
-            if (!npc.WithinRange(hoverDestination, 375f))
-                npc.velocity = Vector2.Lerp(npc.velocity, idealVelocity, 0.15f).MoveTowards(idealVelocity, 2f);
-            else if (npc.velocity.Length() < 30f)
-                npc.velocity *= 1.02f;
-
-            // Release magic periodically.
-            if (attackTimer % 75f == 74f)
-            {
-                Main.PlaySound(SoundID.DD2_KoboldIgnite, npc.Center);
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    Vector2 shootVelocity = npc.SafeDirectionTo(target.Center) * -13f;
-                    Utilities.NewProjectileBetter(npc.Center, shootVelocity, ModContent.ProjectileType<MagicCrystalShot>(), 230, 0f);
-                }
-            }
-
-            npc.spriteDirection = (target.Center.X > npc.Center.X).ToDirectionInt();
-            if (attackTimer > 420f)
-            {
-                npc.TargetClosest();
-                npc.ai[0] = (int)AttackGuardianAttackState.SpinCharge;
-                attackTimer = 0f;
-                npc.netUpdate = true;
-            }
-        }
+        #endregion Death Effects
     }
 }

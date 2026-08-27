@@ -6,6 +6,7 @@ namespace InfernumMode.Particles
 	{
 		OverNPCsBeforeProjectiles,
 		OverPlayers,
-		OverWater
-	}
+		OverWater,
+        Default
+    }
 }

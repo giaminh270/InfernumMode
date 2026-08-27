@@ -7,6 +7,7 @@ using System.Linq;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using static InfernumMode.BehaviorOverrides.BossAIs.MoonLord.MoonLordCoreBehaviorOverride;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 {
@@ -43,27 +44,28 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             ref float pupilScale = ref npc.localAI[2];
 
             // Hacky workaround to problems with popping.
-            if (npc.life < 1000)
-                npc.life = 1000;
+            // Does it still not work in multiplayer somehow? I don't give even the slighest of a fuck.
+            if (npc.life < npc.lifeMax * 0.18)
+                npc.life = (int)(npc.lifeMax * 0.18);
 
             int idealFrame = 0;
 
-            switch ((MoonLordCoreBehaviorOverride.MoonLordAttackState)(int)core.ai[0])
+            switch ((MoonLordAttackState)(int)core.ai[0])
             {
-                case MoonLordCoreBehaviorOverride.MoonLordAttackState.PhantasmalSphereHandWaves:
+                case MoonLordAttackState.PhantasmalSphereHandWaves:
                     if (!hasPopped)
                         DoBehavior_PhantasmalSphereHandWaves(npc, core, target, handSide, attackTimer, ref pupilRotation, ref pupilOutwardness, ref pupilScale, ref idealFrame);
                     break;
-                case MoonLordCoreBehaviorOverride.MoonLordAttackState.PhantasmalFlareBursts:
+                case MoonLordAttackState.PhantasmalFlareBursts:
                     if (!hasPopped)
                         DoBehavior_PhantasmalFlareBursts(npc, core, target, handSide, attackTimer, ref pupilRotation, ref pupilOutwardness, ref pupilScale, ref idealFrame);
                     break;
-                case MoonLordCoreBehaviorOverride.MoonLordAttackState.ExplodingConstellations:
+                case MoonLordAttackState.ExplodingConstellations:
                     DoBehavior_ExplodingConstellations(npc, core, target, handSide, attackTimer, ref idealFrame);
                     break;
                 default:
                     DoBehavior_DefaultHandHover(npc, core, handSide, attackTimer, ref idealFrame);
-                    if (core.ai[0] == (int)MoonLordCoreBehaviorOverride.MoonLordAttackState.PhantasmalSpin)
+                    if (core.ai[0] == (int)MoonLordAttackState.PhantasmalSpin)
                     {
                         idealFrame = 0;
                         npc.dontTakeDamage = false;
@@ -106,16 +108,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
         {
             int waveTime = 270;
             int sphereShootDelay = 36;
-            int sphereShootRate = 12;
+            int sphereShootRate = 8;
             int attackTransitionDelay = 40;
             float sphereShootSpeed = 12f;
             float sphereSlamSpeed = 6f;
-            if (MoonLordCoreBehaviorOverride.CurrentActiveArms <= 1)
+            if (CurrentActiveArms <= 1)
             {
                 sphereShootRate -= 4;
                 sphereSlamSpeed += 3f;
             }
-            if (MoonLordCoreBehaviorOverride.IsEnraged)
+            if (IsEnraged)
             {
                 sphereShootRate /= 2;
                 sphereSlamSpeed += 7f;
@@ -174,12 +176,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        int sphere = Utilities.NewProjectileBetter(npc.Center, sphereShootVelocity, ProjectileID.PhantasmalSphere, 215, 0f, npc.target);
-                        if (Main.projectile.IndexInRange(sphere))
-                        {
-                            Main.projectile[sphere].ai[1] = npc.whoAmI;
-                            Main.projectile[sphere].netUpdate = true;
-                        }
+                        Utilities.NewProjectileBetter(npc.Center, sphereShootVelocity, ProjectileID.PhantasmalSphere, PhantasmalSphereDamage, 0f, -1, 0f, npc.whoAmI);
 
                         // Sync the entire moon lord's current state. This will be executed on the frame immediately after this one.
                         core.netUpdate = true;
@@ -188,7 +185,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             }
 
             // Slam all phantasmal spheres at the target after they have been fired.
-            if (attackTimer == waveTime + 16f && (handSide == 1 || MoonLordCoreBehaviorOverride.CurrentActiveArms == 1))
+            if (attackTimer == waveTime + 16f && (handSide == 1 || CurrentActiveArms == 1))
             {
                 if (Main.netMode != NetmodeID.Server)
                 {
@@ -221,7 +218,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             int flareReleaseDelay = 32;
             int flareShootTime = 60;
             float flareSpawnOffsetMax = 900f;
-            if (MoonLordCoreBehaviorOverride.IsEnraged)
+            if (IsEnraged)
             {
                 flareCreationRate -= 2;
                 flareSpawnOffsetMax += 400f;
@@ -242,19 +239,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             npc.velocity = Vector2.Lerp(npc.velocity, idealVelocity, 0.1f).MoveTowards(idealVelocity, 1.6f);
 
             // Create flare telegraphs.
-            if (attackTimer < flareTelegraphTime && attackTimer % flareCreationRate == flareCreationRate - 1f && (handSide == 1 || MoonLordCoreBehaviorOverride.CurrentActiveArms == 1))
+            if (attackTimer < flareTelegraphTime && attackTimer % flareCreationRate == flareCreationRate - 1f && (handSide == 1 || CurrentActiveArms == 1))
             {
                 Main.PlaySound(SoundID.Item72, target.Center);
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
                     Vector2 flareSpawnPosition = target.Center + Vector2.UnitX * Main.rand.NextFloatDirection() * flareSpawnOffsetMax;
-                    int telegraph = Utilities.NewProjectileBetter(flareSpawnPosition, Vector2.Zero, ModContent.ProjectileType<LunarFlareTelegraph>(), 0, 0f);
-                    if (Main.projectile.IndexInRange(telegraph))
-                    {
-                        Main.projectile[telegraph].ai[0] = flareTelegraphTime - attackTimer + flareReleaseDelay;
-                        Main.projectile[telegraph].ai[1] = Main.rand.NextBool(8).ToInt();
-                    }
+
+                    int shootDelay = (int)(flareTelegraphTime - attackTimer + flareReleaseDelay);
+                    bool telegraphPlaysSound = Main.rand.NextBool(8);
+                    Utilities.NewProjectileBetter(flareSpawnPosition, Vector2.Zero, ModContent.ProjectileType<LunarFlareTelegraph>(), 0, 0f, -1, shootDelay, telegraphPlaysSound.ToInt());
                 }
             }
 
@@ -271,13 +266,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             int explosionTime = 130;
             int constellationCount = 3;
 
-            if (MoonLordCoreBehaviorOverride.InFinalPhase)
+            if (InFinalPhase)
             {
                 starCreationRate--;
                 totalStarsToCreate += 3;
             }
 
-            if (MoonLordCoreBehaviorOverride.IsEnraged)
+            if (IsEnraged)
             {
                 starCreationRate = 2;
                 explosionTime -= 50;
@@ -362,14 +357,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 
                 Main.PlaySound(SoundID.Item72, currentPoint);
                 if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    int star = Utilities.NewProjectileBetter(currentPoint, Vector2.Zero, ModContent.ProjectileType<StardustConstellation>(), 0, 0f);
-                    if (Main.projectile.IndexInRange(star))
-                    {
-                        Main.projectile[star].ai[0] = (int)(patternCompletion * totalStarsToCreate);
-                        Main.projectile[star].ai[1] = npc.whoAmI;
-                    }
-                }
+                    Utilities.NewProjectileBetter(currentPoint, Vector2.Zero, ModContent.ProjectileType<StardustConstellation>(), 0, 0f, -1, (int)(patternCompletion * totalStarsToCreate), npc.whoAmI);
             }
 
             // Make all constellations spawned by this hand prepare to explode.
@@ -385,6 +373,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 
         public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor)
         {
+            // Hideous code from vanilla. Don't mind it too much.
             Texture2D texture = Main.npcTexture[npc.type];
             Vector2 shoulderOffset = new Vector2(220f, -60f);
             Texture2D armTexture = Main.extraTexture[15];
@@ -413,7 +402,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             SpriteEffects direction = npc.ai[2] != 1f ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
             if (!isLeftHand)
                 armOrigin.X = armTexture.Width - armOrigin.X;
-            
+
             float armAngularOffset = (float)Math.Acos(MathHelper.Clamp(v.Length() / 340f, 0f, 1f)) * -directionThing.X;
             float armRotation = v.ToRotation() + armAngularOffset - MathHelper.PiOver2;
             spriteBatch.Draw(armTexture, handBottom - Main.screenPosition, null, color, armRotation, armOrigin, 1f, direction, 0f);
@@ -422,16 +411,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                 int frame = (int)(Main.GlobalTime * 9.3f) % 4;
                 exposedEyeFrame.Y += exposedEyeFrame.Height * frame;
                 Vector2 exposedEyeDrawPosition = npc.Center - Main.screenPosition;
-                spriteBatch.Draw(exposedEyeTexture, exposedEyeDrawPosition, exposedEyeFrame, color, 0f, scleraFrame - new Vector2(4f, 4f), 1f, direction, 0f);
+                Main.spriteBatch.Draw(exposedEyeTexture, exposedEyeDrawPosition, exposedEyeFrame, color, 0f, scleraFrame - new Vector2(4f, 4f), 1f, direction, 0f);
             }
             else
             {
                 Vector2 scleraDrawPosition = npc.Center - Main.screenPosition;
-                spriteBatch.Draw(scleraTexture, scleraDrawPosition, null, Color.White * npc.Opacity * 0.6f, 0f, scleraFrame, 1f, direction, 0f);
+                Main.spriteBatch.Draw(scleraTexture, scleraDrawPosition, null, Color.White * npc.Opacity * 0.6f, 0f, scleraFrame, 1f, direction, 0f);
                 Vector2 pupilOffset = Utils.Vector2FromElipse(npc.localAI[0].ToRotationVector2(), new Vector2(30f, 66f) * npc.localAI[1]) + new Vector2(-directionThing.X, 3f);
-                spriteBatch.Draw(pupilTexture, npc.Center - Main.screenPosition + pupilOffset, null, Color.White * npc.Opacity * 0.6f, 0f, pupilTexture.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(pupilTexture, npc.Center - Main.screenPosition + pupilOffset, null, Color.White * npc.Opacity * 0.6f, 0f, pupilTexture.Size() * 0.5f, 1f, SpriteEffects.None, 0f);
             }
-            spriteBatch.Draw(texture, npc.Center - Main.screenPosition, npc.frame, color, 0f, handOrigin, 1f, direction, 0f);
+            Main.spriteBatch.Draw(texture, npc.Center - Main.screenPosition, npc.frame, color, 0f, handOrigin, 1f, direction, 0f);
             return false;
         }
     }

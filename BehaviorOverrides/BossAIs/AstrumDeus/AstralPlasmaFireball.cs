@@ -50,11 +50,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             lightColor.R = (byte)(255 * projectile.Opacity);
             lightColor.G = (byte)(255 * projectile.Opacity);
             lightColor.B = (byte)(255 * projectile.Opacity);
-            Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type], 1);
+            CalamityUtils.DrawAfterimagesCentered(projectile, ProjectileID.Sets.TrailingMode[projectile.type], lightColor, 1);
             return false;
         }
-
-        public override void OnHitPlayer(Player target, int damage, bool crit) => target.AddBuff(ModContent.BuffType<AstralInfectionDebuff>(), 240);
 
         public override void Kill(int timeLeft)
         {
@@ -113,7 +111,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             for (int i = 0; i < 2; i++)
                 Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, ModContent.DustType<AstralOrange>(), 0f, 0f, 50, default, 1f);
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 20; i++)
             {
                 Dust fire = Dust.NewDustDirect(projectile.position, projectile.width, projectile.height, ModContent.DustType<AstralOrange>(), 0f, 0f, 0, default, 1.5f);
                 fire.noGravity = true;

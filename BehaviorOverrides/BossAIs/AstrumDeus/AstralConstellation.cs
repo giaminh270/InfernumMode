@@ -1,3 +1,4 @@
+using InfernumMode.DataStructures;
 using CalamityMod.NPCs.AstrumDeus;
 using InfernumMode.BehaviorOverrides.BossAIs.MoonLord;
 using InfernumMode.ILEditingStuff;
@@ -12,11 +13,14 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
 {
-    public class AstralConstellation : ModProjectile
+    public class AstralConstellation : ModProjectile, IAdditiveDrawer
     {
         public ref float Index => ref projectile.ai[0];
+
         public ref float Time => ref projectile.localAI[1];
-        public override string Texture => "InfernumMode/ExtraTextures/LaserCircle";
+
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/LaserCircle";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Star");
 
         public override void SetDefaults()
@@ -42,7 +46,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             Time++;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)  => false;
+
+        public void AdditiveDraw(SpriteBatch spriteBatch)
         {
             Projectile projectileToConnectTo = null;
             for (int i = 0; i < Main.maxProjectiles; i++)
@@ -90,12 +96,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
 
                 Main.spriteBatch.Draw(lineTexture, start - Main.screenPosition, null, drawColor, rotation, origin, scale, SpriteEffects.None, 0f);
             }
-            return false;
-        }
-
-        public override void DrawBehind(int index, List<int> drawCacheProjsBehindNPCsAndTiles, List<int> drawCacheProjsBehindNPCs, List<int> drawCacheProjsBehindProjectiles, List<int> drawCacheProjsOverWiresUI)
-        {
-            DrawBlackEffectHook.DrawCacheAdditiveLighting.Add(index);
         }
 
         public override void Kill(int timeLeft)
@@ -104,12 +104,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             if (Main.netMode == NetmodeID.MultiplayerClient)
                 return;
 
-            Vector2 initialVelocity = Vector2.UnitY * 11f;
+            Vector2 initialVelocity = Vector2.UnitY * 6f;
             if (projectile.identity % 2f == 1f)
                 initialVelocity = initialVelocity.RotatedBy(MathHelper.PiOver2);
 
-            Utilities.NewProjectileBetter(projectile.Center, -initialVelocity, ModContent.ProjectileType<AstralPlasmaSpark>(), 200, 0f);
-            Utilities.NewProjectileBetter(projectile.Center, initialVelocity, ModContent.ProjectileType<AstralPlasmaSpark>(), 200, 0f);
+            Utilities.NewProjectileBetter(projectile.Center, -initialVelocity, ModContent.ProjectileType<AstralPlasmaSpark>(), AstrumDeusHeadBehaviorOverride.AstralPlasmaSparkDamage, 0f, -1, 1f);
+            Utilities.NewProjectileBetter(projectile.Center, initialVelocity, ModContent.ProjectileType<AstralPlasmaSpark>(), AstrumDeusHeadBehaviorOverride.AstralPlasmaSparkDamage, 0f, -1, 1f);
             Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<MoonLordExplosion>(), 0, 0f);
         }
     }

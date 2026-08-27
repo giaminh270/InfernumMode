@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Dusts;
 using CalamityMod.Events;
@@ -72,10 +72,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
 
         public override void OnHitPlayer(Player target, int damage, bool crit)
         {
-            if ((CalamityWorld.downedProvidence || BossRushEvent.BossRushActive) && BrimstoneElementalBehaviorOverride.ReadyToUseBuffedAI)
+            if (CalamityWorld.downedProvidence || BossRushEvent.BossRushActive)
+            {
                 target.AddBuff(ModContent.BuffType<AbyssalFlames>(), 180);
+            }
             else
-                target.AddBuff(ModContent.BuffType<BrimstoneFlames>(), 120);
+            {
+                target.AddBuff(ModContent.BuffType<BrimstoneFlames>(), 180);
+            } 
         }
 
         public override void Kill(int timeLeft)

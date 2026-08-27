@@ -1,19 +1,27 @@
 using CalamityMod;
 using CalamityMod.Events;
+using InfernumMode.Effects;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
+using System;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
 using Terraria;
-using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
 {
-    public class CursedFlameBurst : ModProjectile
+    public class CursedFlameBurst : ModProjectile, IPixelPrimitiveDrawer
     {
+        public bool DrawBeforeNPCs => false;
+
         public PrimitiveTrailCopy FireDrawer;
+
         public const int Lifetime = 240;
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Cursed Flame");
@@ -30,7 +38,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
             projectile.penetrate = -1;
             projectile.timeLeft = Lifetime;
             projectile.Calamity().canBreakPlayerDefense = true;
-            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -77,20 +84,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
 
         public Color ColorFunction(float completionRatio)
         {
-            Color color = Color.Lerp(Color.Green, Color.LimeGreen, (float)Math.Pow(completionRatio, 2D));
-            color *= 1f - 0.5f * (float)Math.Pow(completionRatio, 3D);
+            Color color = Color.Lerp(Color.Green, Color.LimeGreen, (float)Math.Pow(completionRatio, 2f));
+            color *= 1f - 0.5f * (float)Math.Pow(completionRatio, 3f);
             return color * projectile.Opacity;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (FireDrawer is null)
-                FireDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:Fire"]);
+                FireDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.FireVertexShader);
 
-            GameShaders.Misc["Infernum:Fire"].UseSaturation(0.4f);
-            GameShaders.Misc["Infernum:Fire"].UseImage("Images/Misc/Perlin");
-            FireDrawer.Draw(projectile.oldPos, projectile.Size * 0.5f - Main.screenPosition, 38);
-            return false;
+            InfernumEffectsRegistry.FireVertexShader.UseSaturation(0.4f);
+            InfernumEffectsRegistry.FireVertexShader.UseImage("Images/Misc/Perlin");
+            FireDrawer.DrawPixelated(projectile.oldPos, projectile.Size * 0.5f - Main.screenPosition, 38);
         }
     }
 }

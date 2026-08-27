@@ -1,56 +1,118 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
 using CalamityMod.NPCs;
+using CalamityMod.NPCs.Providence;
 using CalamityMod.Particles;
 using CalamityMod.Projectiles.Boss;
-using CalamityMod.Sounds;
+using InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians;
+using InfernumMode;
 using InfernumMode.BehaviorOverrides.BossAIs.Yharon;
-using InfernumMode.Buffs;
-using InfernumMode.OverridingSystem;
 using InfernumMode.Projectiles;
+using InfernumMode.GlobalInstances;
+using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Media;
+using InfernumMode.Sounds;
 using System;
+using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
-using Terraria.Graphics.Shaders;
+using Terraria.Graphics.Effects;
 using Terraria.ID;
 using Terraria.ModLoader;
-using Terraria.World.Generation;
 using ProvidenceBoss = CalamityMod.NPCs.Providence.Providence;
+using InfernumMode.TrackedMusic;
+using static System.Math;
+using static Microsoft.Xna.Framework.MathHelper;
+using InfernumMode.Particles;
+using InfernumMode.Effects;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 {
     public class ProvidenceBehaviorOverride : NPCBehaviorOverride
     {
-        public override int NPCOverrideType => ModContent.NPCType<ProvidenceBoss>();
+        #region Structures
+        public struct ProvidenceAttackSection
+        {
+            public SongSection Section
+            {
+                get;
+                set;
+            }
 
-        public const float Phase2LifeRatio = 0.55f;
+            public ProvidenceAttackType AttackToUse
+            {
+                get;
+                set;
+            }
 
-        public const float Phase3LifeRatio = 0.25f;
+            public int StartingTime => Section.StartInFrames;
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCFindFrame;
+            public int EndingTime => Section.EndInFrames;
+
+            public ProvidenceAttackSection(SongSection section, ProvidenceAttackType attackType)
+            {
+                Section = section;
+                AttackToUse = attackType;
+            }
+        }
+
+        public struct ProvidenceAttackInformation
+        {
+            public int LocalAttackTimer
+            {
+                get;
+                set;
+            }
+
+            public int LocalAttackDuration
+            {
+                get;
+                set;
+            }
+
+            public ProvidenceAttackType CurrentAttack
+            {
+                get;
+                set;
+            }
+
+            public ProvidenceAttackInformation(int localTimer, int localDuration, ProvidenceAttackType attack)
+            {
+                LocalAttackTimer = localTimer;
+                LocalAttackDuration = localDuration;
+                CurrentAttack = attack;
+            }
+        }
+        #endregion Structures
 
         #region Enumerations
         public enum ProvidenceAttackType
         {
-            SpawnEffect,
-            MoltenBlasts,
-
-            // These three attacks should not exist near each-other pattern-wise.
-            // They all fulfill niches of needing to be careful with space and together might lead to stupid situations.
-            CrystalSpikes,
-            HolyBombs,
-            CrystalBlades,
-
+            // Phase 1.
+            FireEnergyCharge,
+            CinderAndBombBarrages,
             AcceleratingCrystalFan,
-            SinusoidalCrystalFan,
-            CeilingCinders,
-            CrystalRainTransformation,
-            CrystalBladesWithLaser,
-            FireSpearCrystalCocoon,
-            HolyBlasts,
+            AttackGuardiansSpearSlam,
+            HealerGuardianCrystalBarrage,
+
+            // Phase 2.
+            EnterFireFormBulletHell,
+            EnvironmentalFireEffects,
+            CleansingFireballBombardment,
+            CooldownState,
+            ExplodingSpears,
+            SpiralOfExplodingHolyBombs,
+
+            EnterHolyMagicForm,
+            RockMagicRitual,
+            ErraticMagicBursts,
+            DogmaLaserBursts, // Blast TBOI attack idea real???
+
+            EnterLightForm,
+            FinalPhaseRadianceBursts,
         }
 
         public enum ProvidenceFrameDrawingType
@@ -58,60 +120,268 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             WingFlapping,
             CocoonState
         }
+
+        public enum SpearAttackState
+        {
+            LookAtTarget,
+            SpinInPlace,
+            Charge
+        }
+
+        public enum HealerGuardianAttackState
+        {
+            SpinInPlace,
+            WaitAndReleaseTelegraph,
+            ShootCrystals
+        }
         #endregion
+
+        public override int NPCOverrideType => ModContent.NPCType<ProvidenceBoss>();
+
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCFindFrame;
+
+
+        #region Loading
+        public static void Load()
+        {
+            //GlobalNPCOverrides.OnKillEvent += DetermineNightDefeatStatus;
+            //GlobalNPCOverrides.StrikeNPCEvent += PerformDamageRestrictions;
+            TrackedMusicManager.PauseInUIConditionEvent += AddMusicPauseCondition;
+        }
+
+        public static bool PerformDamageRestrictions(NPC npc, ref double damage, int defense)
+        {
+            if (npc.type == ModContent.NPCType<ProvidenceBoss>() && npc.defense >= 60)
+                damage = (int)Math.Max(damage - defense / 2, 1D);
+            return true;
+        }
+
+        /// <summary>
+        /// Call from GlobalNPCOverrides.NPCLoot / CheckDead when Providence dies.
+        /// </summary>
+        public static void DetermineNightDefeatStatus(NPC npc)
+        {
+            // Determine whether Providence was defeated at night first. Her infernal relic will give a baffled comment if this happens.
+            if (npc.type == ModContent.NPCType<ProvidenceBoss>())
+            {
+                if (!Main.dayTime && !PoDWorld.HasBeatedInfernumProvRegularly)
+                    PoDWorld.HasBeatedInfernumNightProvBeforeDay = true;
+                PoDWorld.HasBeatedInfernumProvRegularly = true;
+                CalamityNetcode.SyncWorld();
+            }
+        }
+
+        private static bool AddMusicPauseCondition()
+        {
+            if (TrackedMusicManager.TrackedSong == null)
+                return false;
+            string songName = TrackedMusicManager.TrackedSong.Name;
+            return (songName.Contains("Providence") || songName.Contains("Guardians")) && CalamityGlobalNPC.holyBoss != -1;
+        }
+
+        /// <summary>
+        /// Sets Calamity Providence.hasTakenDaytimeDamage (internal field) via reflection.
+        /// </summary>
+        private static void SetProvidenceHasTakenDaytimeDamage(NPC npc, bool value)
+        {
+            ProvidenceBoss prov = npc.modNPC as ProvidenceBoss;
+            if (prov == null)
+                return;
+
+            FieldInfo field = typeof(ProvidenceBoss).GetField("hasTakenDaytimeDamage",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            if (field != null)
+                field.SetValue(prov, value);
+        }
+
+        #endregion Loading
 
         #region AI
 
         public const int AuraTime = 300;
-        public const int GuardianApparationTime = 600;
-        public const int CocoonDefense = 620;
-        public const float LifeRainbowCrystalStartRatio = 0.8f;
-        public const float LifeRainbowCrystalEndRatio = 0.725f;
 
-        public static readonly Color[] NightPalette = new Color[] { new Color(119, 232, 194), new Color(117, 201, 229), new Color(117, 93, 229) };
+        public const int CocoonDefense = 600;
+
+        // The defense Providence has when in her cocoon phases is significantly reduced after the attack cycles complete once, to alleviate the need for the player to just sit and wait/dodge, being
+        // unable to do meaningful damage.
+        public const int CocoonDefenseAfterFullCycle = 250;
+
+        public const int DeathEffectTimerIndex = 5;
+
+        public const int WasSummonedAtNightFlagIndex = 6;
+
+        public const int LavaHeightIndex = 7;
+
+        public const int FlightPathIndex = 8;
+
+        public const int RockReformOffsetIndex = 9;
+
+        public const int HasCompletedCycleIndex = 10;
+
+        public const int HasEnteredPhase2Index = 11;
+
+        public const int StartedWithMusicDisabledIndex = 12;
+
+        public const float DefaultLavaHeight = 1400f;
+
+        public const float HighestLavaHeight = 2284f;
+
+        public const float Phase2LifeRatio = 0.7f;
+
+        public const float DeathAnimationLifeRatio = 0.04f;
+
+        public static int CrystalShardDamage => IsEnraged ? 450 : 265;
+
+        public static int CinderDamage => IsEnraged ? 420 : 240;
+
+        public static int SmallLavaBlobDamage => IsEnraged ? 420 : 240;
+
+        public static int BasicFireballDamage => IsEnraged ? 450 : 265;
+
+        public static int BigFireballDamage => IsEnraged ? 490 : 300;
+
+        public static int HolySpearDamage => IsEnraged ? 500 : 300;
+
+        public static int HolyCrossDamage => IsEnraged ? 450 : 275;
+
+        public static int CrystalMagicDamage => IsEnraged ? 450 : 275;
+
+        public static int CrystalSpikeDamage => IsEnraged ? 500 : 300;
+
+        public static int MagicRockDamage => IsEnraged ? 450 : 275;
+
+        public static int MagicLaserbeamDamage => IsEnraged ? 1000 : 500;
 
         public static bool IsEnraged => !Main.dayTime || BossRushEvent.BossRushActive;
 
+        public static bool SyncAttacksWithMusic => Main.netMode == NetmodeID.SinglePlayer && ModLoader.GetMod("CalamityModMusic") != null && Main.musicVolume > 0f && TrackedMusicManager.TrackedSong != null && !BossRushEvent.BossRushActive;
+
+        public static readonly Color[] NightPalette = new[]
+        {
+            new Color(119, 232, 194),
+            new Color(117, 201, 229),
+            new Color(117, 93, 229)
+        };
+
+        public static List<ProvidenceAttackSection> Phase1AttackStates => new List<ProvidenceAttackSection>()
+        {
+            // Quiet section.
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 0, 0), BaseTrackedMusic.TimeFormat(0, 21, 0)), ProvidenceAttackType.FireEnergyCharge),
+
+            // Attack sections.
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 21, 0), BaseTrackedMusic.TimeFormat(0, 32, 0)), ProvidenceAttackType.CinderAndBombBarrages),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 32, 0), BaseTrackedMusic.TimeFormat(0, 42, 667)), ProvidenceAttackType.AcceleratingCrystalFan),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 42, 667), BaseTrackedMusic.TimeFormat(0, 54, 333)), ProvidenceAttackType.AttackGuardiansSpearSlam),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 54, 333), BaseTrackedMusic.TimeFormat(1, 5, 0)), ProvidenceAttackType.HealerGuardianCrystalBarrage),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(1, 5, 0), BaseTrackedMusic.TimeFormat(1, 13, 0)), ProvidenceAttackType.CinderAndBombBarrages),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(1, 13, 0), BaseTrackedMusic.TimeFormat(1, 24, 333)), ProvidenceAttackType.HealerGuardianCrystalBarrage),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(1, 24, 333), BaseTrackedMusic.TimeFormat(1, 46, 667)), ProvidenceAttackType.AttackGuardiansSpearSlam),
+        };
+
+        public static List<ProvidenceAttackSection> Phase2AttackStates => new List<ProvidenceAttackSection>()
+        {
+            // Quiet section, prelude to fire form.
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 0, 0), BaseTrackedMusic.TimeFormat(0, 20, 0)), ProvidenceAttackType.EnterFireFormBulletHell),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 20, 0), BaseTrackedMusic.TimeFormat(0, 32, 0)), ProvidenceAttackType.EnvironmentalFireEffects),
+
+            // Fire form.
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 32, 0), BaseTrackedMusic.TimeFormat(0, 40, 0)), ProvidenceAttackType.CleansingFireballBombardment),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 40, 0), BaseTrackedMusic.TimeFormat(0, 43, 0)), ProvidenceAttackType.CooldownState),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 43, 0), BaseTrackedMusic.TimeFormat(0, 51, 0)), ProvidenceAttackType.ExplodingSpears),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 51, 0), BaseTrackedMusic.TimeFormat(0, 53, 0)), ProvidenceAttackType.CooldownState),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(0, 53, 0), BaseTrackedMusic.TimeFormat(1, 3, 0)), ProvidenceAttackType.SpiralOfExplodingHolyBombs),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(1, 3, 0), BaseTrackedMusic.TimeFormat(1, 11, 0)), ProvidenceAttackType.ExplodingSpears),
+
+            // Holy magic form.
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(1, 11, 0), BaseTrackedMusic.TimeFormat(1, 16, 360)), ProvidenceAttackType.EnterHolyMagicForm),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(1, 16, 360), BaseTrackedMusic.TimeFormat(1, 29, 0)), ProvidenceAttackType.RockMagicRitual),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(1, 29, 0), BaseTrackedMusic.TimeFormat(1, 37, 0)), ProvidenceAttackType.ErraticMagicBursts),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(1, 37, 0), BaseTrackedMusic.TimeFormat(1, 58, 0)), ProvidenceAttackType.DogmaLaserBursts),
+
+            // Light form and cycle restart.
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(1, 58, 0), BaseTrackedMusic.TimeFormat(2, 1, 0)), ProvidenceAttackType.EnterLightForm),
+            new ProvidenceAttackSection(new SongSection(BaseTrackedMusic.TimeFormat(2, 1, 0), BaseTrackedMusic.TimeFormat(2, 23, 0)), ProvidenceAttackType.FinalPhaseRadianceBursts)
+        };
+
         public override float[] PhaseLifeRatioThresholds => new float[]
         {
-            Phase2LifeRatio,
-            Phase3LifeRatio
+            Phase2LifeRatio
         };
 
         public override bool PreAI(NPC npc)
         {
             float lifeRatio = npc.life / (float)npc.lifeMax;
+            float lifeRatioP1Adjusted = Utils.InverseLerp(Phase2LifeRatio, 1f, lifeRatio);
+            float lifeRatioP2Adjusted = Clamp(lifeRatio, 0f, Phase2LifeRatio) / Phase2LifeRatio;
             ref float attackType = ref npc.ai[0];
             ref float attackTimer = ref npc.ai[1];
             ref float attackStateTimer = ref npc.ai[2];
-            ref float rainbowVibrance = ref npc.Infernum().ExtraAI[5];
+            ref float initialized = ref npc.ai[3];
             ref float drawState = ref npc.localAI[0];
             ref float burnIntensity = ref npc.localAI[3];
-            ref float deathEffectTimer = ref npc.Infernum().ExtraAI[6];
-            ref float wasSummonedAtNight = ref npc.Infernum().ExtraAI[7];
-            ref float phase2AnimationTimer = ref npc.Infernum().ExtraAI[8];
+            ref float deathEffectTimer = ref npc.Infernum().ExtraAI[DeathEffectTimerIndex];
+            ref float wasSummonedAtNight = ref npc.Infernum().ExtraAI[WasSummonedAtNightFlagIndex];
+            ref float lavaHeight = ref npc.Infernum().ExtraAI[LavaHeightIndex];
+            ref float flightPath = ref npc.Infernum().ExtraAI[FlightPathIndex];
+            ref float rockReformOffset = ref npc.Infernum().ExtraAI[RockReformOffsetIndex];
+            ref float hasCompletedCycle = ref npc.Infernum().ExtraAI[HasCompletedCycleIndex];
+            ref float hasEnteredPhase2 = ref npc.Infernum().ExtraAI[HasEnteredPhase2Index];
 
-            bool shouldDespawnAtNight = wasSummonedAtNight == 0f && IsEnraged && attackType != (int)ProvidenceAttackType.SpawnEffect;
-            bool shouldDespawnAtDay = wasSummonedAtNight == 1f && !IsEnraged && attackType != (int)ProvidenceAttackType.SpawnEffect;
-            bool shouldDespawnBecauseOfTime = shouldDespawnAtNight || shouldDespawnAtDay;
 
             Vector2 crystalCenter = npc.Center + new Vector2(8f, 56f);
 
             // Define arena variables.
             Vector2 arenaTopLeft = PoDWorld.ProvidenceArena.TopLeft() * 16f + new Vector2(68f, 32f);
             Vector2 arenaBottomRight = PoDWorld.ProvidenceArena.BottomRight() * 16f + new Vector2(8f, 52f);
-            Vector2 arenaCenter = PoDWorld.ProvidenceArena.Center() * 16f + Vector2.One * 8f;
+            Vector2 arenaTopCenter = new Vector2(PoDWorld.ProvidenceArena.Center().X + 405f, PoDWorld.ProvidenceArena.Top + 56) * 16f + Vector2.One * 8f;
             Rectangle arenaArea = new Rectangle((int)arenaTopLeft.X, (int)arenaTopLeft.Y, (int)(arenaBottomRight.X - arenaTopLeft.X), (int)(arenaBottomRight.Y - arenaTopLeft.Y));
 
             // Reset various things every frame. They can be changed later as needed.
-            npc.width = 600;
-            npc.height = 450;
             npc.defense = 50;
             npc.dontTakeDamage = false;
-            npc.Calamity().DR = BossRushEvent.BossRushActive ? 0.65f : 0.35f;
+            npc.Calamity().DR = BossRushEvent.BossRushActive ? 0.65f : 0.3f;
             npc.Infernum().Arena = arenaArea;
             if (drawState == (int)ProvidenceFrameDrawingType.CocoonState)
-                npc.defense = CocoonDefense;
+                npc.defense = hasCompletedCycle == 1f ? CocoonDefenseAfterFullCycle : CocoonDefense;
+
+            // Handle intialization effects.
+            if (initialized == 0f)
+            {
+                // Reset the music if the player tries to be clever and fuck up the patterns by using a music box.
+                bool playingSpecialSong = TrackedMusicManager.TrackedSong != null && (TrackedMusicManager.TrackedSong.Name.Contains("Providence") || TrackedMusicManager.TrackedSong.Name.Contains("Guardians"));
+                if (Main.netMode == NetmodeID.SinglePlayer && playingSpecialSong && MediaPlayer.State == MediaState.Playing)
+                {
+                    MediaPlayer.Stop();
+                    MediaPlayer.Play(TrackedMusicManager.TrackedSong);
+                }
+
+                initialized = 1f;
+                wasSummonedAtNight = Main.dayTime ? 0f : 1f;
+                npc.netUpdate = true;
+            }
+
+            // Handle phase 2 transition effects.
+            if (hasEnteredPhase2 == 0f && lifeRatio < Phase2LifeRatio)
+            {
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceLavaEruptionSound);
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 18f;
+                ScreenEffectSystem.SetBlurEffect(npc.Center, 1.2f, 25);
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 5f, 50);
+				
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    ClearEntities();
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvBoomDeath>(), 0, 0f);
+                    hasEnteredPhase2 = 1f;
+                    hasCompletedCycle = 0f;
+                    attackTimer = 0f;
+                    npc.Size = new Vector2(600f, 450f);
+                    npc.netUpdate = true;
+                }
+
+                if (Main.netMode != NetmodeID.Server)
+                    MediaPlayer.Stop();
+            }
 
             drawState = (int)ProvidenceFrameDrawingType.WingFlapping;
 
@@ -119,12 +389,30 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             npc.TargetClosestIfTargetIsInvalid();
             Player target = Main.player[npc.target];
 
-            // Give the taret infinite flight time.
-            target.wingTime = target.wingTimeMax;
-            target.AddBuff(ModContent.BuffType<ElysianGrace>(), 10);
+            // Give targets infinite flight time.
+            for (int i = 0; i < Main.maxPlayers; i++)
+            {
+                Player player = Main.player[i];
+                if (player.dead || !player.active || !npc.WithinRange(player.Center, 10000f))
+                    continue;
+
+                target.wingTime = target.wingTimeMax;
+            }
+
+            // For a few frames Providence will play Boss 1 due to the custom music system. Don't allow this.
+            if (Main.netMode != NetmodeID.Server && (ModLoader.GetMod("CalamityModMusic") != null))
+                Main.musicFade[MusicID.Boss1] = 0f;
+
+            // This screen shader kind of sucks. Please turn it off.
+            if (Main.netMode != NetmodeID.Server)
+                Filters.Scene["CalamityMod:Providence"].Deactivate();
+
+            // Despawn if the nearest target is incredibly far away.
+            if (!npc.WithinRange(target.Center, 9600f))
+                npc.active = false;
 
             // Keep the target within the arena.
-            if (!PoDWorld.ProvidenceArena.IsEmpty)
+            if (!PoDWorld.ProvidenceArena.IsEmpty && npc.WithinRange(target.Center, 9600f) && Main.netMode == NetmodeID.SinglePlayer)
             {
                 if (target.position.X < arenaArea.Left)
                     target.position.X = arenaArea.Left;
@@ -140,10 +428,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             // End rain.
             CalamityMod.CalamityMod.StopRain();
 
+            // Be enraged at night.
+            npc.Calamity().CurrentlyEnraged = IsEnraged;
+
+            // Enable the distortion filter if it isnt active and the player's config permits it.
+            if (Main.netMode != NetmodeID.Server && !InfernumEffectsRegistry.ScreenDistortionScreenShader.IsActive() && Main.UseHeatDistortion)
+            {
+                Filters.Scene.Activate("InfernumMode:ScreenDistortion", Main.LocalPlayer.Center);
+                InfernumEffectsRegistry.ScreenDistortionScreenShader.GetShader().UseImage("Images/Extra_193");
+                InfernumEffectsRegistry.ScreenDistortionScreenShader.GetShader().Shader.Parameters["distortionAmount"].SetValue(4f);
+                InfernumEffectsRegistry.ScreenDistortionScreenShader.GetShader().Shader.Parameters["wiggleSpeed"].SetValue(2f);
+            }
+
             // Set the global NPC index to this NPC. Used as a means of lowering the need for loops.
             CalamityGlobalNPC.holyBoss = npc.whoAmI;
-
-            if (!target.dead && !shouldDespawnBecauseOfTime)
+            if (!target.dead)
                 npc.timeLeft = 1800;
             else
             {
@@ -158,528 +457,469 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 return false;
             }
 
-            // Death effects.
-            if (lifeRatio < 0.04f)
+            // Perform the death animation.
+            if (lifeRatio < DeathAnimationLifeRatio)
             {
-                npc.Opacity = 1f;
-                npc.rotation = npc.rotation.AngleTowards(0f, 0.02f);
-                if (deathEffectTimer == 1f && !Main.dedServ)
-                    Main.PlaySound(SoundID.DD2_DefeatScene.WithVolume(1.65f), target.Center);
-                
-                // Delete all fire blenders.
-                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<HolyFireBeam>());
-
+                DoBehavior_DeathAnimation(npc, target, deathEffectTimer, wasSummonedAtNight == 1f, ref burnIntensity);
                 deathEffectTimer++;
-
-                // Delete remaining projectiles with a shockwave.
-                if (deathEffectTimer == 96)
-                {
-                    int[] typesToDelete = new int[]
-                    {
-                        ModContent.ProjectileType<AcceleratingCrystalShard>(),
-                        ModContent.ProjectileType<BouncingCrystalBlade>(),
-                        ModContent.ProjectileType<CrystalPillar>(),
-                        ModContent.ProjectileType<FallingCrystalShard>(),
-                        ModContent.ProjectileType<HolySunExplosion>(),
-                        ModContent.ProjectileType<MoltenFire>(),
-                        ModContent.ProjectileType<ProfanedSpear>(),
-                        ModContent.ProjectileType<HolyBlast>(),
-                    };
-                    for (int i = 0; i < Main.maxProjectiles; i++)
-                    {
-                        if (!Main.projectile[i].active || !typesToDelete.Contains(Main.projectile[i].type))
-                            continue;
-                        Main.projectile[i].Kill();
-                    }
-                }
-
-                burnIntensity = Utils.InverseLerp(0f, 45f, deathEffectTimer, true);
-                npc.life = (int)MathHelper.Lerp(npc.lifeMax * 0.04f - 1f, 1f, Utils.InverseLerp(0f, 435f, deathEffectTimer, true));
-                npc.dontTakeDamage = true;
-                npc.velocity *= 0.9f;
-
-                // Move towards the player if inside of walls, to ensure that the loot is obtainable.
-                if (Collision.SolidCollision(npc.TopLeft, npc.width, npc.height))
-                    npc.Center = npc.Center.MoveTowards(target.Center, 10f);
-
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    int shootRate = (int)MathHelper.Lerp(12f, 5f, Utils.InverseLerp(0f, 250f, deathEffectTimer, true));
-                    if (deathEffectTimer % shootRate == shootRate - 1 || deathEffectTimer == 92f)
-                    {
-                        for (int i = 0; i < 3; i++)
-                        {
-                            int shootType = ModContent.ProjectileType<SwirlingFire>();
-                            if ((Main.rand.NextBool(150) && deathEffectTimer >= 110f) || deathEffectTimer == 92f)
-                            {
-                                if (deathEffectTimer >= 320f)
-                                {
-                                    shootType = ModContent.ProjectileType<YharonBoom>();
-                                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastShoot"), target.Center);
-                                }
-                                else
-                                {
-                                    shootType = ModContent.ProjectileType<ProvBoomDeath>();
-                                    ReleaseSparkles(npc.Center, 6, 18f);
-                                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/FlareSound"), target.Center);
-                                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastImpact"), target.Center);
-                                }
-                            }
-
-                            Vector2 shootVelocity = Main.rand.NextVector2CircularEdge(7f, 7f) * Main.rand.NextFloat(0.7f, 1.3f);
-                            if (Vector2.Dot(shootVelocity.SafeNormalize(Vector2.Zero), npc.SafeDirectionTo(target.Center)) < 0.5f)
-                                shootVelocity *= 1.7f;
-
-                            Utilities.NewProjectileBetter(npc.Center, shootVelocity, shootType, 0, 0f, 255);
-                        }
-                    }
-                }
-
-                if (deathEffectTimer >= 320f && deathEffectTimer <= 360f && deathEffectTimer % 10f == 0f)
-                {
-                    int sparkleCount = (int)MathHelper.Lerp(10f, 30f, Main.gfxQuality);
-                    int boomChance = (int)MathHelper.Lerp(8f, 3f, Main.gfxQuality);
-                    if (Main.netMode != NetmodeID.MultiplayerClient && Main.rand.NextBool(boomChance))
-                        Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvBoomDeath>(), 0, 0f);
-
-                    ReleaseSparkles(npc.Center, sparkleCount, 18f);
-                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/FlareSound"), target.Center);
-                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastImpact"), target.Center);
-                }
-
-                if (deathEffectTimer >= 370f)
-                    npc.Opacity *= 0.97f;
-
-                if (Main.netMode != NetmodeID.MultiplayerClient && deathEffectTimer == 400f)
-                {
-                    ReleaseSparkles(npc.Center, 80, 22f);
-                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<DyingSun>(), 0, 0f, 255);
-                }
-
-                if (deathEffectTimer >= 435f)
-                {
-                    npc.active = false;
-                    if (!target.dead)
-                    {
-                        npc.HitEffect();
-                        npc.NPCLoot();
-                    }
-                    npc.netUpdate = true;
-                    return false;
-                }
-
                 return false;
             }
 
-            bool inPhase2 = lifeRatio < Phase2LifeRatio;
-            bool inPhase3 = lifeRatio < Phase3LifeRatio;
-            if (inPhase2 && phase2AnimationTimer < 180f)
+            // Determine attack information based on the current music, if it's playing.
+            ProvidenceAttackInformation attackInfo = GetLocalAttackInformation(npc);
+            int localAttackTimer = attackInfo.LocalAttackTimer;
+            int localAttackDuration = attackInfo.LocalAttackDuration;
+
+            // Reset things if the attack changed.
+            if (attackType != (int)attackInfo.CurrentAttack)
             {
-                if (phase2AnimationTimer == 0f)
-                {
-                    npc.ai[2] = -1f;
-                    SelectNextAttack(npc);
+                for (int i = 0; i < 5; i++)
+                    npc.Infernum().ExtraAI[i] = 0f;
 
-                    Color textColor = !IsEnraged ? Color.Yellow : Color.Lerp(Color.Cyan, Color.Lime, 0.15f);
-                    string text = "The blazing air rises...";
-                    if (IsEnraged)
-                        text = "The blue flames roar...";
-
-                    Utilities.DisplayText(text, textColor);
-                }
-
-                npc.Opacity = 1f;
-                DoBehavior_EnterPhase2(npc, phase2AnimationTimer);
-                phase2AnimationTimer++;
-                return false;
+                attackType = (int)attackInfo.CurrentAttack;
+                npc.netUpdate = true;
             }
+
+            // Stay inside the world.
+            if (npc.position.X >= Main.maxTilesX * 16f - 800f)
+                npc.position.X = Main.maxTilesX * 16f - 800f;
 
             // Execute attack patterns.
             switch ((ProvidenceAttackType)attackType)
             {
-                case ProvidenceAttackType.SpawnEffect:
-                    DoBehavior_SpawnEffects(npc, target, ref wasSummonedAtNight, ref attackTimer);
+                // Phase 1.
+                case ProvidenceAttackType.FireEnergyCharge:
+                    DoBehavior_FireEnergyCharge(npc, target, lifeRatioP1Adjusted, localAttackTimer, localAttackDuration, ref drawState, ref burnIntensity);
                     break;
-                case ProvidenceAttackType.MoltenBlasts:
-                    DoBehavior_MoltenBlasts(npc, target, lifeRatio, ref attackTimer);
-                    break;
-                case ProvidenceAttackType.CrystalSpikes:
-                    DoBehavior_CrystalSpikes(npc, inPhase2, inPhase3, arenaArea, ref attackTimer);
-                    break;
-                case ProvidenceAttackType.HolyBombs:
-                    DoBehavior_HolyBombs(npc, target, lifeRatio, inPhase2, inPhase3, ref attackTimer);
+                case ProvidenceAttackType.CinderAndBombBarrages:
+                    DoBehavior_CinderAndBombBarrages(npc, target, lifeRatioP1Adjusted, localAttackTimer, localAttackDuration, ref flightPath);
                     break;
                 case ProvidenceAttackType.AcceleratingCrystalFan:
-                    DoBehavior_AcceleratingCrystalFan(npc, target, false, inPhase2, inPhase3, crystalCenter, ref attackTimer);
+                    DoBehavior_AcceleratingCrystalFan(npc, target, crystalCenter, lifeRatioP1Adjusted, ref flightPath);
                     break;
-                case ProvidenceAttackType.SinusoidalCrystalFan:
-                    DoBehavior_AcceleratingCrystalFan(npc, target, true, inPhase2, inPhase3, crystalCenter, ref attackTimer);
+                case ProvidenceAttackType.AttackGuardiansSpearSlam:
+                    DoBehavior_AttackGuardiansSpearSlam(npc, target, lifeRatioP1Adjusted, localAttackTimer, localAttackDuration, ref drawState, ref flightPath);
                     break;
-                case ProvidenceAttackType.CeilingCinders:
-                    DoBehavior_CeilingCinders(npc, target, inPhase2, inPhase3, arenaArea, ref attackTimer);
+                case ProvidenceAttackType.HealerGuardianCrystalBarrage:
+                    DoBehavior_HealerGuardianCrystalBarrage(npc, target, lifeRatioP1Adjusted, localAttackTimer, localAttackDuration, ref drawState, ref flightPath);
                     break;
-                case ProvidenceAttackType.CrystalRainTransformation:
-                    DoBehavior_CrystalRainTransformation(npc, target, lifeRatio, inPhase2, inPhase3, ref attackTimer);
+
+                // Phase 2.
+                case ProvidenceAttackType.EnterFireFormBulletHell:
+                    if (lifeRatio > DeathAnimationLifeRatio)
+                    {
+                        burnIntensity *= 0.94f;
+                        if (burnIntensity < 0.004f)
+                            burnIntensity = 0f;
+                    }
+                    DoBehavior_EnterFireFormBulletHell(npc, target, arenaTopCenter, lifeRatioP2Adjusted, localAttackTimer, localAttackDuration, ref drawState, ref lavaHeight);
                     break;
-                case ProvidenceAttackType.CrystalBlades:
-                    DoBehavior_CrystalBlades(npc, lifeRatio, ref attackTimer);
+                case ProvidenceAttackType.EnvironmentalFireEffects:
+                    DoBehavior_EnvironmentalFireEffects(npc, target, localAttackTimer, localAttackDuration, ref drawState);
                     break;
-                case ProvidenceAttackType.CrystalBladesWithLaser:
-                    DoBehavior_CrystalBladesWithLaser(npc, target, lifeRatio, ref attackTimer);
+                case ProvidenceAttackType.CleansingFireballBombardment:
+                    DoBehavior_CleansingFireballBombardment(npc, target, lifeRatioP2Adjusted, localAttackTimer, localAttackDuration, ref flightPath);
                     break;
-                case ProvidenceAttackType.FireSpearCrystalCocoon:
-                    DoBehavior_FireSpearCrystalCocoon(npc, target, crystalCenter, arenaCenter, ref drawState, ref attackTimer);
+                case ProvidenceAttackType.CooldownState:
+                    DoBehavior_CooldownState(npc);
                     break;
-                case ProvidenceAttackType.HolyBlasts:
-                    DoBehavior_HolyBlasts(npc, target, lifeRatio, ref attackTimer);
+                case ProvidenceAttackType.ExplodingSpears:
+                    DoBehavior_ExplodingSpears(npc, target, lifeRatioP2Adjusted, localAttackTimer, ref flightPath);
+                    break;
+                case ProvidenceAttackType.SpiralOfExplodingHolyBombs:
+                    DoBehavior_SpiralOfExplodingHolyBombs(npc, target, arenaTopCenter, lifeRatioP2Adjusted, localAttackTimer, localAttackDuration, ref drawState);
+                    break;
+
+                case ProvidenceAttackType.EnterHolyMagicForm:
+                    DoBehavior_EnterHolyMagicForm(npc, target, localAttackTimer, localAttackDuration, ref drawState);
+                    break;
+                case ProvidenceAttackType.RockMagicRitual:
+                    DoBehavior_RockMagicRitual(npc, target, localAttackTimer, localAttackDuration);
+                    break;
+                case ProvidenceAttackType.ErraticMagicBursts:
+                    DoBehavior_ErraticMagicBursts(npc, target, lifeRatioP2Adjusted, localAttackTimer, localAttackDuration);
+                    break;
+                case ProvidenceAttackType.DogmaLaserBursts:
+                    DoBehavior_DogmaLaserBursts(npc, target, lifeRatioP2Adjusted, (int)attackTimer, localAttackTimer, localAttackDuration);
+                    break;
+
+                case ProvidenceAttackType.EnterLightForm:
+                    DoBehavior_EnterLightForm(npc, target, localAttackTimer, ref drawState, ref burnIntensity, ref rockReformOffset);
+                    break;
+                case ProvidenceAttackType.FinalPhaseRadianceBursts:
+                    DoBehavior_FinalPhaseRadianceBursts(npc, target, arenaTopCenter, localAttackTimer, localAttackDuration, ref lavaHeight, ref hasCompletedCycle);
                     break;
             }
+
+            // Rotate slightly in the direction of horizontal movement.
             npc.rotation = npc.velocity.X * 0.003f;
-            attackTimer++;
 
             return false;
         }
 
-        public static void DoBehavior_EnterPhase2(NPC npc, float phase2AnimationTimer)
+        public static ProvidenceAttackInformation GetLocalAttackInformation(NPC npc)
         {
-            // Slow down.
-            npc.velocity *= 0.94f;
+            var attackCycle = Phase1AttackStates;
+            if (npc.life < npc.lifeMax * Phase2LifeRatio)
+                attackCycle = Phase2AttackStates;
 
-            // Create spikes throughout the arena at first. This will activate soon afterwards.
-            if (phase2AnimationTimer == 1f)
-            {
-                float startY = Utilities.GetGroundPositionFrom(Main.player[npc.target].Center).Y - 50f;
-                for (float i = -3650f; i < 3650f; i += 100f)
-                {
-                    Vector2 top = Utilities.GetGroundPositionFrom(new Vector2(Main.player[npc.target].Center.X + i, startY), new Searches.Up(9001)).Floor();
-                    Vector2 bottom = Utilities.GetGroundPositionFrom(new Vector2(Main.player[npc.target].Center.X + i, startY)).Floor();
+            ref float attackTimer = ref npc.ai[1];
+            ref float startedWithMusicDisabled = ref npc.Infernum().ExtraAI[StartedWithMusicDisabledIndex];
+            if (SyncAttacksWithMusic && startedWithMusicDisabled == 0f)
+                attackTimer = (int)Math.Round(TrackedMusicManager.SongElapsedTime.TotalMilliseconds * 0.06f);
 
-                    int topSpike = Utilities.NewProjectileBetter(top, Vector2.Zero, ModContent.ProjectileType<GroundCrystalSpike>(), 350, 0f);
-                    if (Main.projectile.IndexInRange(topSpike))
-                    {
-                        Main.projectile[topSpike].ModProjectile<GroundCrystalSpike>().SpikeDirection = MathHelper.PiOver2;
-                        Main.projectile[topSpike].netUpdate = true;
-                    }
-
-                    if (!Collision.SolidCollision(bottom - new Vector2(1f, 10f), 20, 2))
-                    {
-                        int bottomSpike = Utilities.NewProjectileBetter(bottom, Vector2.Zero, ModContent.ProjectileType<GroundCrystalSpike>(), 350, 0f);
-                        if (Main.projectile.IndexInRange(bottomSpike))
-                        {
-                            Main.projectile[bottomSpike].ModProjectile<GroundCrystalSpike>().SpikeDirection = -MathHelper.PiOver2;
-                            Main.projectile[bottomSpike].netUpdate = true;
-                        }
-                    }
-                }
-            }
-
-            // Create a rumble effect.
-            if (phase2AnimationTimer > 30f && phase2AnimationTimer < 75f && Main.LocalPlayer.WithinRange(npc.Center, 5000f))
-                Main.LocalPlayer.Calamity().GeneralScreenShakePower = 10f;
-
-            // Make all spike traps release their spears.
-            if (phase2AnimationTimer == 75f)
-            {
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/MeatySlash"));
-                foreach (Projectile spear in Utilities.AllProjectilesByID(ModContent.ProjectileType<GroundCrystalSpike>()))
-                {
-                    spear.ModProjectile<GroundCrystalSpike>().SpikesShouldExtendOutward = true;
-                    spear.netUpdate = true;
-                }
-                npc.ai[2] = 7f;
-                npc.netUpdate = true;
-            }
-        }
-
-        public static void DoBehavior_SpawnEffects(NPC npc, Player target, ref float wasSummonedAtNight, ref float attackTimer)
-        {
-            if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer == 10f)
-            {
-                Projectile.NewProjectile(npc.Center - Vector2.UnitY * 80f, Vector2.Zero, ModContent.ProjectileType<HolyAura>(), 0, 0f, Main.myPlayer);
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyRay"), npc.Center);
-            }
-
-            // Fade in.
-            npc.Opacity = MathHelper.Clamp(npc.Opacity + 0.1f, 0f, 1f);
-
-            // Disable damage.
-            npc.dontTakeDamage = true;
-
-			if (attackTimer % 3f == 0f)
-			{
-				for (int i = 0; i < 1; i++)
-				{
-					Color rainbowColor = Main.hslToRgb(Main.rand.NextFloat(), 0.95f, 0.5f);
-					if (IsEnraged)
-						rainbowColor = Main.rand.NextBool() ? new Color(80, 80, 255) : new Color(180, 80, 255); 
-
-					Dust rainbowDust = Dust.NewDustDirect(npc.position, npc.width, npc.height, 267, 0f, 0f, 0, rainbowColor);
-					rainbowDust.position = npc.Center + Main.rand.NextVector2Circular(npc.width * 2f, npc.height * 2f) + new Vector2(0f, -150f);
-					rainbowDust.velocity *= Main.rand.NextFloat() * 0.2f;
-					rainbowDust.noGravity = true;
-					rainbowDust.fadeIn = 0.6f + Main.rand.NextFloat() * 0.7f * npc.Opacity;
-					rainbowDust.velocity += Vector2.UnitY * 1f;
-					rainbowDust.scale = 0.4f;
-
-					if (rainbowDust.dustIndex != 6000)
-					{
-						rainbowDust = Dust.CloneDust(rainbowDust);
-						rainbowDust.scale /= 2f;
-						rainbowDust.fadeIn *= 0.85f;
-					}
-				}
-			}
-
-            // Determine if summoned at night.
-            if (attackTimer == 1f)
-            {
-                wasSummonedAtNight = (IsEnraged).ToInt();
-                npc.netUpdate = true;
-            }
-
-            // Create a burst of energy and push all players nearby back significantly.
-            if (attackTimer >= AuraTime - 30f && attackTimer <= AuraTime - 15f && attackTimer % 3f == 2f)
-            {
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<YharonBoom>(), 0, 0f);
-
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastShoot"), target.Center);
-            }
-
-            if (attackTimer == AuraTime - 20f)
-            {
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    for (int i = 0; i < Main.maxPlayers; i++)
-                    {
-                        Player player = Main.player[i];
-                        float pushSpeed = MathHelper.Lerp(0f, 36f, Utils.InverseLerp(2900f, 250f, npc.Distance(player.Center)));
-                        player.velocity -= player.SafeDirectionTo(npc.Center) * pushSpeed;
-                    }
-                }
-            }
-
-            if (attackTimer >= AuraTime)
-                SelectNextAttack(npc);
-        }
-
-        public static void DoBehavior_MoltenBlasts(NPC npc, Player target, float lifeRatio, ref float attackTimer)
-        {
-            int blastShootCount = 14;
-            int totalBlobsFromBlasts = 10;
-            int blastShootRate = 24;
-            float moltenBlastSpeed = MathHelper.Lerp(14f, 20f, 1f - lifeRatio);
-
-            if (IsEnraged)
-            {
-                blastShootCount += 3;
-                totalBlobsFromBlasts += 3;
-                blastShootRate -= 10;
-            }
-
-            ref float blastShootCounter = ref npc.Infernum().ExtraAI[1];
-
-            if (blastShootCounter >= blastShootCount)
-                npc.velocity *= 0.96f;
+            // Increment the attack timer manually if it shouldn't sync with the music.
             else
-                DoVanillaFlightMovement(npc, target, true, ref npc.Infernum().ExtraAI[0]);
-
-            // Release molten blobs.
-            if (attackTimer >= blastShootRate && !npc.WithinRange(target.Center, 350f))
             {
-                if (blastShootCounter >= blastShootCount)
+                attackTimer++;
+                if (attackTimer >= attackCycle.Last().EndingTime)
+                    attackTimer = 0f;
+                startedWithMusicDisabled = 1f;
+            }
+
+            // Split the attack timer into sections, and then calculate the local attack timer and current attack based on that.
+            // attackTimer isn't used directly in the queries here since lambda expressions cannot take ref local variables.
+            var attackSection = attackCycle.FirstOrDefault(a => npc.ai[1] >= a.StartingTime && npc.ai[1] < a.EndingTime);
+            if (attackSection.StartingTime == 0 && attackSection.EndingTime == 0)
+                attackSection = attackCycle[0];
+
+            ProvidenceAttackType currentAttack = attackSection.AttackToUse;
+            int localAttackTimer = (int)(attackTimer - attackSection.StartingTime);
+            int localAttackDuration = attackSection.EndingTime - attackSection.StartingTime;
+            return new ProvidenceAttackInformation(localAttackTimer, localAttackDuration, currentAttack);
+        }
+
+        public static void DoBehavior_DeathAnimation(NPC npc, Player target, float deathEffectTimer, bool wasSummonedAtNight, ref float burnIntensity)
+        {
+            npc.Opacity = 1f;
+            npc.rotation = npc.rotation.AngleTowards(0f, 0.02f);
+            if (deathEffectTimer == 1f && !Main.dedServ)
+            {
+                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceDeathAnimation"), target.Center);
+            }
+
+            // Mark Providence as defeated at night. This is necessary for ensuring that the moonlight dye drops.
+            if (wasSummonedAtNight)
+                SetProvidenceHasTakenDaytimeDamage(npc, false);
+
+            // Delete remaining projectiles with a shockwave.
+            if (deathEffectTimer == 96f)
+            {
+                int[] typesToDelete = new int[]
                 {
-                    SelectNextAttack(npc);
-                    return;
+                    ModContent.ProjectileType<AcceleratingCrystalShard>(),
+                    ModContent.ProjectileType<FallingCrystalShard>(),
+                    ModContent.ProjectileType<HolySunExplosion>(),
+                    ModContent.ProjectileType<ProfanedSpear>(),
+                    ModContent.ProjectileType<HolyBlast>(),
+                };
+                Utilities.DeleteAllProjectiles(false, typesToDelete);
+            }
+
+            burnIntensity = Math.Max(burnIntensity, Utils.InverseLerp(0f, 45f, deathEffectTimer, true));
+            npc.life = (int)Lerp(npc.lifeMax * DeathAnimationLifeRatio - 1f, 1f, Utils.InverseLerp(0f, 435f, deathEffectTimer, true));
+            npc.dontTakeDamage = true;
+            npc.velocity *= 0.9f;
+
+            // Move towards the player if inside of walls, to ensure that the loot is obtainable.
+            if (Collision.SolidCollision(npc.TopLeft, npc.width, npc.height))
+                npc.Center = npc.Center.MoveTowards(target.Center, 10f);
+
+            if (Main.netMode != NetmodeID.MultiplayerClient)
+            {
+                int shootRate = (int)Lerp(12f, 5f, Utils.InverseLerp(0f, 250f, deathEffectTimer, true));
+                if (deathEffectTimer % shootRate == shootRate - 1 || deathEffectTimer == 92f)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        int shootType = ModContent.ProjectileType<SwirlingFire>();
+                        if (Main.rand.NextBool(150) && deathEffectTimer >= 110f || deathEffectTimer == 92f)
+                        {
+                            if (deathEffectTimer >= 320f)
+                            {
+                                shootType = ModContent.ProjectileType<YharonBoom>();
+                                Main.PlaySound(InfernumSoundRegistry.ProvidenceHolyBlastShootSound, target.Center);
+                            }
+                            else
+                            {
+                                shootType = ModContent.ProjectileType<ProvBoomDeath>();
+                                ReleaseSparkles(npc.Center, 6, 18f);
+                                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/FlareSound"), target.Center);
+                                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastImpact"), target.Center);
+                            }
+                        }
+
+                        Vector2 shootVelocity = Main.rand.NextVector2CircularEdge(7f, 7f) * Main.rand.NextFloat(0.7f, 1.3f);
+                        if (Vector2.Dot(shootVelocity.SafeNormalize(Vector2.Zero), npc.SafeDirectionTo(target.Center)) < 0.5f)
+                            shootVelocity *= 1.7f;
+
+                        Utilities.NewProjectileBetter(npc.Center, shootVelocity, shootType, 0, 0f, 255);
+                    }
                 }
+            }
+
+            if (deathEffectTimer >= 320f && deathEffectTimer <= 360f && deathEffectTimer % 10f == 0f)
+            {
+                int sparkleCount = (int)Lerp(10f, 30f, Main.gfxQuality);
+                int boomChance = (int)Lerp(8f, 3f, Main.gfxQuality);
+                if (Main.netMode != NetmodeID.MultiplayerClient && Main.rand.NextBool(boomChance))
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvBoomDeath>(), 0, 0f);
+
+                ReleaseSparkles(npc.Center, sparkleCount, 18f);
+                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/FlareSound"), target.Center);
+                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastImpact"), target.Center);
+            }
+
+            if (deathEffectTimer >= 370f)
+                npc.Opacity *= 0.97f;
+
+            if (Main.netMode != NetmodeID.MultiplayerClient && deathEffectTimer == 400f)
+            {
+                ReleaseSparkles(npc.Center, 80, 22f);
+                Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<DyingSun>(), 0, 0f, 255);
+            }
+
+            if (deathEffectTimer >= 435f)
+            {
+                npc.active = false;
+                if (!target.dead)
+                {
+                    npc.HitEffect();
+                    npc.NPCLoot();
+                }
+                npc.netUpdate = true;
+            }
+        }
+
+        public static void DoBehavior_FireEnergyCharge(NPC npc, Player target, float lifeRatio, int localAttackTimer, int localAttackDuration, ref float drawState, ref float burnIntensity)
+        {
+            int shootDelay = 60;
+            int fireballCircleShootRate = GetBPMTimeMultiplier(4);
+            float attackCompletion = localAttackTimer / (float)localAttackDuration;
+            bool attackIsAboutToEnd = localAttackTimer >= localAttackDuration - 6f;
+            bool canShootCircle = attackCompletion >= 0.5f;
+            float circleShootSpeed = Lerp(6f, 9.25f, 1f - lifeRatio);
+            ref float shootTimer = ref npc.Infernum().ExtraAI[0];
+            ref float performedInitializations = ref npc.Infernum().ExtraAI[1];
+            ref float performedEndEffects = ref npc.Infernum().ExtraAI[2];
+            ref float ringShootTimer = ref npc.Infernum().ExtraAI[3];
+
+            int waveReleaseRate = GetBPMTimeMultiplier(2);
+            int fireballShootRate = (int)Lerp(14f, 8f, attackCompletion);
+            int fireballCircleShootCount = (int)Lerp(12f, 18f, attackCompletion);
+            float fireballShootSpeedBoost = (1f - lifeRatio) * 4f + attackCompletion * 4f;
+
+            // Enter the cocoon.
+            drawState = (int)ProvidenceFrameDrawingType.CocoonState;
+
+            // Become fully opaque.
+            npc.Opacity = 1f;
+            burnIntensity = (float)Pow(Utils.InverseLerp(90f, 0f, localAttackTimer, true), 0.12f) * 0.96f;
+
+            if (localAttackTimer <= 5f)
+                performedEndEffects = 0f;
+
+            // Rise on the first frame.
+            if (performedInitializations == 0f && !Utilities.AnyProjectiles(ModContent.ProjectileType<ProfanedLava>()))
+            {
+                // Play the burn sound universally.
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound);
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 15f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 3f, 45);
+
+                performedInitializations = 1f;
+                npc.position = npc.Center;
+                npc.Size = new Vector2(48f, 108f);
+                npc.position -= npc.Size * 0.5f;
+                npc.velocity = Vector2.UnitY * -12f;
+                npc.netUpdate = true;
+            }
+
+            // Slow down after the initial rise effect.
+            npc.velocity *= 0.97f;
+
+            // Release fireballs around the player that converge in on Providence.
+            shootTimer++;
+            if (Main.netMode != NetmodeID.MultiplayerClient && localAttackTimer >= shootDelay && shootTimer >= fireballShootRate && !attackIsAboutToEnd)
+            {
+                Vector2 fireballSpawnPosition = target.Center + Main.rand.NextVector2CircularEdge(150f, 150f) * Main.rand.NextFloat(0.9f, 1f) + target.velocity * 90f;
+                fireballSpawnPosition += npc.SafeDirectionTo(target.Center) * 1050f;
+
+                float fireballShootSpeed = npc.Distance(fireballSpawnPosition) * 0.004f + fireballShootSpeedBoost + 4f;
+                float minSpeed = IsEnraged ? 16f : 10f;
+                if (fireballShootSpeed < minSpeed)
+                    fireballShootSpeed = minSpeed;
+
+                Vector2 fireballSpiralVelocity = (npc.Center - fireballSpawnPosition).SafeNormalize(Vector2.UnitY) * fireballShootSpeed;
+                while (target.WithinRange(fireballSpawnPosition, 750f))
+                    fireballSpawnPosition -= fireballSpiralVelocity;
+
+                Utilities.NewProjectileBetter(fireballSpawnPosition, fireballSpiralVelocity, ModContent.ProjectileType<HolyBasicFireball>(), BasicFireballDamage, 0f, -1, 0f, 1f);
+
+                shootTimer = 0f;
+
+                // The frequency of these projectile firing conditions may be enough to trigger the anti NPC packet spam system that Terraria uses.
+                // Consequently, that system is ignored for this specific sync.
+                npc.netSpam = 0;
+                npc.netUpdate = true;
+            }
+
+            if (localAttackTimer % waveReleaseRate == waveReleaseRate - 1f && !attackIsAboutToEnd)
+            {
+                // Play a sizzle sound and create light effects.
+                Main.PlaySound(InfernumSoundRegistry.SizzleSound);
+                target.Infernum().CurrentScreenShakePower = 3f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 1f, 10);
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvidenceWave>(), 0, 0f);
+            }
+
+            // Jitter in place after a while.
+            float jitterInterpolant = Utils.InverseLerp(0.55f, 0.95f, attackCompletion, true);
+            npc.Center += Main.rand.NextVector2Unit() * jitterInterpolant * 4f;
+
+            // Destroy all fireballs when the attack is about to end.
+            if (performedEndEffects == 0f && attackIsAboutToEnd)
+            {
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound);
+                target.Infernum().CurrentScreenShakePower = 20f;
+                ScreenEffectSystem.SetBlurEffect(npc.Center, 1f, 30);
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvidenceWave>(), 0, 0f);
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<HolyBasicFireball>());
+
+                performedEndEffects = 1f;
+                npc.Size = new Vector2(600f, 450f);
+                npc.Center = target.Center - Vector2.UnitY * 400f;
+                ReleaseSparkles(npc.Center, 80, 75f);
+
+                npc.netUpdate = true;
+            }
+
+            // Release fireball circles periodically.
+            if (canShootCircle)
+                ringShootTimer++;
+            if (canShootCircle && ringShootTimer % fireballCircleShootRate == 0f)
+            {
+                // Play a sizzle sound and create light effects to accompany the circle.
+                Main.PlaySound(InfernumSoundRegistry.SizzleSound);
+                target.Infernum().CurrentScreenShakePower = 3f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 1f, fireballCircleShootRate / 3);
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int blastDamage = !IsEnraged ? 225 : 350;
-                    Vector2 moltenBlastSpawnPosition = npc.Center + npc.velocity * 7f;
-                    Vector2 moltenBlastVelocity = npc.SafeDirectionTo(target.Center) * moltenBlastSpeed;
-                    int blast = Utilities.NewProjectileBetter(moltenBlastSpawnPosition, moltenBlastVelocity, ModContent.ProjectileType<MoltenBlast>(), blastDamage, 0f);
-                    if (Main.projectile.IndexInRange(blast))
-                        Main.projectile[blast].ai[0] = totalBlobsFromBlasts;
+                    float shootOffsetAngle = (ringShootTimer % (fireballCircleShootRate * 2f) == 0f) ? Pi / fireballCircleShootCount : 0f;
+                    for (int i = 0; i < fireballCircleShootCount; i++)
+                    {
+                        Vector2 fireballCircleVelocity = (TwoPi * i / fireballCircleShootCount + shootOffsetAngle).ToRotationVector2() * circleShootSpeed;
+                        Utilities.NewProjectileBetter(npc.Center, fireballCircleVelocity, ModContent.ProjectileType<HolyBasicFireball>(), BasicFireballDamage, 0f);
+                    }
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvidenceWave>(), 0, 0f);
+                }
+            }
+        }
 
-                    attackTimer = 0f;
-                    blastShootCounter++;
+        public static void DoBehavior_CinderAndBombBarrages(NPC npc, Player target, float lifeRatio, int localAttackTimer, int localAttackDuration, ref float flightPath)
+        {
+            int shootRate = 80;
+            int cinderShootRate = GetBPMTimeMultiplier(2);
+            int bombShootRate = GetBPMTimeMultiplier(lifeRatio < 0.5f ? 3 : 4);
+            bool doneAttacking = localAttackTimer >= localAttackDuration - 10;
+            float cinderSpacing = Lerp(225f, 180f, 1f - lifeRatio);
+            float bombShootSpeed = Lerp(17f, 21.5f, 1f - lifeRatio);
+            float bombExplosionRadius = Lerp(1300f, 1776f, 1f - lifeRatio);
+            ref float hasDonePhaseTransitionEffects = ref npc.Infernum().ExtraAI[0];
+            ref float bombShootCounter = ref npc.Infernum().ExtraAI[1];
+            ref float cinderShootTimer = ref npc.Infernum().ExtraAI[2];
+
+            // Fly above the target.
+            DoVanillaFlightMovement(npc, target, true, ref flightPath);
+
+            // Release cinders from above the target periodically.
+            cinderShootTimer++;
+            if (localAttackTimer >= shootRate && cinderShootTimer >= cinderShootRate && !doneAttacking)
+            {
+                Main.PlaySound(InfernumSoundRegistry.SizzleSound, target.Center);
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    for (float dx = -2000f; dx < 2000f; dx += cinderSpacing + Main.rand.NextFloat(50f))
+                    {
+                        Vector2 cinderSpawnPosition = target.Center + new Vector2(dx, -Main.rand.NextFloat(850f, 900f));
+                        Utilities.NewProjectileBetter(cinderSpawnPosition, Vector2.UnitY.RotatedByRandom(0.06f) * 4f, ModContent.ProjectileType<HolyCinder>(), CinderDamage, 0f);
+                    }
+                    cinderShootTimer = 0f;
+                    npc.netUpdate = true;
+                }
+            }
+
+            // Release bombs at the target.
+            if (localAttackTimer >= shootRate && localAttackTimer % bombShootRate == 0f && !doneAttacking)
+            {
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 7.5f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 1.2f, 35);
+
+                for (int i = 0; i < (InfernumConfig.Instance.ReducedGraphicsConfig ? 12 : 32); i++)
+                {
+                    Color fireColor = Main.rand.NextBool() ? Color.Yellow : Color.Orange;
+                    CloudParticle fireCloud = new CloudParticle(npc.Center, (TwoPi * i / 32f).ToRotationVector2() * 14.5f, fireColor, Color.DarkGray, 45, Main.rand.NextFloat(2.5f, 3.2f));
+                    GeneralParticleHandler.SpawnParticle(fireCloud);
+                }
+
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceHolyBlastShootSound, npc.Center);
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    Vector2 aimDestination = target.Center;
+                    if (bombShootCounter % 2f == 1f)
+                    {
+                        aimDestination += target.velocity * 50f;
+                        bombShootSpeed *= 0.667f;
+                    }
+
+                    Vector2 bombShootVelocity = npc.SafeDirectionTo(aimDestination) * bombShootSpeed;
+                    Utilities.NewProjectileBetter(npc.Center + bombShootVelocity, bombShootVelocity, ModContent.ProjectileType<HolyBomb>(), 0, 0f, -1, bombExplosionRadius);
+
+                    bombShootCounter++;
+                    npc.netUpdate = true;
+                }
+            }
+
+            // Delete everything when ready to transition to the next attack.
+            // Also do some very, very strong transition effects.
+            if (doneAttacking)
+            {
+                // Make all bombs that aren't close to the target explode.
+                // Once that are close to the target simply disappear, since the player can't reasonably expect the sudden explosion in their face.
+                foreach (Projectile bomb in Utilities.AllProjectilesByID(ModContent.ProjectileType<HolyBomb>()))
+                {
+                    if (bomb.WithinRange(target.Center, bombExplosionRadius + 100f))
+                        bomb.active = false;
+                    else
+                        bomb.Kill();
+                }
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<HolyCinder>());
+
+                if (hasDonePhaseTransitionEffects == 0f)
+                {
+                    Main.PlaySound(InfernumSoundRegistry.ProvidenceHolyBlastShootSound);
+
+                    Main.LocalPlayer.Infernum().CurrentScreenShakePower = 18f;
+                    ScreenEffectSystem.SetBlurEffect(npc.Center, 0.9f, 40);
+                    hasDonePhaseTransitionEffects = 1f;
                     npc.netUpdate = true;
                 }
             }
         }
 
-        public static void DoBehavior_CrystalSpikes(NPC npc, bool inPhase2, bool inPhase3, Rectangle arenaArea, ref float attackTimer)
+        public static void DoBehavior_AcceleratingCrystalFan(NPC npc, Player target, Vector2 crystalCenter, float lifeRatio, ref float flightPath)
         {
-            SelectNextAttack(npc);
-            int spikeCreationDelay = 110;
-            int spikeCreationRate = 40;
-            int spikeCount = 3;
-            float offsetPerSpike = 150f;
-
-            if (inPhase2)
-            {
-                spikeCreationRate -= 8;
-                spikeCount++;
-            }
-
-            if (inPhase3)
-            {
-                spikeCreationRate -= 8;
-                offsetPerSpike -= 15f;
-            }
-
-            if (IsEnraged)
-            {
-                spikeCreationRate -= 7;
-                spikeCount = 3;
-                offsetPerSpike -= 25f;
-            }
-
-            ref float spikeCounter = ref npc.Infernum().ExtraAI[0];
-
-            // Gain extra DR.
-            npc.Calamity().DR = 0.8f;
-
-            // Delete homing fire.
-            Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<HolyFire2>());
-
-            // Release spikes.
-            if (attackTimer >= spikeCreationDelay && (attackTimer - spikeCreationDelay) % spikeCreationRate == 0f)
-            {
-                int spikeDamage = !IsEnraged ? 225 : 350;
-
-                // Upward spikes.
-                if (spikeCounter % 2f == 0f)
-                {
-                    float xOffset = Main.rand.NextFloat(-35f, 35f);
-                    for (float x = arenaArea.Left; x < arenaArea.Right; x += offsetPerSpike)
-                    {
-                        if (MathHelper.Distance(npc.Center.X, x) > 4200f)
-                            continue;
-
-                        Vector2 crystalPosition = new Vector2(x + xOffset, arenaArea.Center.Y);
-                        Utilities.NewProjectileBetter(crystalPosition, Vector2.UnitY * -0.01f, ModContent.ProjectileType<CrystalPillar>(), spikeDamage, 0f);
-                    }
-                }
-
-                // Rightward spikes.
-                else
-                {
-                    float yOffset = Main.rand.NextFloat(-35f, 35f);
-                    for (float y = arenaArea.Top + 100f; y < arenaArea.Bottom - 80f; y += offsetPerSpike)
-                    {
-                        Vector2 crystalPosition = new Vector2(npc.Center.X, y + yOffset);
-                        Utilities.NewProjectileBetter(crystalPosition, Vector2.UnitX * -0.01f, ModContent.ProjectileType<CrystalPillar>(), spikeDamage, 0f);
-                    }
-                }
-
-                spikeCounter++;
-                npc.netUpdate = true;
-            }
-
-            if (attackTimer >= spikeCreationDelay + CrystalPillar.Lifetime * spikeCount / 4 + 8)
-                SelectNextAttack(npc);
-        }
-
-        public static void DoBehavior_HolyBombs(NPC npc, Player target, float lifeRatio, bool inPhase2, bool inPhase3, ref float attackTimer)
-        {
-            int blastShootCount = 5;
-            int boltCount = 9;
-            int bombShootRate = 96;
-            int explosionDelay = 120;
-            float boltSpeed = 10f;
-            float bombExplosionRadius = 1500f;
-
-            if (inPhase2)
-            {
-                // Make explosions have a slight variance in terms of when they explode, instead of all at once.
-                explosionDelay += Main.rand.Next(90);
-                boltCount += 2;
-                boltSpeed += 3f;
-                bombExplosionRadius += 150f;
-            }
-
-            if (inPhase3)
-            {
-                blastShootCount++;
-                bombExplosionRadius += 150f;
-            }
-
-            if (IsEnraged)
-                bombExplosionRadius += 225f;
-
-            ref float bombShootCounter = ref npc.Infernum().ExtraAI[1];
-            ref float universalAttackTimer = ref npc.Infernum().ExtraAI[2];
-
-            if (bombShootCounter >= blastShootCount)
-                npc.velocity *= 0.96f;
-            else
-                DoVanillaFlightMovement(npc, target, false, ref npc.Infernum().ExtraAI[0]);
-
-            // Release holy bombs, along with a spread of cinders.
-            int explosionCountdown = (int)(bombShootRate * blastShootCount - universalAttackTimer) + explosionDelay;
-            // Release molten blobs.
-            if (attackTimer >= bombShootRate && !npc.WithinRange(target.Center, 200f))
-            {
-                if (explosionCountdown >= 160f)
-                {
-                	Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastShoot"), target.Center);
-                    if (Main.netMode != NetmodeID.MultiplayerClient)
-                    {
-                        // Release the holy bomb.
-                        float bombSpeed = MathHelper.Lerp(14f, 20f, 1f - lifeRatio);
-                        Vector2 bombSpawnPosition = npc.Center + npc.velocity * 7f;
-                        Vector2 bombVelocity = npc.SafeDirectionTo(target.Center) * bombSpeed;
-                        int bomb = Utilities.NewProjectileBetter(bombSpawnPosition, bombVelocity, ModContent.ProjectileType<HolyBomb>(), 0, 0f);
-                        if (Main.projectile.IndexInRange(bomb))
-                        {
-                            Main.projectile[bomb].ai[0] = bombExplosionRadius;
-                            Main.projectile[bomb].timeLeft = explosionCountdown;
-                        }
-
-                        // Release molten bolts.
-                        int fireBoltDamage = !IsEnraged ? 220 : 335;
-                        for (int i = 0; i < boltCount; i++)
-                        {
-                            float offsetAngle = MathHelper.Lerp(-0.64f, 0.64f, i / (float)(boltCount - 1f));
-                            Vector2 boltShootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(offsetAngle) * boltSpeed;
-                            Utilities.NewProjectileBetter(npc.Center, boltShootVelocity, ModContent.ProjectileType<MoltenFire>(), fireBoltDamage, 0f);
-                        }
-
-                        attackTimer = 0f;
-                        bombShootCounter++;
-                        npc.netUpdate = true;
-                    }
-                }
-            }
-
-            if (explosionCountdown <= 0)
-                SelectNextAttack(npc);
-
-            universalAttackTimer++;
-        }
-
-        public static void DoBehavior_AcceleratingCrystalFan(NPC npc, Player target, bool useSinusoidalFan, bool inPhase2, bool inPhase3, Vector2 crystalCenter, ref float attackTimer)
-        {
-            int crystalFireDelay = 70;
+            int crystalFireDelay = GetBPMTimeMultiplier(4);
             int crystalReleaseRate = 2;
-            int crystalReleaseCount = 16;
-            int crystalFanCount = 3;
-            float maxFanOffsetAngle = 1.06f;
-            float crystalSpeed = 13.25f;
-
-            if (inPhase2)
-            {
-                maxFanOffsetAngle += 0.23f;
-                crystalSpeed += 1.2f;
-            }
-
-            if (inPhase3)
-            {
-                crystalReleaseRate--;
-                crystalFanCount--;
-            }
+            int crystalReleaseCount = 20;
+            float maxFanOffsetAngle = 1.37f;
+            float crystalSpeed = Lerp(13.5f, 15.75f, 1f - lifeRatio);
 
             if (IsEnraged)
             {
@@ -688,25 +928,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 crystalSpeed += 4f;
             }
 
-            // Use less wide fan if using a sinusoidal pattern.
-            if (useSinusoidalFan)
-                maxFanOffsetAngle *= 0.6f;
-
+            ref float attackTimer = ref npc.Infernum().ExtraAI[0];
             ref float initialDirection = ref npc.Infernum().ExtraAI[1];
-            ref float crystalFanCounter = ref npc.Infernum().ExtraAI[2];
 
-            // Make the crystals appear more quickly if using the sinusoidal variant.
-            if (useSinusoidalFan)
+            // Create the visual effects right before the crystals fire.
+            attackTimer++;
+            if (attackTimer == crystalFireDelay)
             {
-                crystalReleaseRate = 2;
-                crystalReleaseCount += 8;
-            }
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 6f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 2f, 20);
 
-            // Delay the attack if the target is far away.
-            if (attackTimer == crystalFireDelay && !npc.WithinRange(target.Center, 650f))
-            {
-                npc.Center = npc.Center.MoveTowards(target.Center, 10f);
-                attackTimer = crystalFireDelay - 1f;
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(bomb =>
+                    {
+                        bomb.timeLeft = 95;
+                    });
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.UnitY * 0.001f, ModContent.ProjectileType<HolyBomb>(), 0, 0f, -1, 1360f);
+                }
             }
 
             // Release a fan of crystals.
@@ -717,11 +956,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
                 // Recede away from the target if they're close.
                 if (npc.WithinRange(target.Center, 360f))
-                    npc.Center -= npc.SafeDirectionTo(target.Center, -Vector2.UnitY) * 4f;
+                    npc.Center -= npc.SafeDirectionTo(target.Center, -Vector2.UnitY) * 7.5f;
 
-                // Decide an initial direction angle and play a sound to accomodate the crystals.
+                // Decide an initial direction angle and play a sound to accommodate the crystals.
                 if (attackTimer == crystalFireDelay)
                 {
+                    Main.PlaySound(SoundID.Item20, npc.Center);
                     initialDirection = (target.Center - crystalCenter).ToRotation();
                     npc.netUpdate = true;
                 }
@@ -732,7 +972,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 for (int i = 0; i < 4; i++)
                 {
                     Vector2 fireSpawnPosition = npc.Center + leftDirection * Main.rand.NextFloat(1250f);
-                    Dust fire = Dust.NewDustPerfect(fireSpawnPosition, Main.dayTime ? 222 : 221);
+                    Dust fire = Dust.NewDustPerfect(fireSpawnPosition, !IsEnraged ? 222 : 221);
                     fire.scale = 1.5f;
                     fire.fadeIn = 0.4f;
                     fire.velocity = leftDirection * Main.rand.NextFloat(8f);
@@ -751,464 +991,1355 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 {
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        int crystalShardDamage = !IsEnraged ? 225 : 350;
                         float fanInterpolant = Utils.InverseLerp(0f, crystalReleaseRate * crystalReleaseCount, attackTimer - crystalFireDelay, true);
-                        float offsetAngle = MathHelper.Lerp(-maxFanOffsetAngle, maxFanOffsetAngle, fanInterpolant);
-                        if (useSinusoidalFan)
-                            offsetAngle = (float)Math.Sin(MathHelper.Pi * 3f * fanInterpolant) * maxFanOffsetAngle;
-
+                        float offsetAngle = Lerp(-maxFanOffsetAngle, maxFanOffsetAngle, fanInterpolant);
                         Vector2 shootVelocity = (initialDirection + offsetAngle).ToRotationVector2() * crystalSpeed;
-                        Utilities.NewProjectileBetter(crystalCenter, shootVelocity, ModContent.ProjectileType<AcceleratingCrystalShard>(), crystalShardDamage, 0f);
-                        int telegraph = Utilities.NewProjectileBetter(crystalCenter, shootVelocity, ModContent.ProjectileType<CrystalTelegraphLine>(), 0, 0f);
-                        if (Main.projectile.IndexInRange(telegraph))
-                            Main.projectile[telegraph].ai[1] = 30f;
+                        Utilities.NewProjectileBetter(crystalCenter, shootVelocity, ModContent.ProjectileType<AcceleratingCrystalShard>(), CrystalShardDamage, 0f);
+                        Utilities.NewProjectileBetter(crystalCenter, shootVelocity.SafeNormalize(Vector2.UnitY) * 0.01f, ModContent.ProjectileType<CrystalTelegraphLine>(), 0, 0f, -1, 0f, 30f);
                     }
                 }
 
                 if (attackTimer >= crystalFireDelay + crystalReleaseRate * crystalReleaseCount)
                 {
                     attackTimer = 0f;
-                    crystalFanCounter++;
-
-                    if (crystalFanCounter >= crystalFanCount)
-                        SelectNextAttack(npc);
-
                     npc.netUpdate = true;
                 }
             }
 
             // Fly around.
             else
-                DoVanillaFlightMovement(npc, target, false, ref npc.Infernum().ExtraAI[0]);
+                DoVanillaFlightMovement(npc, target, true, ref flightPath, 1.6f);
         }
 
-        public static void DoBehavior_CeilingCinders(NPC npc, Player target, bool inPhase2, bool inPhase3, Rectangle arenaArea, ref float attackTimer)
+        public static void DoBehavior_AttackGuardiansSpearSlam(NPC npc, Player target, float lifeRatio, int localAttackTimer, int localAttackDuration, ref float drawState, ref float flightPath)
         {
-            int cinderCreationDelay = 135;
-            int circularCinderCount = 15;
-            int attackSwitchDelay = 180;
-            float offsetPerCinder = 105f;
-            float circularCinderSpeed = 7f;
+            int chargeUpTime = 150;
+            int guardianCount = 3;
+            int guardiansSpearSpinTimeStart = GetBPMTimeMultiplier(2);
+            int guardiansSpearAimTime = GetBPMTimeMultiplier(2);
+            int guardiansPostShootLiveTime = GetBPMTimeMultiplier(3);
+            int guardiansKamikazeDelay = GetBPMTimeMultiplier(6);
+            int attackCycle = guardiansSpearSpinTimeStart + guardiansSpearAimTime + guardiansPostShootLiveTime + guardiansKamikazeDelay;
+            int attackCycleTimer = (localAttackTimer - chargeUpTime) % attackCycle;
+            bool doneAttacking = localAttackTimer >= localAttackDuration - 90;
+            float flightSpeedFactor = 1f;
+            float spearShootSpeed = Lerp(21f, 26f, 1f - lifeRatio);
 
-            if (inPhase2)
+            if (IsEnraged)
             {
-                circularCinderCount += 7;
-                offsetPerCinder -= 10f;
-                circularCinderSpeed += 1.25f;
+                chargeUpTime -= 70;
+                spearShootSpeed += 6f;
             }
 
-            if (inPhase3)
-            {
-                circularCinderCount += 3;
-                circularCinderSpeed += 1.25f;
-            }
+            ref float spearAttackState = ref npc.Infernum().ExtraAI[0];
+            ref float spearSmearInterpolant = ref npc.Infernum().ExtraAI[1];
+            ref float guardiansVerticalOffset = ref npc.Infernum().ExtraAI[2];
+            ref float guardiansShouldExplode = ref npc.Infernum().ExtraAI[3];
 
-            ref float horizontalOffset = ref npc.Infernum().ExtraAI[0];
-
-            // Initialize the horizontal offset of the cinders.
-            if (horizontalOffset == 0f)
+            // Teleport above the player at first.
+            if (localAttackTimer == 1f)
             {
-                horizontalOffset = Main.rand.NextFloatDirection() * 50f;
+                // Destroy any leftover crystals.
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<AcceleratingCrystalShard>());
+
+                npc.Center = target.Center - Vector2.UnitY * 400f;
+                npc.velocity = Vector2.Zero;
+                ReleaseSparkles(npc.Center, 85, 67f);
                 npc.netUpdate = true;
             }
 
-            // Fly to the side of the target.
-            Vector2 hoverDestination = target.Center + new Vector2((target.Center.X < npc.Center.X).ToDirectionInt() * 400f, -260f);
-            if (!npc.WithinRange(hoverDestination, 100f))
-                npc.SimpleFlyMovement(npc.SafeDirectionTo(hoverDestination) * 25f, 0.84f);
-
-            // Create fire particles at the top of the arena as a telegraph.
-            if (attackTimer < cinderCreationDelay)
+            // Enter the cocoon and wait.
+            if (localAttackTimer < chargeUpTime)
             {
-                for (int i = 0; i < 20; i++)
-                {
-                    float fireScale = Main.rand.NextFloat(0.67f, 1f);
-                    Color fireColor = Color.Lerp(Color.Orange, Color.Yellow, 0.6f);
-                    Vector2 fireSpawnPosition = new Vector2(Main.rand.NextFloat(arenaArea.Left + 20f, arenaArea.Right - 20f), arenaArea.Top + Main.rand.NextFloat(15f));
-                    MediumMistParticle fire = new MediumMistParticle(fireSpawnPosition, Main.rand.NextVector2Circular(5f, 5f), fireColor, Color.White, fireScale, 255f);
-                    GeneralParticleHandler.SpawnParticle(fire);
-                }
+                flightSpeedFactor = 0f;
+                drawState = (int)ProvidenceFrameDrawingType.CocoonState;
+                npc.velocity.Y = 0f;
             }
 
-            // Create cinders that fall downward and come from Providence's center.
-            else if (attackTimer == cinderCreationDelay)
+            // Summon the attacker guardians.
+            if (!doneAttacking && localAttackTimer >= chargeUpTime && !NPC.AnyNPCs(ModContent.NPCType<ProvSpawnOffense>()) && guardiansShouldExplode == 0f)
             {
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastShoot"), target.Center);
-                if (Main.netMode != NetmodeID.MultiplayerClient)
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound);
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 15f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 2f, 24);
+
+                for (int i = 0; i < guardianCount; i++)
                 {
-                    int cinderDamage = Main.dayTime ? 225 : 350;
-                    for (float x = arenaArea.Left; x < arenaArea.Right; x += offsetPerCinder)
+                    float spawnOffsetRadius = 485f;
+                    float spawnOffsetAngle = Lerp(-1f, 1f, i / (float)(guardianCount - 1f)) * PiOver4;
+                    Color ashColor = IsEnraged ? Color.Turquoise : new Color(255, 191, 73);
+                    Vector2 guardianSpawnPosition = npc.Center - Vector2.UnitY.RotatedBy(spawnOffsetAngle) * spawnOffsetRadius;
+                    for (int j = 0; j < 67; j++)
                     {
-                        Vector2 cinderSpawnPosition = new Vector2(x + offsetPerCinder, arenaArea.Top);
-                        Utilities.NewProjectileBetter(cinderSpawnPosition, Vector2.UnitY * 2f, ModContent.ProjectileType<HolyCinder>(), cinderDamage, 0f);
+                        Vector2 ashSpawnPosition = guardianSpawnPosition + Main.rand.NextVector2Circular(100f, 100f);
+                        Vector2 ashVelocity = npc.SafeDirectionTo(ashSpawnPosition) * Main.rand.NextFloat(1.5f, 2f);
+                        Particle ash = new MediumMistParticle(ashSpawnPosition, ashVelocity, ashColor, Color.Gray, Main.rand.NextFloat(0.7f, 0.9f), 200f, Main.rand.NextFloat(-0.04f, 0.04f));
+                        GeneralParticleHandler.SpawnParticle(ash);
                     }
 
-                    for (int i = 0; i < circularCinderCount; i++)
-                    {
-                        Vector2 cinderShootVelocity = (MathHelper.TwoPi * i / circularCinderCount).ToRotationVector2() * circularCinderSpeed;
-                        int cinder = Utilities.NewProjectileBetter(npc.Center, cinderShootVelocity, ModContent.ProjectileType<HolyCinder>(), cinderDamage, 0f);
-                        if (Main.projectile.IndexInRange(cinder))
-                            Main.projectile[cinder].ai[0] = 45f;
-                    }
-                }
-            }
-
-            else if (attackTimer == cinderCreationDelay + 30f)
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastImpact"), target.Center);
-
-            else if (attackTimer >= cinderCreationDelay + attackSwitchDelay)
-                SelectNextAttack(npc);
-        }
-
-        public static void DoBehavior_CrystalRainTransformation(NPC npc, Player target, float lifeRatio, bool inPhase2, bool inPhase3, ref float attackTimer)
-        {
-            int shootDelay = 90;
-            int totalCrystalBursts = (int)MathHelper.Lerp(15f, 24f, 1f - lifeRatio);
-            int crystalBurstShootRate = (int)MathHelper.Lerp(32f, 20f, 1f - lifeRatio);
-            int totalCrystalsPerBurst = 28;
-            int transitionDelay = 120;
-
-            if (inPhase2)
-            {
-                crystalBurstShootRate += 5;
-                totalCrystalsPerBurst -= 2;
-            }
-
-            if (inPhase3)
-                totalCrystalsPerBurst++;
-            
-            if (IsEnraged)
-            {
-                crystalBurstShootRate -= 4;
-                totalCrystalsPerBurst += 5;
-            }
-            
-            ref float burstTimer = ref npc.Infernum().ExtraAI[2];
-            ref float burstCounter = ref npc.Infernum().ExtraAI[3];
-
-            Vector2 destination;
-            if (target.gravDir == -1f)
-                destination = target.Top + Vector2.UnitY * 400f;
-            else
-                destination = target.Bottom - Vector2.UnitY * 400f;
-
-            // Fade into rainbow crystal form at first.
-            if (attackTimer < shootDelay)
-                npc.Opacity = 1f - attackTimer / shootDelay;
-            else
-            {
-                // Adjust the hitbox to align with the crystal.
-                npc.width = 42;
-                npc.height = 100;
-
-                burstTimer++;
-                npc.Opacity = 0f;
-
-                // If movement results in the crystal being close to the player, don't shoot at all.
-                // This is done to prevent cheap shots.
-                bool veryCloseToPlayer = npc.WithinRange(target.Center, 180f);
-                if (!veryCloseToPlayer && burstCounter < totalCrystalBursts && burstTimer >= crystalBurstShootRate)
-                {
-                    Main.PlaySound(SoundID.Item109, target.Center);
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        int crystalShardDamage = !IsEnraged ? 250 : 400;
-                        float xSpeedOffset = target.velocity.X + Main.rand.NextFloat(-5f, 5f);
-                        Vector2 shootPosition = npc.Center - Vector2.UnitY * 36f;
-                        for (int i = 0; i < totalCrystalsPerBurst; i++)
+                        guardiansVerticalOffset = 0f;
+                        npc.netUpdate = true;
+
+                        int guardian = NPC.NewNPC((int)guardianSpawnPosition.X, (int)guardianSpawnPosition.Y, ModContent.NPCType<ProvSpawnOffense>(), npc.whoAmI, spawnOffsetRadius, spawnOffsetAngle);
+                        NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, guardian);
+                    }
+                }
+            }
+
+            // Kill all spears and guardians if the attack needs to end.
+            if (doneAttacking)
+            {
+                Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<CommanderSpear2>());
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<ProfanedSpearInfernum>());
+
+                int guardianID = ModContent.NPCType<ProvSpawnOffense>();
+                for (int i = 0; i < Main.maxNPCs; i++)
+                {
+                    NPC n = Main.npc[i];
+                    if (n.active && n.type == guardianID)
+                        n.active = false;
+                }
+            }
+
+            if (localAttackTimer >= chargeUpTime && !doneAttacking)
+            {
+                // Make all guardians spin their spears at first.
+                if (attackCycleTimer < guardiansSpearSpinTimeStart)
+                {
+                    guardiansShouldExplode = 0f;
+                    guardiansVerticalOffset = 0f;
+                    spearAttackState = (int)SpearAttackState.SpinInPlace;
+                    spearSmearInterpolant = Utils.InverseLerp(0f, 8f, attackCycleTimer, true) * Utils.InverseLerp(-1f, -8f, attackCycleTimer - guardiansSpearSpinTimeStart, true);
+                    flightSpeedFactor = Utils.InverseLerp(-8f, -20f, attackCycleTimer - guardiansSpearSpinTimeStart, true);
+                }
+
+                // Have all Guardians aim their spears at the player and create some wacky Jojo Menacing particles for personality.
+                else if (attackCycleTimer < guardiansSpearSpinTimeStart + guardiansSpearAimTime)
+                {
+                    spearSmearInterpolant = 0f;
+                    flightSpeedFactor = 0f;
+                    guardiansVerticalOffset = 0f;
+                    spearAttackState = (int)SpearAttackState.LookAtTarget;
+
+                    // Create the particles and play a metal sound initially.
+                    if (attackCycleTimer == guardiansSpearSpinTimeStart + 1)
+                    {
+                        Main.PlaySound(InfernumSoundRegistry.VassalSlashSound, target.Center);
+
+                        int guardianID = ModContent.NPCType<ProvSpawnOffense>();
+                        for (int i = 0; i < Main.maxNPCs; i++)
                         {
-                            Vector2 shootVelocity = new Vector2(MathHelper.Lerp(-20f, 20f, i / (float)totalCrystalsPerBurst) + xSpeedOffset, -5.75f);
-                            shootVelocity.X += Main.rand.NextFloatDirection() * 0.6f;
-                            Utilities.NewProjectileBetter(shootPosition, shootVelocity, ModContent.ProjectileType<FallingCrystalShard>(), crystalShardDamage, 0f);
+                            NPC n = Main.npc[i];
+                            if (n.active && n.type == guardianID)
+                            {
+                                for (int j = 0; j < (InfernumConfig.Instance.ReducedGraphicsConfig ? 2 : 4); j++)
+                                {
+                                    Vector2 position = n.Center + n.SafeDirectionTo(target.Center) * 50f + Main.rand.NextVector2Circular(120f, 120f);
+                                    Vector2 velocity = -Vector2.UnitY.RotatedBy(Main.rand.NextFloat(0.1f, 0.4f)) * Main.rand.NextFloat(1.5f, 2f);
+                                    Color color = Color.Lerp(WayfinderSymbol.Colors[0], WayfinderSymbol.Colors[1], Main.rand.NextFloat());
+                                    Particle jojo = new ProfanedSymbolParticle(position, velocity, color, 0.8f, 60);
+                                    GeneralParticleHandler.SpawnParticle(jojo);
+                                }
+                            }
                         }
-                        burstTimer = 0f;
-                        burstCounter++;
+                    }
+                }
+
+                // Make the guardians throw all their spears.
+                else if (attackCycleTimer < guardiansSpearSpinTimeStart + guardiansSpearAimTime + guardiansPostShootLiveTime)
+                {
+                    // Make the Guardians rise upward in anticipation.
+                    guardiansVerticalOffset = (guardiansVerticalOffset - 7.5f) * 1.03f;
+                    if (guardiansVerticalOffset < -300f)
+                        guardiansVerticalOffset = -300f;
+                    spearAttackState = (int)SpearAttackState.Charge;
+
+                    if (attackCycleTimer >= guardiansSpearSpinTimeStart + guardiansSpearAimTime)
+                    {
+                        foreach (Projectile spear in Utilities.AllProjectilesByID(ModContent.ProjectileType<CommanderSpear2>()))
+                        {
+                            if (spear.velocity.Length() >= 1f)
+                                continue;
+
+                            for (int i = 0; i < (InfernumConfig.Instance.ReducedGraphicsConfig ? 12 : 32); i++)
+                            {
+                                Color fireColor = Main.rand.NextBool() ? Color.Yellow : Color.Orange;
+                                CloudParticle fireCloud = new CloudParticle(spear.Center, (TwoPi * i / 32f).ToRotationVector2() * 14.5f, fireColor, Color.DarkGray, 45, Main.rand.NextFloat(2.5f, 3.2f));
+                                GeneralParticleHandler.SpawnParticle(fireCloud);
+                            }
+
+                            spear.velocity = spear.SafeDirectionTo(target.Center) * spearShootSpeed;
+                            spear.netUpdate = true;
+                        }
+                    }
+                }
+
+                // Have Providence go all LTG and instruct the guardians to kill themselves NOW!
+                else
+                {
+                    guardiansShouldExplode = 1f;
+                    guardiansVerticalOffset += 25f;
+                    if (guardiansVerticalOffset >= 0f)
+                        guardiansVerticalOffset *= 1.05f;
+                    flightSpeedFactor = 0f;
+                }
+            }
+
+            // Fly above the target.
+            DoVanillaFlightMovement(npc, target, false, ref flightPath, flightSpeedFactor);
+        }
+
+        public static void DoBehavior_HealerGuardianCrystalBarrage(NPC npc, Player target, float lifeRatio, int localAttackTimer, int localAttackDuration, ref float drawState, ref float flightPath)
+        {
+            int chargeUpTime = 150;
+            int guardianCount = 4;
+            int guardiansSpinTime = GetBPMTimeMultiplier(2);
+            int guardiansTelegraphTime = GetBPMTimeMultiplier(3);
+            int guardiansPostShootLiveTime = GetBPMTimeMultiplier(4);
+            int guardiansDeathAnimationTime = GetBPMTimeMultiplier(4);
+            int attackCycle = guardiansSpinTime + guardiansTelegraphTime + guardiansPostShootLiveTime + guardiansDeathAnimationTime;
+            int attackCycleTimer = (localAttackTimer - chargeUpTime) % attackCycle;
+
+            if (localAttackTimer >= localAttackDuration - guardiansDeathAnimationTime - 10)
+            {
+                attackCycleTimer = guardiansSpinTime + guardiansTelegraphTime + guardiansPostShootLiveTime + 5;
+                npc.Infernum().ExtraAI[3] = 0f;
+            }
+
+            float flightSpeedFactor = Lerp(1f, 1.45f, 1f - lifeRatio);
+            ref float healerAttackState = ref npc.Infernum().ExtraAI[0];
+            ref float spinAngularOffset = ref npc.Infernum().ExtraAI[1];
+            ref float spinRadiusOffset = ref npc.Infernum().ExtraAI[2];
+            ref float telegraphInterpolant = ref npc.Infernum().ExtraAI[3];
+            ref float createdSpikes = ref npc.Infernum().ExtraAI[4];
+
+            npc.Opacity = 1f;
+
+            // Teleport above the player at first.
+            if (localAttackTimer == 1f)
+            {
+                // Destroy any leftover crystals.
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<AcceleratingCrystalShard>());
+
+                npc.Center = target.Center - Vector2.UnitY * 400f;
+                npc.velocity = Vector2.Zero;
+                ReleaseSparkles(npc.Center, 85, 67f);
+                npc.netUpdate = true;
+            }
+
+            // Enter the cocoon and wait.
+            if (localAttackTimer < chargeUpTime)
+            {
+                createdSpikes = 0f;
+                flightSpeedFactor = 0f;
+                drawState = (int)ProvidenceFrameDrawingType.CocoonState;
+                npc.velocity.Y = 0f;
+            }
+
+            // Summon the healer guardians.
+            if (localAttackTimer >= chargeUpTime && !NPC.AnyNPCs(ModContent.NPCType<ProvSpawnHealer>()) && attackCycleTimer <= guardiansSpinTime + guardiansTelegraphTime + guardiansPostShootLiveTime)
+            {
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceHolyRaySound);
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 15f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 2.4f, 32);
+
+                // Reset things from the previous cycle.
+                spinAngularOffset = 0f;
+                spinRadiusOffset = 0f;
+                telegraphInterpolant = 0f;
+                healerAttackState = (int)HealerGuardianAttackState.SpinInPlace;
+                npc.netUpdate = true;
+
+                for (int i = 0; i < guardianCount; i++)
+                {
+                    float spawnOffsetRadius = 350f;
+                    float spawnOffsetAngle = TwoPi * i / guardianCount + PiOver4;
+                    Color ashColor = IsEnraged ? Color.Turquoise : new Color(255, 191, 73);
+                    Vector2 guardianSpawnPosition = npc.Center - Vector2.UnitY.RotatedBy(spawnOffsetAngle) * spawnOffsetRadius;
+                    for (int j = 0; j < 60; j++)
+                    {
+                        Vector2 ashSpawnPosition = guardianSpawnPosition + Main.rand.NextVector2Circular(100f, 100f);
+                        Vector2 ashVelocity = npc.SafeDirectionTo(ashSpawnPosition) * Main.rand.NextFloat(1.5f, 2f);
+                        Particle ash = new MediumMistParticle(ashSpawnPosition, ashVelocity, ashColor, Color.Gray, Main.rand.NextFloat(0.7f, 0.9f), 200f, Main.rand.NextFloat(-0.04f, 0.04f));
+                        GeneralParticleHandler.SpawnParticle(ash);
+                    }
+
+                    if (Main.netMode != NetmodeID.MultiplayerClient)
+                    {
+                        int guardian = NPC.NewNPC((int)guardianSpawnPosition.X, (int)guardianSpawnPosition.Y, ModContent.NPCType<ProvSpawnHealer>(), npc.whoAmI, spawnOffsetRadius, spawnOffsetAngle);
+                        NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, guardian);
+                        ReleaseSparkles(guardianSpawnPosition, 25, 36f);
+                    }
+                }
+            }
+
+            // Make the guardians spin in place.
+            if (attackCycleTimer <= guardiansSpinTime)
+            {
+                float spinCompletion = attackCycleTimer / (float)guardiansSpinTime;
+                float spinOffsetAngleInterpolant = Utilities.UltrasmoothStep(spinCompletion);
+                spinAngularOffset = Pi * spinOffsetAngleInterpolant;
+                healerAttackState = (int)HealerGuardianAttackState.SpinInPlace;
+            }
+
+            // Make the guardians sit and release telegraphs at the target.
+            else if (attackCycleTimer <= guardiansSpinTime + guardiansTelegraphTime)
+            {
+                createdSpikes = 0f;
+                float subphaseCompletion = Utils.InverseLerp(0f, guardiansTelegraphTime, attackCycleTimer - guardiansSpinTime, true);
+                telegraphInterpolant = Utils.InverseLerp(0f, 0.6f, subphaseCompletion, true) * Utils.InverseLerp(1f, 0.85f, subphaseCompletion, true);
+                healerAttackState = (int)HealerGuardianAttackState.WaitAndReleaseTelegraph;
+
+                // Slow down the flying motion near the end of the telegraph casting.
+                flightSpeedFactor = Utils.InverseLerp(0.9f, 0.65f, subphaseCompletion, true);
+            }
+
+            // Wait for the crystal spikes to be shot.
+            else if (attackCycleTimer <= guardiansSpinTime + guardiansTelegraphTime + guardiansPostShootLiveTime)
+            {
+                healerAttackState = (int)HealerGuardianAttackState.ShootCrystals;
+
+                // Have the guardians all shoot crystal spikes.
+                if (attackCycleTimer >= guardiansSpinTime + guardiansTelegraphTime + 1 && createdSpikes == 0f)
+                {
+                    Main.PlaySound(InfernumSoundRegistry.SizzleSound, target.Center);
+                    Main.PlaySound(SoundID.Item101, target.Center);
+                    ScreenEffectSystem.SetFlashEffect(npc.Center, 2f, 20);
+
+                    if (Main.netMode != NetmodeID.MultiplayerClient)
+                    {
+                        int guardianID = ModContent.NPCType<ProvSpawnHealer>();
+                        for (int i = 0; i < Main.maxNPCs; i++)
+                        {
+                            NPC n = Main.npc[i];
+                            if (n.type != guardianID || !n.active)
+                                continue;
+
+                            Vector2 spikeSpawnPosition = ProvidenceHealerGuardianBehaviorOverride.GetCrystalPosition(n);
+                            Vector2 spikeDirection = n.ai[2].ToRotationVector2();
+                            Utilities.NewProjectileBetter(spikeSpawnPosition - spikeDirection * 50f, spikeDirection, ModContent.ProjectileType<HolyCrystalSpike>(), CrystalSpikeDamage, 0f);
+                        }
+                    }
+                    createdSpikes = 1f;
+                    npc.netUpdate = true;
+                }
+
+                // Cease any and all movement.
+                flightSpeedFactor = 0f;
+                npc.velocity.Y = 0f;
+            }
+
+            // Have Providence instruct the guardians to fly away.
+            else
+            {
+                healerAttackState = (int)HealerGuardianAttackState.ShootCrystals;
+
+                spinRadiusOffset += 25f;
+                spinAngularOffset += Pi * 0.02f;
+                createdSpikes = 0f;
+                if (Main.netMode != NetmodeID.MultiplayerClient && spinRadiusOffset >= 1400f)
+                {
+                    int guardianID = ModContent.NPCType<ProvSpawnHealer>();
+                    for (int i = 0; i < Main.maxNPCs; i++)
+                    {
+                        NPC n = Main.npc[i];
+                        if (n.type != guardianID || !n.active)
+                            continue;
+
+                        for (int j = 0; j < (InfernumConfig.Instance.ReducedGraphicsConfig ? 8 : 20); j++)
+                        {
+                            Vector2 ashSpawnPosition = n.Center + Main.rand.NextVector2Circular(100f, 100f);
+                            Vector2 ashVelocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(1.5f, 2f);
+                            Particle ash = new MediumMistParticle(ashSpawnPosition, ashVelocity, new Color(255, 191, 73), Color.Gray, Main.rand.NextFloat(0.7f, 0.9f), 200f, Main.rand.NextFloat(-0.04f, 0.04f));
+                            GeneralParticleHandler.SpawnParticle(ash);
+                        }
+                        n.active = false;
+                    }
+                }
+            }
+
+            // Fly above the target.
+            DoVanillaFlightMovement(npc, target, false, ref flightPath, flightSpeedFactor);
+        }
+
+        public static void DoBehavior_EnterFireFormBulletHell(NPC npc, Player target, Vector2 arenaTopCenter, float lifeRatio, int localAttackTimer, int localAttackDuration, ref float drawState, ref float lavaHeight)
+        {
+            int shootDelay = 75;
+            int startingShootCycle = 67;
+            int endingShootCycle = 36;
+            int fireballCircleShootRate = GetBPMTimeMultiplier(4);
+            float idealLavaHeight = DefaultLavaHeight;
+            float attackCompletion = localAttackTimer / (float)localAttackDuration;
+            ref float shootTimer = ref npc.Infernum().ExtraAI[0];
+            ref float cycleTimer = ref npc.Infernum().ExtraAI[1];
+            ref float shootCycle = ref npc.Infernum().ExtraAI[2];
+            ref float performedInitializations = ref npc.Infernum().ExtraAI[3];
+
+            // Initialize the shoot cycle value.
+            if (shootCycle <= 0f)
+                shootCycle = startingShootCycle;
+
+            int fireballCircleShootCount = (int)Lerp(12f, 22f, attackCompletion);
+            int shootRate = (int)Lerp(6f, 3f, attackCompletion);
+            float spiralShootSpeed = Lerp(3.5f, 4.5f, attackCompletion);
+            float circleShootSpeed = spiralShootSpeed * 1.36f;
+            bool canShootCircle = attackCompletion >= 0.5f;
+
+            // Make the attack faster according to life ratio.
+            // This may seem unintuitive since it's a "quiet" attack but there's always the possibility that the player won't kill Providence within one
+            // music cycle, meaning that she could have significantly weakened HP by the time this happens a second or third time.
+            spiralShootSpeed += (1f - lifeRatio) * 2.85f;
+            circleShootSpeed += (1f - lifeRatio) * 3.72f;
+
+            if (IsEnraged)
+            {
+                spiralShootSpeed += 6f;
+                circleShootSpeed += 8f;
+            }
+
+            // Enter the cocoon.
+            drawState = (int)ProvidenceFrameDrawingType.CocoonState;
+
+            // Be fully opaque from the start.
+            npc.Opacity = 1f;
+
+            // Create the lava on the first frame.
+            if (performedInitializations == 0f && !Utilities.AnyProjectiles(ModContent.ProjectileType<ProfanedLava>()))
+            {
+                // Play the burn sound universally.
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound);
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 15f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 3f, 45);
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    Utilities.DisplayText("Lava is rising from below!", IsEnraged ? Color.SkyBlue : Color.Orange);
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProfanedLava>(), 350, 0f);
+                }
+
+                // Rise above the lava.
+                performedInitializations = 1f;
+                npc.Center = arenaTopCenter + Vector2.UnitY * 600f;
+                ReleaseSparkles(npc.Center, 100, 90f);
+
+                npc.velocity = Vector2.UnitY * -13f;
+                npc.netUpdate = true;
+            }
+
+            // Slow down after the initial rise effect.
+            npc.velocity *= 0.97f;
+
+            // Make the lava rise upward.
+            lavaHeight = Lerp(lavaHeight, idealLavaHeight, lavaHeight > idealLavaHeight ? 0.018f : 0.006f);
+
+            // Begin firing bursts of holy fireballs once the shoot delay has elapsed.
+            if (localAttackTimer >= shootDelay)
+            {
+                shootTimer++;
+                cycleTimer++;
+
+                if (Main.netMode != NetmodeID.MultiplayerClient && shootTimer >= shootRate)
+                {
+                    Vector2 fireballSpiralVelocity = -Vector2.UnitY.RotatedBy(TwoPi * cycleTimer / shootCycle) * spiralShootSpeed;
+                    Utilities.NewProjectileBetter(npc.Center, fireballSpiralVelocity, ModContent.ProjectileType<HolyBasicFireball>(), BasicFireballDamage, 0f);
+                    Utilities.NewProjectileBetter(npc.Center, -fireballSpiralVelocity, ModContent.ProjectileType<HolyBasicFireball>(), BasicFireballDamage, 0f);
+
+                    shootTimer = 0f;
+
+                    // The frequency of these projectile firing conditions may be enough to trigger the anti NPC packet spam system that Terraria uses.
+                    // Consequently, that system is ignored for this specific sync.
+                    npc.netSpam = 0;
+                    npc.netUpdate = true;
+                }
+
+                // Reset the cycle and calculate the duration of the next one if it's finished.
+                if (cycleTimer >= shootCycle)
+                {
+                    shootCycle = Lerp(startingShootCycle, endingShootCycle, attackCompletion);
+                    cycleTimer = 0f;
+                    npc.netUpdate = true;
+                }
+            }
+
+            // Release fireball circles and rocks if necessary.
+            if (canShootCircle && localAttackTimer % fireballCircleShootRate == 0f)
+            {
+                // Play a sizzle sound and create light effects to accompany the circle.
+                Main.PlaySound(InfernumSoundRegistry.SizzleSound);
+                target.Infernum().CurrentScreenShakePower = 3f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 1f, fireballCircleShootRate / 3);
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    float shootOffsetAngle = (localAttackTimer % (fireballCircleShootRate * 2f) == 0f) ? Pi / fireballCircleShootCount : 0f;
+                    for (int i = 0; i < fireballCircleShootCount; i++)
+                    {
+                        Vector2 fireballCircleVelocity = (TwoPi * i / fireballCircleShootCount + shootOffsetAngle).ToRotationVector2() * circleShootSpeed;
+                        Utilities.NewProjectileBetter(npc.Center, fireballCircleVelocity, ModContent.ProjectileType<HolyBasicFireball>(), BasicFireballDamage, 0f);
+                    }
+
+                    // Release rocks from above.
+                    for (float dx = -900f; dx < 900f; dx += Main.rand.NextFloat(237f, 300f))
+                    {
+                        Vector2 rockSpawnPosition = target.Center + new Vector2(dx, -820f);
+                        Vector2 rockVelocity = Vector2.UnitY.RotateRandom(0.06f) * 6f;
+                        int projID = !Main.rand.NextBool(4) ? ModContent.ProjectileType<HolyCinder>() : ModContent.ProjectileType<AcceleratingMagicProfanedRock>();
+                        Utilities.NewProjectileBetter(rockSpawnPosition, rockVelocity, projID, MagicRockDamage, 0f);
+                    }
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvidenceWave>(), 0, 0f);
+                }
+            }
+        }
+
+        public static void DoBehavior_EnvironmentalFireEffects(NPC npc, Player target, int localAttackTimer, int localAttackDuration, ref float drawState)
+        {
+            float attackCompletion = localAttackTimer / (float)localAttackDuration;
+            float bombExplosionRadius = 560f;
+            bool doneAttacking = attackCompletion >= 0.98f;
+            ref float bombCreationTimer = ref npc.Infernum().ExtraAI[0];
+            ref float hasDonePhaseTransitionEffects = ref npc.Infernum().ExtraAI[1];
+
+            int bombReleaseRate = (int)Lerp(22f, 15f, attackCompletion);
+            if (IsEnraged)
+            {
+                bombReleaseRate -= 8;
+                bombExplosionRadius += 196f;
+            }
+
+            // Clear fireballs from the previous attack at first.
+            if (localAttackTimer <= 5)
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<HolyBasicFireball>());
+
+            // Stay in the cocoon.
+            drawState = (int)ProvidenceFrameDrawingType.CocoonState;
+
+            if (!doneAttacking)
+                bombCreationTimer++;
+            if (bombCreationTimer >= bombReleaseRate)
+            {
+                // Release the bombs. They spawn in general a bit ahead of the player so that you can just run back and forth on the arena.
+                // Also shoot a single holy fireball from below, as though it's from the lava.
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    Vector2 aimAheadOffset = target.velocity * new Vector2(60f, 10f);
+                    Vector2 bombSpawnPosition = target.Center + aimAheadOffset + Main.rand.NextVector2Unit() * Main.rand.NextFloat(120f, 650f);
+                    Utilities.NewProjectileBetter(bombSpawnPosition, Vector2.UnitY * 0.01f, ModContent.ProjectileType<HolyBomb>(), 0, 0f, -1, bombExplosionRadius);
+                    Utilities.NewProjectileBetter(target.Center + new Vector2(Main.rand.NextFloatDirection() * 100f, 640f), -Vector2.UnitY * 6.4f, ModContent.ProjectileType<HolyBasicFireball>(), BasicFireballDamage, 0f);
+
+                    bombCreationTimer = 0f;
+
+                    // The frequency of these projectile firing conditions may be enough to trigger the anti NPC packet spam system that Terraria uses.
+                    // Consequently, that system is ignored for this specific sync.
+                    npc.netSpam = 0;
+                    npc.netUpdate = true;
+                }
+            }
+
+            // Delete everything when ready to transition to the next attack.
+            // Also do some very, very strong transition effects.
+            if (doneAttacking)
+            {
+                // Make all bombs that aren't close to the target explode.
+                // Once that are close to the target simply disappear, since the player can't reasonably expect the sudden explosion in their face.
+                foreach (Projectile bomb in Utilities.AllProjectilesByID(ModContent.ProjectileType<HolyBomb>()))
+                {
+                    if (bomb.WithinRange(target.Center, bombExplosionRadius + 100f))
+                        bomb.active = false;
+                    else
+                        bomb.Kill();
+                }
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<HolyBasicFireball>());
+
+                if (hasDonePhaseTransitionEffects == 0f)
+                {
+                    Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound);
+                    Main.PlaySound(InfernumSoundRegistry.ProvidenceHolyBlastShootSound);
+                    Main.LocalPlayer.Infernum().CurrentScreenShakePower = 18f;
+                    ScreenEffectSystem.SetBlurEffect(npc.Center, 0.9f, 40);
+
+                    hasDonePhaseTransitionEffects = 1f;
+                    npc.netUpdate = true;
+                }
+            }
+        }
+
+        public static void DoBehavior_CleansingFireballBombardment(NPC npc, Player target, float lifeRatio, int localAttackTimer, int localAttackDuration, ref float flightPath)
+        {
+            int attackDelay = GetBPMTimeMultiplier(4);
+            int fireballBPMShootMultiplier = IsEnraged ? 1 : 2;
+            int timeToReachLava = 56;
+            if (lifeRatio < 0.5f)
+                timeToReachLava -= 8;
+
+            int fireballShootRate = GetBPMTimeMultiplier(fireballBPMShootMultiplier);
+            ref float shootTimer = ref npc.Infernum().ExtraAI[0];
+
+            // Fly above the target.
+            DoVanillaFlightMovement(npc, target, true, ref flightPath);
+
+            // Release the fireballs.
+            if (localAttackTimer >= attackDelay && localAttackTimer <= localAttackDuration - attackDelay && shootTimer % fireballShootRate == 0f && !npc.WithinRange(target.Center, 400f))
+            {
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceHolyBlastShootSound, npc.Center);
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    Vector2 fireballDirection = npc.SafeDirectionTo(target.Center);
+                    IEnumerable<Projectile> lavaProjectiles = Utilities.AllProjectilesByID(ModContent.ProjectileType<ProfanedLava>());
+
+                    // If there is lava, check to see the distance it'll take for the fireball to reach it.
+                    // This distance calculation will be used to determine the speed of the fireball.
+                    float distanceToLava = 500f;
+                    if (lavaProjectiles.Any())
+                    {
+                        Projectile lava = lavaProjectiles.First();
+
+                        for (distanceToLava = 0f; distanceToLava < 3000f; distanceToLava += 10f)
+                        {
+                            Rectangle checkArea = Utils.CenteredRectangle(npc.Center + fireballDirection * distanceToLava, Vector2.One);
+                            if (lava.Colliding(lava.Hitbox, checkArea))
+                                break;
+                        }
+                    }
+
+                    // Calculate the speed of the fireball such that it reaches the lava in a certain amount of time.
+                    // This value has hard limits to prevent comically sluggish movement and outright telefrags.
+                    float fireballSpeed = Clamp(distanceToLava / timeToReachLava, 7f, 27f);
+                    Vector2 fireballVelocity = npc.SafeDirectionTo(target.Center) * fireballSpeed;
+                    Utilities.NewProjectileBetter(npc.Center, fireballVelocity, ModContent.ProjectileType<CleansingFireball>(), BigFireballDamage, 0f);
+                }
+            }
+
+
+            shootTimer++;
+        }
+
+        public static void DoBehavior_CooldownState(NPC npc)
+        {
+            // Simply slow down.
+            npc.velocity *= 0.9f;
+        }
+
+        public static void DoBehavior_ExplodingSpears(NPC npc, Player target, float lifeRatio, int localAttackTimer, ref float flightPath)
+        {
+            int shootDelay = GetBPMTimeMultiplier(4);
+            int shootRate = GetBPMTimeMultiplier(8);
+            float spearShootSpeed = Lerp(18.5f, 21.5f, 1f - lifeRatio);
+
+            if (IsEnraged)
+            {
+                shootDelay /= 2;
+                shootRate /= 2;
+                spearShootSpeed += 10f;
+            }
+
+            ref float shootTimer = ref npc.Infernum().ExtraAI[0];
+
+            // Fly above the target.
+            DoVanillaFlightMovement(npc, target, true, ref flightPath);
+
+            // Release spears at the target. This waits until Providence isn't inside of blocks.
+            shootTimer++;
+            if (Collision.SolidCollision(npc.Center - Vector2.UnitY * 10f, npc.width, 10) && shootTimer >= shootRate - 1f && npc.Center.Y >= PoDWorld.ProvidenceArena.Top * 16f + 400f)
+                shootTimer = shootRate - 1f;
+
+            if (localAttackTimer >= shootDelay && shootTimer >= shootRate && !npc.WithinRange(target.Center, 345f))
+            {
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound);
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 7.5f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 1.2f, 35);
+
+                for (int i = 0; i < (InfernumConfig.Instance.ReducedGraphicsConfig ? 12 : 32); i++)
+                {
+                    Color fireColor = Main.rand.NextBool() ? Color.Yellow : Color.Orange;
+                    CloudParticle fireCloud = new CloudParticle(npc.Center, (TwoPi * i / 32f).ToRotationVector2() * 14.5f, fireColor, Color.DarkGray, 45, Main.rand.NextFloat(2.5f, 3.2f));
+                    GeneralParticleHandler.SpawnParticle(fireCloud);
+                }
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                    Utilities.NewProjectileBetter(npc.Center, npc.SafeDirectionTo(target.Center) * spearShootSpeed, ModContent.ProjectileType<HolySpear>(), HolySpearDamage, 0f);
+
+                shootTimer = 0f;
+                npc.netUpdate = true;
+            }
+        }
+
+        public static void DoBehavior_SpiralOfExplodingHolyBombs(NPC npc, Player target, Vector2 arenaTopCenter, float lifeRatio, int localAttackTimer, int localAttackDuration, ref float drawState)
+        {
+            int shootRateMultipler = lifeRatio < 0.5f ? 3 : 4;
+            int shootCycle = GetBPMTimeMultiplier(8);
+            int cinderShootRate = GetBPMTimeMultiplier(shootRateMultipler) - 9;
+            int shootRate = (int)Lerp(11f, 9f, 1f - lifeRatio);
+            float spiralShootSpeed = Lerp(17f, 20f, 1f - lifeRatio);
+            float bombExplosionRadius = Lerp(875f, 1240f, 1f - lifeRatio);
+            ref float shootTimer = ref npc.Infernum().ExtraAI[0];
+            ref float cycleTimer = ref npc.Infernum().ExtraAI[1];
+            ref float hasDoneAttackEndEffects = ref npc.Infernum().ExtraAI[2];
+
+            if (IsEnraged)
+            {
+                cinderShootRate -= 15;
+                bombExplosionRadius += 195f;
+            }
+
+            // Stay in the cocoon once close enough to the top-center of the arena.
+            bool attackIsAboutToEnd = localAttackTimer >= localAttackDuration * 0.96f;
+            bool canAttack = !attackIsAboutToEnd && npc.WithinRange(arenaTopCenter, 96f);
+            if (canAttack)
+            {
+                drawState = (int)ProvidenceFrameDrawingType.CocoonState;
+                npc.velocity *= 0.85f;
+            }
+            else
+                npc.SimpleFlyMovement(npc.SafeDirectionTo(arenaTopCenter) * 26f, 0.3f);
+
+            if (canAttack)
+            {
+                hasDoneAttackEndEffects = 0f;
+                shootTimer++;
+                cycleTimer++;
+
+                if (Main.netMode != NetmodeID.MultiplayerClient && shootTimer >= shootRate)
+                {
+                    // Release a spiral of three bombs.
+                    for (int i = 0; i < 3; i++)
+                    {
+                        Vector2 bombSpiralVelocity = -Vector2.UnitY.RotatedBy(TwoPi * cycleTimer / shootCycle + TwoPi * i / 3f) * Main.rand.NextFloat(0.5f, 1f) * spiralShootSpeed;
+                        Utilities.NewProjectileBetter(npc.Center, -bombSpiralVelocity, ModContent.ProjectileType<HolyBomb>(), 0, 0f, -1, bombExplosionRadius);
+                    }
+
+                    shootTimer = 0f;
+                }
+
+                // Release cinders from the ceiling and side periodically.
+                if (cycleTimer % cinderShootRate == cinderShootRate - 1f)
+                {
+                    bool targetIsCloseToCeiling = Distance(target.Center.Y, PoDWorld.ProvidenceArena.Y * 16f + 700f) < 450f;
+                    Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound, target.Center);
+
+                    if (Main.netMode != NetmodeID.MultiplayerClient)
+                    {
+                        // Ceiling cinders.
+                        for (float dx = -1400f; dx < 1400f; dx += Main.rand.NextFloat(108f, 145f))
+                        {
+                            float ySpawnPosition = PoDWorld.ProvidenceArena.Y * 16f + 48f;
+                            Vector2 cinderVelocity = Vector2.UnitY * 4f;
+                            if (targetIsCloseToCeiling)
+                            {
+                                ySpawnPosition = target.Center.Y + 1000f;
+                                cinderVelocity.Y *= -1f;
+                            }
+
+                            Utilities.NewProjectileBetter(new Vector2(target.Center.X + dx, ySpawnPosition), cinderVelocity, ModContent.ProjectileType<HolyCinder>(), CinderDamage, 0f);
+                        }
+
+                        // Side cinders.
+                        for (float dy = -1400f; dy < 1400f; dy += Main.rand.NextFloat(167f, 208f))
+                        {
+                            Vector2 cinderVelocity = Vector2.UnitX * 4f;
+                            Utilities.NewProjectileBetter(new Vector2(target.Center.X - 1400, target.Center.Y + dy), cinderVelocity, ModContent.ProjectileType<HolyCinder>(), CinderDamage, 0f);
+                        }
+                    }
+                }
+            }
+
+            // Make all bombs disappear when the attack is almost done.
+            if (attackIsAboutToEnd)
+            {
+                if (hasDoneAttackEndEffects == 0f)
+                {
+                    Main.LocalPlayer.Infernum().CurrentScreenShakePower = 18f;
+                    ScreenEffectSystem.SetBlurEffect(npc.Center, 0.9f, 32);
+                    hasDoneAttackEndEffects = 1f;
+                    npc.netUpdate = true;
+                }
+                Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<HolyBomb>());
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<HolyCinder>());
+            }
+        }
+
+        public static void DoBehavior_EnterHolyMagicForm(NPC npc, Player target, int localAttackTimer, int localAttackDuration, ref float drawState)
+        {
+            float attackCompletion = localAttackTimer / (float)localAttackDuration;
+            bool attackIsAlmostDone = attackCompletion >= 0.97f;
+            ref float startingY = ref npc.Infernum().ExtraAI[0];
+            ref float hasPerformedTeleport = ref npc.Infernum().ExtraAI[1];
+
+            // Stay in the cocoon during this attack.
+            drawState = (int)ProvidenceFrameDrawingType.CocoonState;
+
+            // Slow down.
+            npc.velocity.X *= 0.85f;
+
+            if (hasPerformedTeleport == 0f)
+            {
+                // Perform the teleport effect once ready.
+                if (attackIsAlmostDone)
+                {
+                    npc.Size = new Vector2(48f, 108f);
+                    npc.Center = target.Center - Vector2.UnitY * 400f;
+                    npc.velocity = Vector2.Zero;
+
+                    ReleaseSparkles(npc.Center, 100, 35f);
+
+                    Main.LocalPlayer.Infernum().CurrentScreenShakePower = 15f;
+                    ScreenEffectSystem.SetBlurEffect(npc.Center, 0.75f, 45);
+
+                    if (Main.netMode != NetmodeID.MultiplayerClient)
+                        Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvidenceWave>(), 0, 0f);
+
+                    hasPerformedTeleport = 1f;
+                    npc.netUpdate = true;
+                }
+                else
+                {
+                    // Initialize the Y position keyframe.
+                    if (localAttackTimer <= 8f)
+                    {
+                        startingY = npc.position.Y;
+                        npc.netUpdate = true;
+                    }
+                    else
+                        npc.position.Y = Lerp(startingY, PoDWorld.ProvidenceArena.Top * 16f + 1650f, (float)Pow(attackCompletion, 1.54f));
+                }
+            }
+
+            // Play a rumble sound and give a tip.
+            if (npc.Infernum().ExtraAI[2] == 0f)
+            {
+                Main.PlaySound(InfernumSoundRegistry.LeviathanRumbleSound);
+                npc.Infernum().ExtraAI[2] = 1f;
+            }
+
+            // Create screenshake effects.
+            if (!attackIsAlmostDone)
+                target.Infernum().CurrentScreenShakePower = Lerp(1f, 10f, (float)Pow(attackCompletion, 2.1f));
+
+            // Transform into the crystal at the end of the attack.
+            npc.Opacity = Utils.InverseLerp(0.95f, 0.7f, attackCompletion, true);
+        }
+
+        public static void DoBehavior_RockMagicRitual(NPC npc, Player target, int localAttackTimer, int localAttackDuration)
+        {
+            int ritualTime = HolyRitual.Lifetime;
+            int rockCount = 13;
+            int crossShootRate = GetBPMTimeMultiplier(IsEnraged ? 2 : 3);
+            int rockCycleTime = 300;
+
+            ref float hasPerformedRitual = ref npc.Infernum().ExtraAI[0];
+            ref float runeStripOpacity = ref npc.Infernum().ExtraAI[1];
+            ref float backglowTelegraphInterpolant = ref npc.Infernum().ExtraAI[2];
+            ref float crossShootCounter = ref npc.Infernum().ExtraAI[3];
+            ref float rockCounter = ref npc.Infernum().ExtraAI[4];
+
+            // Make the rune fade in.
+            runeStripOpacity = Utils.InverseLerp(0f, 45f, localAttackTimer, true);
+
+            // Create the ritual.
+            if (hasPerformedRitual == 0f)
+            {
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 12f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 3f, 36);
+
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound);
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<HolyRitual>(), 0, 0f);
+
+                hasPerformedRitual = 1f;
+            }
+
+            // Loosely hover above the player after the ritual.
+            Vector2 hoverDestination = target.Center - Vector2.UnitY * 450f;
+            hoverDestination.X += (float)Sin(TwoPi * localAttackTimer / 180f) * 180f;
+            hoverDestination.Y += (float)Sin(TwoPi * localAttackTimer / 105f + 0.75f) * 40f;
+            if (localAttackTimer >= ritualTime)
+            {
+                npc.Center = Vector2.Lerp(npc.Center, hoverDestination, 0.11f);
+                npc.SimpleFlyMovement(npc.SafeDirectionTo(hoverDestination) * 12f, 0.18f);
+                crossShootCounter++;
+                rockCounter++;
+                backglowTelegraphInterpolant = Utils.InverseLerp(crossShootRate - 40f, crossShootRate, crossShootCounter, true);
+            }
+            else
+                npc.velocity *= 0.8f;
+
+            // Shoot crosses at the target in bursts.
+            if (crossShootCounter >= crossShootRate)
+            {
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 6f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 2f, 15);
+
+                Main.PlaySound(InfernumSoundRegistry.SizzleSound, target.Center);
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    for (int i = 0; i < 4; i++)
+                    {
+                        int crossCount = (int)Lerp(18f, 7f, i / 3f);
+
+                        // Every second burst should vary in direction for more interesting spacing.
+                        float shootOffsetAngle = Pi / crossCount;
+                        float crossShootSpeed = Lerp(1.85f, 4.2f, i / 3f);
+                        if (i % 2 == 0)
+                            shootOffsetAngle = 0f;
+
+                        if (IsEnraged)
+                            crossShootSpeed *= 1.6f;
+
+                        for (int j = 0; j < crossCount; j++)
+                        {
+                            Vector2 crossVelocity = (TwoPi * j / crossCount + shootOffsetAngle).ToRotationVector2() * crossShootSpeed;
+                            Utilities.NewProjectileBetter(npc.Center + crossVelocity, crossVelocity, ModContent.ProjectileType<HolyCross>(), HolyCrossDamage, 0f);
+                        }
+                    }
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvidenceWave>(), 0, 0f);
+                    ReleaseSparkles(npc.Center, 35, 16f);
+                }
+
+                crossShootCounter = 0f;
+                npc.netUpdate = true;
+            }
+
+            // Summon rocks that circle around the crystal after the ritual ends.
+            int rockCycleTimer = (int)rockCounter % rockCycleTime;
+            if (localAttackTimer >= ritualTime && rockCycleTimer == 1f)
+            {
+                Main.PlaySound(InfernumSoundRegistry.GuardianRockShieldActivate, target.Center);
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    float rockSpawnOffsetAngle = Main.rand.NextFloat(MathHelper.TwoPi);
+                    for (int i = 0; i < rockCount; i++)
+                    {
+                        int rockType = Main.rand.Next(1, 7);
+                        int rocc = NPC.NewNPC(50, 50, ModContent.NPCType<ProfanedRocks>(), npc.whoAmI, 1080f, MathHelper.TwoPi * i / rockCount + rockSpawnOffsetAngle, rockType);
+                        NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, rocc);
+                    }
+                }
+            }
+
+            // Make all rocks fuck off in anticipation of the new ones when necessary.
+            if ((rockCycleTimer == rockCycleTime - 120f || localAttackTimer == localAttackDuration - 30) && NPC.AnyNPCs(ModContent.NPCType<ProfanedRocks>()))
+            {
+                int rockID = ModContent.NPCType<ProfanedRocks>();
+                bool rockWasChanged = false;
+                for (int i = 0; i < Main.maxNPCs; i++)
+                {
+                    NPC n = Main.npc[i];
+                    if (n.active && n.type == rockID && n.Infernum().ExtraAI[0] == 0f)
+                    {
+                        n.Infernum().ExtraAI[0] = 1f;
+                        n.netUpdate = true;
+                        rockWasChanged = true;
+                    }
+                }
+
+                if (rockWasChanged)
+                {
+                    Main.PlaySound(InfernumSoundRegistry.GuardianRockShieldDeactivate, target.Center);
+                }
+            }
+        }
+
+        public static void DoBehavior_ErraticMagicBursts(NPC npc, Player target, float lifeRatio, int localAttackTimer, int localAttackDuration)
+        {
+            int energyChargeupTime = 90;
+            int hoverRedirectDelay = GetBPMTimeMultiplier(IsEnraged ? 2 : 3);
+            int magicBurstCount = 11;
+            float magicBurstSpeed = Lerp(11f, 17.5f, 1f - lifeRatio);
+            float fieldExplosionRadius = Lerp(1000f, 1275f, 1f - lifeRatio);
+            float attackCompletion = localAttackTimer / (float)localAttackDuration;
+            bool attackIsAboutToEnd = attackCompletion >= 0.97f;
+            Vector2 maxHoverOffset = new Vector2(350f, 125f);
+
+            if (IsEnraged)
+                magicBurstSpeed *= 1.5f;
+
+            ref float hoverOffsetX = ref npc.Infernum().ExtraAI[0];
+            ref float hoverOffsetY = ref npc.Infernum().ExtraAI[1];
+            ref float hasPerformedExplosion = ref npc.Infernum().ExtraAI[2];
+            ref float hoverRedirectCountdown = ref npc.Infernum().ExtraAI[3];
+
+            // Charge up energy before attacking.
+            if (localAttackTimer < energyChargeupTime)
+            {
+                float chargeUpInterpolant = Utils.InverseLerp(0f, energyChargeupTime, localAttackTimer, true);
+                for (int i = 0; i < 2; i++)
+                {
+                    if (Main.rand.NextFloat() > chargeUpInterpolant)
+                        continue;
+
+                    Color energyColor = Color.Lerp(Color.Pink, Color.Yellow, Main.rand.NextFloat(0.7f));
+                    Vector2 energySpawnPosition = npc.Center + Main.rand.NextVector2Unit() * Main.rand.NextFloat(116f, 172f);
+                    Vector2 energyVelocity = (npc.Center - energySpawnPosition) * 0.034f;
+                    SquishyLightParticle laserEnergy = new SquishyLightParticle(energySpawnPosition, energyVelocity, 1.5f, energyColor, 36, 1f, 4f);
+                    GeneralParticleHandler.SpawnParticle(laserEnergy);
+                }
+                npc.velocity = Vector2.Zero;
+                return;
+            }
+
+            // Do the explosion on the first frame after charging up.
+            if (hasPerformedExplosion == 0f)
+            {
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound, npc.Center);
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 12f;
+                ScreenEffectSystem.SetBlurEffect(npc.Center, 0.6f, 32);
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvidenceWave>(), 0, 0f);
+
+                // Decide the first hover offset.
+                Vector2 hoverOffset = Main.rand.NextVector2Unit() * maxHoverOffset * Main.rand.NextFloat();
+                hoverOffsetX = hoverOffset.X;
+                hoverOffsetY = hoverOffset.Y;
+                hasPerformedExplosion = 1f;
+                hoverRedirectCountdown = hoverRedirectDelay;
+                npc.netUpdate = true;
+            }
+
+            // Make the hover countdown go down. Once it's finished and Providence is done moving, release magic spirals and energy fields and prepare for the next redirect.
+            // This part also handles movement.
+            if (hoverRedirectCountdown >= 1f)
+            {
+                // Hover above the target. At the very beginning Providence will jitter in place, similar to Mettaton.
+                bool jitterInPlace = hoverRedirectCountdown >= hoverRedirectDelay - 35f;
+
+                if (jitterInPlace)
+                {
+                    npc.velocity *= 0.85f;
+                    npc.Center += Main.rand.NextVector2Circular(3f, 3f);
+                }
+                else
+                {
+                    float movementSpeedInterpolant = Utils.InverseLerp(12f, 50f, hoverRedirectCountdown, true);
+                    Vector2 hoverDestination = target.Center + new Vector2(hoverOffsetX, hoverOffsetY) - Vector2.UnitY * 320f;
+                    npc.Center = Vector2.Lerp(npc.Center, hoverDestination, movementSpeedInterpolant * 0.12f);
+                    if (movementSpeedInterpolant > 0f)
+                        npc.SimpleFlyMovement(npc.SafeDirectionTo(hoverDestination) * movementSpeedInterpolant * 15f, 0.2f);
+                    else
+                        npc.velocity *= 0.9f;
+                }
+
+                hoverRedirectCountdown--;
+
+                if (hoverRedirectCountdown <= 0f && !attackIsAboutToEnd)
+                {
+                    Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound, target.Center);
+
+                    // Release the field and magic bursts.
+                    if (Main.netMode != NetmodeID.MultiplayerClient)
+                    {
+                        float burstShootOffsetAngle = Main.rand.NextFloat(TwoPi);
+                        for (int i = 0; i < magicBurstCount; i++)
+                        {
+                            Vector2 magicBurstVelocity = (TwoPi * i / magicBurstCount + burstShootOffsetAngle).ToRotationVector2() * magicBurstSpeed;
+                            Utilities.NewProjectileBetter(npc.Center, magicBurstVelocity, ModContent.ProjectileType<MagicSpiralCrystalShot>(), CrystalMagicDamage, 0f, -1, 0f, 1f);
+                            Utilities.NewProjectileBetter(npc.Center, magicBurstVelocity, ModContent.ProjectileType<MagicSpiralCrystalShot>(), CrystalMagicDamage, 0f, -1, 0f, -1f);
+                        }
+
+                        ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(bomb =>
+                        {
+                            bomb.timeLeft = 360;
+                        });
+                        Utilities.NewProjectileBetter(npc.Center, Vector2.UnitY * 0.001f, ModContent.ProjectileType<HolyBomb>(), 0, 0f, -1, fieldExplosionRadius);
+                    }
+
+                    Main.LocalPlayer.Infernum().CurrentScreenShakePower = 10f;
+                    ScreenEffectSystem.SetBlurEffect(npc.Center, 0.42f, 12);
+
+                    if (Main.netMode != NetmodeID.MultiplayerClient)
+                        Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvidenceWave>(), 0, 0f);
+
+                    Vector2 hoverOffset = Main.rand.NextVector2Unit() * maxHoverOffset * Main.rand.NextFloat();
+                    hoverOffsetX = hoverOffset.X;
+                    hoverOffsetY = hoverOffset.Y;
+                    hoverRedirectCountdown = hoverRedirectDelay;
+                    npc.netUpdate = true;
+                }
+            }
+
+            if (attackIsAboutToEnd)
+                Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<HolyBomb>());
+        }
+
+        public static void DoBehavior_DogmaLaserBursts(NPC npc, Player target, float lifeRatio, int attackTimer, int localAttackTimer, int localAttackDuration)
+        {
+            int energyChargeupTime = 30;
+            int laserCount = (int)Lerp(14f, 21f, 1f - lifeRatio);
+            float telegraphMaxAngularVelocity = ToRadians(1.2f);
+            bool attackIsAboutToEnd = localAttackTimer >= localAttackDuration - 90;
+            ref float vfxDelayCountdown = ref npc.Infernum().ExtraAI[0];
+            ref float countdownUntilNextLaser = ref npc.Infernum().ExtraAI[1];
+
+            // Charge up energy before attacking.
+            if (localAttackTimer < energyChargeupTime)
+            {
+                float chargeUpInterpolant = Utils.InverseLerp(0f, energyChargeupTime, localAttackTimer, true);
+                for (int i = 0; i < 2; i++)
+                {
+                    if (Main.rand.NextFloat() > chargeUpInterpolant)
+                        continue;
+
+                    Color energyColor = Color.Lerp(Color.Pink, Color.Yellow, Main.rand.NextFloat(0.7f));
+                    Vector2 energySpawnPosition = npc.Center + Main.rand.NextVector2Unit() * Main.rand.NextFloat(116f, 166f);
+                    Vector2 energyVelocity = (npc.Center - energySpawnPosition) * 0.032f;
+                    SquishyLightParticle laserEnergy = new SquishyLightParticle(energySpawnPosition, energyVelocity, 1.5f, energyColor, 32, 1f, 4f);
+                    GeneralParticleHandler.SpawnParticle(laserEnergy);
+                }
+                npc.velocity = Vector2.Zero;
+                countdownUntilNextLaser = 96f;
+                return;
+            }
+
+            // Cast the laser telegraphs.
+            int telegraphTime = 45;
+            int laserShootTime = 35;
+            bool bellIsPlaying = SyncAttacksWithMusic && ProvidenceTrackedMusic.Bells.Any(b => attackTimer >= b.StartInFrames && attackTimer < b.EndInFrames);
+            bool shootLaser = bellIsPlaying;
+            if (bellIsPlaying)
+            {
+                int bellIndex = ProvidenceTrackedMusic.Bells.FindIndex(b => attackTimer >= b.StartInFrames && attackTimer < b.EndInFrames);
+                if (bellIndex < ProvidenceTrackedMusic.Bells.Count - 1)
+                    telegraphTime = ProvidenceTrackedMusic.Bells[bellIndex + 1].StartInFrames - ProvidenceTrackedMusic.Bells[bellIndex].StartInFrames;
+                if (bellIndex < ProvidenceTrackedMusic.Bells.Count - 2)
+                    laserShootTime = ProvidenceTrackedMusic.Bells[bellIndex + 2].StartInFrames - ProvidenceTrackedMusic.Bells[bellIndex + 1].StartInFrames;
+            }
+
+            // Force a laser to be shot if there hasn't been one in a while. This is done to prevent awkward transition points in the song without bells from messing with fight flow.
+            if (countdownUntilNextLaser > 0f)
+            {
+                countdownUntilNextLaser--;
+                if (countdownUntilNextLaser <= 0f)
+                    shootLaser = true;
+            }
+
+            // Release slow fireballs from the lava below.
+            if (Main.netMode != NetmodeID.MultiplayerClient && localAttackTimer % 18 == 17)
+            {
+                Vector2 fireballSpawnPosition = target.Center + new Vector2(Main.rand.NextFloatDirection() * 400f, 800f);
+                Utilities.NewProjectileBetter(fireballSpawnPosition, -Vector2.UnitY * 4f, ModContent.ProjectileType<HolyBasicFireball>(), BasicFireballDamage, 0f);
+            }
+
+            if (shootLaser && !attackIsAboutToEnd && !Utilities.AnyProjectiles(ModContent.ProjectileType<HolyMagicLaserbeam>()))
+            {
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound, npc.Center);
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    for (int i = 0; i < laserCount; i++)
+                    {
+                        float angularVelocity = Main.rand.NextFloat(0.65f, 1f) * (Main.rand.NextBool() ? -1f : 1f) * telegraphMaxAngularVelocity;
+                        Vector2 laserDirection = (TwoPi * i / laserCount + Main.rand.NextFloatDirection() * 0.16f).ToRotationVector2();
+
+                        ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(laser =>
+                        {
+                            laser.ModProjectile<HolyMagicLaserbeam>().LaserTelegraphTime = telegraphTime;
+                            laser.ModProjectile<HolyMagicLaserbeam>().LaserShootTime = laserShootTime;
+                        });
+                        Utilities.NewProjectileBetter(npc.Center, laserDirection, ModContent.ProjectileType<HolyMagicLaserbeam>(), MagicLaserbeamDamage, 0f, -1, angularVelocity);
+                    }
+                    countdownUntilNextLaser = 96f;
+                    vfxDelayCountdown = telegraphTime;
+                    npc.netUpdate = true;
+                }
+            }
+
+            // Perform intensity effects and an explosion sound to go with the firing of the lasers.
+            if (vfxDelayCountdown > 0f)
+            {
+                vfxDelayCountdown--;
+                if (vfxDelayCountdown <= 0f && !CalamityConfig.Instance.DisableScreenShakes && !attackIsAboutToEnd && Utilities.AnyProjectiles(ModContent.ProjectileType<HolyMagicLaserbeam>()))
+                {
+                    Main.LocalPlayer.Infernum().CurrentScreenShakePower = 15f;
+                    ScreenEffectSystem.SetFlashEffect(npc.Center, 3f, 30);
+                    Main.PlaySound(InfernumSoundRegistry.ProvidenceLavaEruptionSound, target.Center);
+                }
+            }
+        }
+
+        public static void DoBehavior_EnterLightForm(NPC npc, Player target, int localAttackTimer, ref float drawState, ref float burnIntensity, ref float rockReformOffset)
+        {
+            int rockReformDelay = 60;
+            int rockReformTime = 75;
+            int burnDelay = 45;
+
+            // Hover above the target.
+            float moveSpeedInterpolant = Utils.InverseLerp(60f, 150f, localAttackTimer, true);
+            Vector2 hoverDestination = target.Center - Vector2.UnitY * 360f;
+            npc.velocity *= 0.9f;
+            if (moveSpeedInterpolant > 0f)
+                npc.Center = Vector2.Lerp(npc.Center.MoveTowards(hoverDestination, moveSpeedInterpolant * 11f), hoverDestination, moveSpeedInterpolant * 0.123f);
+
+            if (localAttackTimer <= 5f && npc.width != 600f)
+            {
+                npc.position = npc.Center;
+                npc.Size = new Vector2(600f, 450f);
+                npc.position -= npc.Size * 0.5f;
+            }
+
+            // Stay in the cocoon during this attack by default.
+            drawState = (int)ProvidenceFrameDrawingType.CocoonState;
+
+            // Play a rock reform sound once the shell is about to come back.
+            if (localAttackTimer == rockReformDelay)
+                Main.PlaySound(InfernumSoundRegistry.GuardianRockShieldActivate);
+
+            // Make Provi's rock shell reappear.
+            rockReformOffset = 10000000f;
+            if (localAttackTimer >= rockReformDelay)
+            {
+                float rockReformInterpolant = (float)Pow(Utils.InverseLerp(rockReformDelay, rockReformDelay + rockReformTime - 30f, localAttackTimer, true), 0.05f);
+                rockReformOffset = (1f - rockReformInterpolant) * 6600f + 0.01f;
+            }
+
+            // Create violent effects when the rock is sufficiently reformed.
+            // This is half done for aesthetic purposes, half done to obscure the fact that Providence suddenly jumps back to her fire wings animation in a way that looks jank lol
+            if (localAttackTimer == rockReformDelay + rockReformTime)
+            {
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceBurnSound);
+                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 18f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 5f, 45);
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProvidenceWave>(), 0, 0f);
+            }
+
+            // Begin burning once the shell is back.
+            if (localAttackTimer >= rockReformDelay + rockReformTime)
+            {
+                rockReformOffset = 0f;
+                burnIntensity = Utils.InverseLerp(rockReformDelay + rockReformTime, rockReformDelay + rockReformTime + burnDelay, localAttackTimer, true) * 0.87f;
+                drawState = (int)ProvidenceFrameDrawingType.WingFlapping;
+                npc.Opacity = 1f;
+            }
+            else
+                burnIntensity = 0f;
+        }
+
+        public static void DoBehavior_FinalPhaseRadianceBursts(NPC npc, Player target, Vector2 arenaTopCenter, int localAttackTimer, int localAttackDuration, ref float lavaHeight, ref float hasCompletedCycle)
+        {
+            int shootDelay = 75;
+            int startingBombShootRate = 18;
+            int endingBombShootRate = 10;
+            int startingLaserShootRate = 180;
+            int endingLaserShootRate = 120;
+            float holyBombRadius = 600f;
+            float attackCompletion = localAttackTimer / (float)localAttackDuration;
+            bool attackIsAboutToEnd = attackCompletion >= 0.85f;
+            ref float bombShootTimer = ref npc.Infernum().ExtraAI[0];
+            ref float laserShootTimer = ref npc.Infernum().ExtraAI[1];
+            ref float vfxDelayCountdown = ref npc.Infernum().ExtraAI[2];
+            ref float recordingStarted = ref npc.Infernum().ExtraAI[3];
+            ref float hasSaidTip = ref npc.Infernum().ExtraAI[4];
+
+            int bombShootRate = (int)Lerp(startingBombShootRate, endingBombShootRate, attackCompletion);
+            int laserShootRate = (int)Lerp(startingLaserShootRate, endingLaserShootRate, attackCompletion);
+            if (IsEnraged)
+                laserShootRate -= 40;
+
+            // Mark a full phase 2 cycle as complete once this attack nears its end.
+            // This makes her defense during the cocoon phases weaker, so that you don't need to wait during the transition periods.
+            if (attackIsAboutToEnd && hasCompletedCycle == 0f)
+            {
+                hasCompletedCycle = 1f;
+                npc.netUpdate = true;
+            }
+
+            // Start recording.
+            if (attackCompletion >= 0.5f && recordingStarted == 0f)
+            {
+                recordingStarted = 1f;
+                npc.netUpdate = true;
+            }
+
+            // Make the lava rise upward.
+            lavaHeight = Lerp(DefaultLavaHeight, HighestLavaHeight, Utils.InverseLerp(0f, 0.88f, attackCompletion, true));
+
+            // Move towards the hover destination.
+            npc.velocity *= 0.92f;
+            Vector2 hoverDestination = arenaTopCenter + Vector2.UnitY * (2300f - lavaHeight);
+            npc.Center = Vector2.Lerp(npc.Center, npc.Center.MoveTowards(hoverDestination, 10f), 0.025f);
+
+            // Begin firing bursts of holy bombs once the shoot delay has elapsed.
+            if (localAttackTimer >= shootDelay && !attackIsAboutToEnd)
+            {
+                if (!Utilities.AnyProjectiles(ModContent.ProjectileType<HolyMagicLaserbeam>()))
+                    bombShootTimer++;
+
+                laserShootTimer++;
+
+                if (bombShootTimer >= bombShootRate)
+                {
+                    Main.LocalPlayer.Infernum().CurrentScreenShakePower = 4f;
+
+                    // Release a holy bomb and a bunch of lava blobs.
+                    if (Main.netMode != NetmodeID.MultiplayerClient)
+                    {
+                        Vector2 holyBombShootVelocity = -Vector2.UnitY.RotatedByRandom(0.13f) * 18f;
+                        Vector2 holyBombSpawnPosition = new Vector2(target.Center.X + Main.rand.NextFloatDirection() * 510f + target.velocity.X * 60f, arenaTopCenter.Y + 2200f - lavaHeight);
+
+                        Utilities.NewProjectileBetter(holyBombSpawnPosition, holyBombShootVelocity, ModContent.ProjectileType<HolyBomb>(), 0, 0f, -1, holyBombRadius);
+                        for (int i = 0; i < 12; i++)
+                        {
+                            int lavaLifetime = Main.rand.Next(120, 167);
+                            float blobSize = Lerp(11f, 30f, (float)Pow(Main.rand.NextFloat(), 1.85f));
+                            if (Main.rand.NextBool(6))
+                                blobSize *= 1.36f;
+                            Vector2 lavaVelocity = -Vector2.UnitY.RotatedByRandom(0.5f) * Main.rand.NextFloat(4f, 5f);
+                            Utilities.NewProjectileBetter(holyBombSpawnPosition + Main.rand.NextVector2Circular(30f, 30f), lavaVelocity, ModContent.ProjectileType<ProfanedLavaBlob>(), SmallLavaBlobDamage, 0f, -1, lavaLifetime, blobSize);
+                        }
+
+                        bombShootTimer = 0f;
+
+                        // The frequency of these projectile firing conditions may be enough to trigger the anti NPC packet spam system that Terraria uses.
+                        // Consequently, that system is ignored for this specific sync.
+                        npc.netSpam = 0;
                         npc.netUpdate = true;
                     }
                 }
-                npc.velocity = Vector2.Zero;
-                npc.Center = Vector2.Lerp(npc.Center, destination, 0.35f);
-            }
 
-            if (burstCounter >= totalCrystalBursts)
-            {
-                npc.Opacity = 1f;
-                npc.Center = target.Center - Vector2.UnitY * 800f;
-
-                if (burstTimer >= transitionDelay)
+                // Release laserbeams.
+                if (laserShootTimer >= laserShootRate)
                 {
-                    // Explode violently into a burst of flames before reverting back to normal.
+                    int telegraphTime = 45;
+                    int laserShootTime = 20;
+
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
-                        int explosion = Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<HolySunExplosion>(), 0, 0f);
-                        if (Main.projectile.IndexInRange(explosion))
+                        for (int i = 0; i < 4; i++)
                         {
-                            Main.projectile[explosion].MaxUpdates = 2;
-                            Main.projectile[explosion].ModProjectile<HolySunExplosion>().MaxRadius = 600f;
+                            float angularVelocity = Main.rand.NextFloat(0.4f, 1f) * (Main.rand.NextBool() ? -1f : 1f) * ToRadians(0.33f);
+                            Vector2 laserDirection = npc.SafeDirectionTo(target.Center);
+
+                            ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(laser =>
+                            {
+                                laser.ModProjectile<HolyMagicLaserbeam>().LaserTelegraphTime = telegraphTime;
+                                laser.ModProjectile<HolyMagicLaserbeam>().LaserShootTime = laserShootTime;
+                            });
+                            Utilities.NewProjectileBetter(npc.Center, laserDirection, ModContent.ProjectileType<HolyMagicLaserbeam>(), MagicLaserbeamDamage, 0f, -1, angularVelocity);
                         }
                     }
 
-                    SelectNextAttack(npc);
-                }
-            }
-        }
-
-        public static void DoBehavior_CrystalBlades(NPC npc, float lifeRatio, ref float attackTimer)
-        {
-            int crystalCount = (int)MathHelper.Lerp(12f, 22f, 1f - lifeRatio);
-            int bladeReleaseDelay = 90;
-
-            // Slow down.
-            npc.velocity *= 0.925f;
-
-            // Create the blades.
-            if (attackTimer == bladeReleaseDelay)
-            {
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/MeatySlash"), npc.Center);
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    int bladeDamage = !IsEnraged ? 225 : 350;
-                    float offsetAngle = Main.rand.NextBool() ? MathHelper.Pi / crystalCount : 0f;
-                    for (int i = 0; i < crystalCount; i++)
-                    {
-                        Vector2 bladeVelocity = (MathHelper.TwoPi * i / crystalCount + offsetAngle).ToRotationVector2() * 10f;
-                        Utilities.NewProjectileBetter(npc.Center + bladeVelocity, bladeVelocity, ModContent.ProjectileType<BouncingCrystalBlade>(), bladeDamage, 0f);
-                    }
-                }
-                SelectNextAttack(npc);
-            }
-        }
-
-        public static void DoBehavior_CrystalBladesWithLaser(NPC npc, Player target, float lifeRatio, ref float attackTimer)
-        {
-            int laserShootDelay = 180;
-            int bladeRelaseRate = 38;
-            int laserShootTime = HolyFireBeam.Lifetime;
-            float bladeSpeed = 12f;
-            float maxLaserAngularVelocity = MathHelper.ToRadians(0.78f + (1f - lifeRatio) * 0.195f);
-            
-            if (IsEnraged)
-            {
-                bladeRelaseRate -= 10;
-                bladeSpeed += 3f;
-            }
-            
-            ref float laserOffsetAngle = ref npc.Infernum().ExtraAI[0];
-            ref float telegraphOpacity = ref npc.Infernum().ExtraAI[1];
-            ref float laserCount = ref npc.Infernum().ExtraAI[2];
-
-            npc.velocity *= 0.9f;
-
-            // Gain extra DR.
-            npc.Calamity().DR = 0.8f;
-
-            // Move towards the center of the arena when not firing the lasers.
-            if (attackTimer < laserShootDelay - 30f)
-            {
-                float flySpeed = 7.5f;
-                if (Collision.SolidCollision(npc.TopLeft, npc.width, npc.height))
-                    flySpeed *= 2.3f;
-
-                npc.Center = npc.Center.MoveTowards(target.Center, flySpeed);
-            }
-
-            // Initialize the laser offset angle on the first frame.
-            if (attackTimer == 1f)
-            {
-                laserCount = 13f;
-                if (IsEnraged)
-                    laserCount = 17f;
-
-                laserOffsetAngle = Main.rand.NextFloat(MathHelper.TwoPi);
-                npc.netUpdate = true;
-            }
-
-            // Make the telegraphs fade in quickly.
-            if (attackTimer < laserShootDelay)
-                telegraphOpacity = MathHelper.Clamp(telegraphOpacity + 0.0325f, 0f, 1f);
-
-            // Make the telegraphs disappear and and make the lasers move.
-            else
-            {
-                float laserAngularVelocity = Utils.InverseLerp(0f, 135f, attackTimer - laserShootDelay, true) * maxLaserAngularVelocity;
-                laserOffsetAngle += laserAngularVelocity;
-                telegraphOpacity = 0f;
-
-                // Release crystal blades.
-                if (attackTimer % bladeRelaseRate == bladeRelaseRate - 1f)
-                {
-                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/MeatySlash"), target.Center);
-                    if (Main.netMode != NetmodeID.MultiplayerClient)
-                    {
-                        int bladeDamage = !IsEnraged ? 225 : 350;
-                        Vector2 bladeVelocity = npc.SafeDirectionTo(target.Center) * bladeSpeed;
-                        Utilities.NewProjectileBetter(npc.Center, bladeVelocity, ModContent.ProjectileType<BouncingCrystalBlade>(), bladeDamage, 0f);
-                    }
-                }
-            }
-
-            // Cast fire beams.
-            if (attackTimer == laserShootDelay)
-            {
-                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyRay"), target.Center);
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    int beamDamage = !IsEnraged ? 375 : 600;
-                    for (int i = 0; i < laserCount; i++)
-                    {
-                        float offsetAngleInterpolant = i / laserCount;
-                        int fireBeam = Utilities.NewProjectileBetter(npc.Center, Vector2.UnitY, ModContent.ProjectileType<HolyFireBeam>(), beamDamage, 0f);
-                        if (Main.projectile.IndexInRange(fireBeam))
-                            Main.projectile[fireBeam].ai[1] = offsetAngleInterpolant;
-                    }
-                }
-            }
-
-            if (attackTimer >= laserShootDelay + laserShootTime + 20f)
-                SelectNextAttack(npc);
-        }
-
-        public static void DoBehavior_FireSpearCrystalCocoon(NPC npc, Player target, Vector2 crystalCenter, Vector2 arenaCenter, ref float drawState, ref float attackTimer)
-        {
-            int shootDelay = 120;
-            int crystalShootRate = 4;
-            int spearReleaseRate = 10;
-            int spearsPerBurst = 9;
-            int spearBurstReleaseRate = 50;
-            int attackTime = 300;
-            int attackTransitionDelay = 120;
-            float spearShootSpeed = 8.4f;
-            float crystalShootSpeed = 5f;
-
-            // Enter the cocoon state.
-            drawState = (int)ProvidenceFrameDrawingType.CocoonState;
-
-            // Slow down prior to attacking and drift towards the arena center.
-            if (attackTimer < shootDelay)
-            {
-                if (attackTimer < shootDelay - 60f)
-                    npc.Center = npc.Center.MoveTowards(arenaCenter, 3f);
-                npc.velocity *= 0.9f;
-
-                float fireParticleScale = Main.rand.NextFloat(1f, 1.25f);
-                Color fireColor = Color.Lerp(Color.Yellow, Color.Orange, Main.rand.NextFloat());
-                Vector2 fireParticleSpawnPosition = npc.Center + Main.rand.NextVector2Unit() * Main.rand.NextFloat(60f, 600f);
-                Vector2 fireParticleVelocity = (npc.Center - fireParticleSpawnPosition) * 0.03f;
-                SquishyLightParticle chargeFire = new SquishyLightParticle(fireParticleSpawnPosition, fireParticleVelocity, fireParticleScale, fireColor, 50);
-                GeneralParticleHandler.SpawnParticle(chargeFire);
-            }
-
-            else if (attackTimer <= shootDelay + attackTime)
-            {
-                // Create an explosion to accomodate the charge effect.
-                if (attackTimer == shootDelay)
-                {
-                    Main.PlaySound(SoundID.DD2_KoboldExplosion, npc.Center);
-                    if (Main.netMode != NetmodeID.MultiplayerClient)
-                    {
-                        int explosion = Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<HolySunExplosion>(), 0, 0f);
-                        if (Main.projectile.IndexInRange(explosion))
-                        {
-                            Main.projectile[explosion].MaxUpdates = 2;
-                            Main.projectile[explosion].ModProjectile<HolySunExplosion>().MaxRadius = 540f;
-                        }
-                    }
-                }
-
-                // Release a spiral of crystals.
-                if (Main.netMode != NetmodeID.MultiplayerClient && attackTimer % crystalShootRate == crystalShootRate - 1f)
-                {
-                    int crystalShardDamage = !IsEnraged ? 225 : 375;
-                    Vector2 spiralVelocity = ((attackTimer - shootDelay) * MathHelper.TwoPi / 105f).ToRotationVector2() * crystalShootSpeed;
-                    Utilities.NewProjectileBetter(crystalCenter, spiralVelocity, ModContent.ProjectileType<AcceleratingCrystalShard>(), crystalShardDamage, 0f);
-                    int telegraph = Utilities.NewProjectileBetter(crystalCenter, spiralVelocity.SafeNormalize(Vector2.UnitY), ModContent.ProjectileType<CrystalTelegraphLine>(), 0, 0f);
-                    if (Main.projectile.IndexInRange(telegraph))
-                        Main.projectile[telegraph].ai[1] = 30f;
-                }
-
-                // Release bursts of spears.
-                int spearDamage = !IsEnraged ? 225 : 375;
-                if (attackTimer % spearBurstReleaseRate == spearBurstReleaseRate - 1f)
-                {
-                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastShoot"), target.Center);
-                    if (Main.netMode != NetmodeID.MultiplayerClient)
-                    {
-                        float offsetAngle = Main.rand.NextFloat(MathHelper.TwoPi);
-                        for (int i = 0; i < spearsPerBurst; i++)
-                        {
-                            Vector2 spearVelocity = (MathHelper.TwoPi * i / spearsPerBurst + offsetAngle).ToRotationVector2() * spearShootSpeed;
-                            Utilities.NewProjectileBetter(crystalCenter, spearVelocity, ModContent.ProjectileType<ProfanedSpear>(), spearDamage, 0f);
-                        }
-                    }
-                }
-
-                // Release spears at the target directly.
-                if (attackTimer % spearReleaseRate == spearReleaseRate - 1f)
-                {
-                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceHolyBlastShoot"), target.Center);
-                    if (Main.netMode != NetmodeID.MultiplayerClient)
-                    {
-                        Vector2 spearVelocity = (target.Center - crystalCenter).SafeNormalize(Vector2.UnitY) * spearShootSpeed * 1.75f;
-                        Utilities.NewProjectileBetter(crystalCenter, spearVelocity, ModContent.ProjectileType<ProfanedSpear>(), spearDamage, 0f);
-                    }
-                }
-            }
-
-            if (attackTimer >= shootDelay + attackTime + attackTransitionDelay)
-                SelectNextAttack(npc);
-        }
-
-        public static void DoBehavior_HolyBlasts(NPC npc, Player target, float lifeRatio, ref float attackTimer)
-        {
-            int blastShootCount = 11;
-            int blastShootRate = 36;
-            int boltCount = 9;
-            float boltSpeed = 11f;
-            float holyBlastSpeed = MathHelper.Lerp(14f, 21f, 1f - lifeRatio);
-
-            if (IsEnraged)
-            {
-                blastShootRate -= 3;
-                boltCount += 3;
-                holyBlastSpeed += 3f;
-                boltSpeed += 4f;
-            }
-
-            ref float blastShootCounter = ref npc.Infernum().ExtraAI[1];
-
-            if (blastShootCounter >= blastShootCount)
-                npc.velocity *= 0.96f;
-            else
-                DoVanillaFlightMovement(npc, target, true, ref npc.Infernum().ExtraAI[0]);
-
-            // Release holy blasts.
-            if (attackTimer >= blastShootRate && !npc.WithinRange(target.Center, 400f))
-            {
-                if (blastShootCounter >= blastShootCount)
-                {
-                    Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<MoltenFire>(), ModContent.ProjectileType<HolyBlast>(), ModContent.ProjectileType<HolyFire2>());
-                    SelectNextAttack(npc);
-                    return;
-                }
-
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    int fireDamage = !IsEnraged ? 235 : 375;
-                    Vector2 holyBlastSpawnPosition = npc.Center + npc.velocity * 7f;
-                    Vector2 holyBlastVelocity = npc.SafeDirectionTo(target.Center) * holyBlastSpeed;
-                    Utilities.NewProjectileBetter(holyBlastSpawnPosition, holyBlastVelocity, ModContent.ProjectileType<HolyBlast>(), fireDamage, 0f);
-
-                    // Release molten bolts.
-                    for (int i = 0; i < boltCount; i++)
-                    {
-                        float offsetAngle = MathHelper.Lerp(-0.59f, 0.59f, i / (float)(boltCount - 1f));
-                        Vector2 boltShootVelocity = npc.SafeDirectionTo(target.Center).RotatedBy(offsetAngle) * boltSpeed;
-                        Utilities.NewProjectileBetter(npc.Center, boltShootVelocity, ModContent.ProjectileType<MoltenFire>(), fireDamage, 0f);
-                    }
-                    
-                    attackTimer = 0f;
-                    blastShootCounter++;
+                    laserShootTimer = 0f;
+                    vfxDelayCountdown = telegraphTime;
                     npc.netUpdate = true;
+                }
+
+                // Perform intensity effects and an explosion sound to go with the firing of the lasers.
+                if (vfxDelayCountdown > 0f)
+                {
+                    vfxDelayCountdown--;
+                    if (vfxDelayCountdown <= 0f && Utilities.AnyProjectiles(ModContent.ProjectileType<HolyMagicLaserbeam>()))
+                    {
+                        if (!CalamityConfig.Instance.DisableScreenShakes)
+                        {
+                            Main.LocalPlayer.Infernum().CurrentScreenShakePower = 15f;
+                            ScreenEffectSystem.SetFlashEffect(npc.Center, 3f, 30);
+                        }
+                        Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<HolyBomb>());
+                        Main.PlaySound(InfernumSoundRegistry.ProvidenceLavaEruptionSound, target.Center);
+                    }
                 }
             }
         }
@@ -1216,25 +2347,25 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
         public static void DoVanillaFlightMovement(NPC npc, Player target, bool stayAwayFromTarget, ref float flightPath, float speedFactor = 1f)
         {
             // Reset the flight path direction.
-            if (flightPath == 0)
+            if (flightPath == 0f)
             {
                 flightPath = (npc.Center.X < target.Center.X).ToDirectionInt();
                 npc.netUpdate = true;
             }
 
             float verticalDistanceFromTarget = target.position.Y - npc.Bottom.Y;
-            float horizontalDistanceFromTarget = MathHelper.Distance(target.Center.X, npc.Center.X);
-            float horizontalDistanceDirChangeThreshold = 800f;
+            float horizontalDistanceFromTarget = Distance(target.Center.X, npc.Center.X);
+            float horizontalDistanceDirChangeThreshold = 350f;
 
             // Increase distance from target as necessary.
             if (stayAwayFromTarget)
-                horizontalDistanceDirChangeThreshold += 240f;
+                horizontalDistanceDirChangeThreshold += 200f;
 
             // Change X movement path if far enough away from target.
             if (npc.Center.X < target.Center.X && flightPath < 0 && horizontalDistanceFromTarget > horizontalDistanceDirChangeThreshold)
-                flightPath = 0;
+                flightPath = 0f;
             if (npc.Center.X > target.Center.X && flightPath > 0 && horizontalDistanceFromTarget > horizontalDistanceDirChangeThreshold)
-                flightPath = 0;
+                flightPath = 0f;
 
             // Velocity and acceleration.
             float lifeRatio = npc.life / (float)npc.lifeMax;
@@ -1242,7 +2373,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             float speedBoost = (1f - lifeRatio) * 7.5f;
             float acceleration = (accelerationBoost + 1.15f) * speedFactor;
             float maxFlySpeed = (speedBoost + 17f) * speedFactor;
-            
+
             // Fly faster at night.
             if (IsEnraged)
             {
@@ -1258,100 +2389,19 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             }
 
             // Don't stray too far from the target.
-            npc.velocity.X = MathHelper.Clamp(npc.velocity.X + flightPath * acceleration, -maxFlySpeed, maxFlySpeed);
-            if (verticalDistanceFromTarget < 150f)
+            npc.velocity.X = Clamp(npc.velocity.X + flightPath * acceleration, -maxFlySpeed, maxFlySpeed);
+            if (verticalDistanceFromTarget < 50f)
                 npc.velocity.Y -= 0.2f;
-            if (verticalDistanceFromTarget > 220f)
+            if (verticalDistanceFromTarget > 120f)
                 npc.velocity.Y += 0.4f;
 
-            npc.velocity.Y = MathHelper.Clamp(npc.velocity.Y, -6f, 6f);
+            npc.velocity.Y = Clamp(npc.velocity.Y, -6f, 6f);
         }
 
-        public static void SelectNextAttack(NPC npc)
-        {
-            npc.ai[2]++;
-            npc.ai[1] = 0f;
-
-            // Reset the misc ai slots.
-            for (int i = 0; i < 5; i++)
-                npc.Infernum().ExtraAI[i] = 0f;
-
-            float lifeRatio = npc.life / (float)npc.lifeMax;
-            bool inPhase2 = lifeRatio < Phase2LifeRatio;
-
-            int attackCount = 10;
-            if (inPhase2)
-                attackCount += 3;
-
-            if (npc.ai[0] == (int)ProvidenceAttackType.SpawnEffect)
-                npc.ai[2] = 0f;
-
-            switch ((int)npc.ai[2] % attackCount)
-            {
-                case 0:
-                    npc.ai[0] = inPhase2 ? (int)ProvidenceAttackType.HolyBlasts : (int)ProvidenceAttackType.MoltenBlasts;
-                    break;
-                case 1:
-                    npc.ai[0] = (int)ProvidenceAttackType.CeilingCinders;
-                    break;
-                case 2:
-                    npc.ai[0] = (int)ProvidenceAttackType.SinusoidalCrystalFan;
-                    break;
-                case 3:
-                    npc.ai[0] = (int)ProvidenceAttackType.HolyBombs;
-                    break;
-                case 4:
-                    npc.ai[0] = (int)ProvidenceAttackType.AcceleratingCrystalFan;
-                    break;
-                case 5:
-                    npc.ai[0] = (int)ProvidenceAttackType.HolyBombs;
-                    break;
-                case 6:
-                    npc.ai[0] = (int)ProvidenceAttackType.CeilingCinders;
-                    break;
-                case 7:
-                    npc.ai[0] = (int)ProvidenceAttackType.CrystalRainTransformation;
-                    break;
-                case 8:
-                    npc.ai[0] = inPhase2 ? (int)ProvidenceAttackType.CrystalBladesWithLaser : (int)ProvidenceAttackType.CrystalBlades;
-                    break;
-                case 9:
-                    npc.ai[0] = (int)ProvidenceAttackType.AcceleratingCrystalFan;
-                    break;
-                case 10:
-                    npc.ai[0] = (int)ProvidenceAttackType.FireSpearCrystalCocoon;
-                    break;
-                case 11:
-                    npc.ai[0] = (int)ProvidenceAttackType.HolyBombs;
-                    break;
-                case 12:
-                    npc.ai[0] = (int)ProvidenceAttackType.CeilingCinders;
-                    break;
-            }
-
-            int platformID = ModContent.NPCType<ProvArenaPlatform>();
-            for (int i = 0; i < Main.maxNPCs; i++)
-            {
-                if (Main.npc[i].active && Main.npc[i].type == platformID)
-                {
-                    for (int j = 0; j < 16; j++)
-                    {
-                        Dust light = Dust.NewDustDirect(Main.npc[i].position, Main.npc[i].width, Main.npc[i].height, 267);
-                        light.color = Main.hslToRgb(Main.rand.NextFloat(), 1f, 0.9f);
-                        light.scale = 1.56f;
-                        light.noGravity = true;
-                    }
-                    Main.npc[i].active = false;
-                }
-            }
-
-            npc.velocity = Vector2.Zero;
-
-            // Reset the central rainbow crystal vibrance.
-            npc.Infernum().ExtraAI[5] = 0f;
-            npc.localAI[3] = 0f;
-            npc.netUpdate = true;
-        }
+        // A value of two would be double beat, a value of four would be quadruple beat, etc.
+        // This works in both phases since Unholy Ambush and Unholy Insurgency have the same BPM.
+        public static int GetBPMTimeMultiplier(float beatFactor) =>
+            (int)Math.Round(3600f / ProvidenceTrackedMusic.BeatsPerMinuteStatic * beatFactor);
 
         public static void ReleaseSparkles(Vector2 sparkleSpawnPosition, int sparkleCount, float maxSpraySpeed)
         {
@@ -1361,6 +2411,43 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
             for (int i = 0; i < sparkleCount; i++)
                 Utilities.NewProjectileBetter(sparkleSpawnPosition, Main.rand.NextVector2Circular(maxSpraySpeed, maxSpraySpeed), ModContent.ProjectileType<YharonMajesticSparkle>(), 0, 0f);
+        }
+
+        public static void ClearEntities()
+        {
+            // Delete all Guardians and rocks.
+            List<int> guardianIDs = new List<int>()
+            {
+                ModContent.NPCType<ProvSpawnHealer>(),
+                ModContent.NPCType<ProvSpawnOffense>(),
+                ModContent.NPCType<ProfanedRocks>(),
+            };
+            for (int i = 0; i < Main.maxNPCs; i++)
+            {
+                NPC n = Main.npc[i];
+                if (n.active && guardianIDs.Contains(n.type))
+                    n.active = false;
+            }
+
+            for (int i = 0; i < 3; i++)
+            {
+                Utilities.DeleteAllProjectiles(false,
+                    ModContent.ProjectileType<AcceleratingCrystalShard>(),
+                    ModContent.ProjectileType<AcceleratingMagicProfanedRock>(),
+                    ModContent.ProjectileType<CleansingFireball>(),
+                    ModContent.ProjectileType<CommanderSpear2>(),
+                    ModContent.ProjectileType<FallingCrystalShard>(),
+                    ModContent.ProjectileType<HolyBasicFireball>(),
+                    ModContent.ProjectileType<HolyBomb>(),
+                    ModContent.ProjectileType<HolyCinder>(),
+                    ModContent.ProjectileType<HolyCross>(),
+                    ModContent.ProjectileType<HolyCrystalSpike>(),
+                    ModContent.ProjectileType<HolyMagicLaserbeam>(),
+                    ModContent.ProjectileType<HolyRitual>(),
+                    ModContent.ProjectileType<HolySpear>(),
+                    ModContent.ProjectileType<HolySpearFirePillar>(),
+                    ModContent.ProjectileType<ProfanedLavaBlob>());
+            }
         }
         #endregion
 
@@ -1405,7 +2492,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 if (useDefenseFrames)
                     npc.localAI[1] = 0f;
 
-                npc.frameCounter += npc.Infernum().ExtraAI[6] > 0f ? 0.6 : 1.0;
+                npc.frameCounter += npc.Infernum().ExtraAI[DeathEffectTimerIndex] > 0f ? 0.6 : 1.0;
                 if (npc.frameCounter > 5.0)
                 {
                     npc.frameCounter = 0.0;
@@ -1422,10 +2509,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
         }
 
         // Visceral rage. Debugging doesn't work for unexplained reasons due to local functions unless this external method is used.
-        public static void DrawProvidenceWings(NPC npc, SpriteBatch spriteBatch, Texture2D wingTexture, float wingVibrance, Vector2 baseDrawPosition, Rectangle frame, Vector2 drawOrigin, SpriteEffects spriteEffects)
+        public static void DrawProvidenceWings(NPC npc, Texture2D wingTexture, float wingVibrance, Vector2 baseDrawPosition, Rectangle frame, Vector2 drawOrigin, SpriteEffects spriteEffects)
         {
             Color deathEffectColor = new Color(6, 6, 6, 0);
-            float deathEffectInterpolant = Utils.InverseLerp(0f, 35f, npc.Infernum().ExtraAI[6], true);
+            float deathEffectInterpolant = npc.localAI[3];
 
             if (!IsEnraged)
             {
@@ -1434,20 +2521,32 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             }
             else
             {
-                Color nightWingColor = Color.Lerp(new Color(0, 255, 191, 0), deathEffectColor, deathEffectInterpolant) * npc.Opacity;
+                Color nightWingColor = Color.Lerp(new Color(0, 204, 191, 0), deathEffectColor, deathEffectInterpolant) * npc.Opacity;
                 Main.spriteBatch.Draw(wingTexture, baseDrawPosition, frame, nightWingColor, npc.rotation, drawOrigin, npc.scale, spriteEffects, 0f);
-                for (int i = 0; i < 6; i++)
+                int wingEchoCount = (InfernumConfig.Instance.ReducedGraphicsConfig ? 2 : 6);
+                for (int i = 0; i < wingEchoCount; i++)
                 {
-                    Vector2 wingOffset = (MathHelper.TwoPi * i / 6f + Main.GlobalTime * 0.72f).ToRotationVector2() * npc.Opacity * wingVibrance * 2f;
-                    Main.spriteBatch.Draw(wingTexture, baseDrawPosition + wingOffset, frame, nightWingColor * 0.55f, npc.rotation, drawOrigin, npc.scale, spriteEffects, 0f);
+                    Vector2 wingOffset = (TwoPi * i / 6f + Main.GlobalTime * 0.72f).ToRotationVector2() * npc.Opacity * wingVibrance * 4f;
+                    Main.spriteBatch.Draw(wingTexture, baseDrawPosition + wingOffset, frame, nightWingColor * 0.8f, npc.rotation, drawOrigin, npc.scale, spriteEffects, 0f);
                 }
             }
         }
 
+        public static float RuneHeightFunction(float _) => 26f;
+
+        public static Color RuneColorFunction(NPC n, float _) => Color.Lerp(Color.Yellow, Color.Wheat, 0.8f) * (1f - n.Opacity) * n.Infernum().ExtraAI[1];
+
         public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor)
         {
+            // Initialize the 3D strip.
+            if (npc.Infernum().Optional3DStripDrawer == null)
+            {
+                npc.Infernum().Optional3DStripDrawer = new Primitive3DStrip(RuneHeightFunction, c => RuneColorFunction(npc, c));
+            }
+
             string baseTextureString = "CalamityMod/NPCs/Providence/";
             string baseGlowTextureString = baseTextureString + "Glowmasks/";
+            string rockTextureString = "InfernumMode/BehaviorOverrides/BossAIs/Providence/Sheets/ProvidenceRock";
 
             string getTextureString = baseTextureString + "Providence";
             string getTextureGlowString;
@@ -1457,21 +2556,23 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             float lifeRatio = npc.life / (float)npc.lifeMax;
             ProvidenceAttackType attackType = (ProvidenceAttackType)(int)npc.ai[0];
 
-            Vector2 crystalCenter = npc.Center + new Vector2(8f, 56f);
             ref float burnIntensity = ref npc.localAI[3];
 
             void drawProvidenceInstance(Vector2 baseDrawPosition, int frameOffset, Color baseDrawColor)
             {
+                rockTextureString = "InfernumMode/BehaviorOverrides/BossAIs/Providence/Sheets/";
                 if (npc.localAI[0] == (int)ProvidenceFrameDrawingType.CocoonState)
                 {
                     if (!useDefenseFrames)
                     {
+                        rockTextureString += "ProvidenceDefenseRock";
                         getTextureString = baseTextureString + "ProvidenceDefense";
                         getTextureGlowString = baseGlowTextureString + "ProvidenceDefenseGlow";
                         getTextureGlow2String = baseGlowTextureString + "ProvidenceDefenseGlow2";
                     }
                     else
                     {
+                        rockTextureString += "ProvidenceDefenseAltRock";
                         getTextureString = baseTextureString + "ProvidenceDefenseAlt";
                         getTextureGlowString = baseGlowTextureString + "ProvidenceDefenseAltGlow";
                         getTextureGlow2String = baseGlowTextureString + "ProvidenceDefenseAltGlow2";
@@ -1481,23 +2582,27 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 {
                     if (npc.localAI[2] == 0f)
                     {
+                        rockTextureString += "ProvidenceRock";
                         getTextureGlowString = baseGlowTextureString + "ProvidenceGlow";
                         getTextureGlow2String = baseGlowTextureString + "ProvidenceGlow2";
                     }
                     else if (npc.localAI[2] == 1f)
                     {
                         getTextureString = baseTextureString + "ProvidenceAlt";
+                        rockTextureString += "ProvidenceAltRock";
                         getTextureGlowString = baseGlowTextureString + "ProvidenceAltGlow";
                         getTextureGlow2String = baseGlowTextureString + "ProvidenceAltGlow2";
                     }
                     else if (npc.localAI[2] == 2f)
                     {
+                        rockTextureString += "ProvidenceAttackRock";
                         getTextureString = baseTextureString + "ProvidenceAttack";
                         getTextureGlowString = baseGlowTextureString + "ProvidenceAttackGlow";
                         getTextureGlow2String = baseGlowTextureString + "ProvidenceAttackGlow2";
                     }
                     else
                     {
+                        rockTextureString += "ProvidenceAttackAltRock";
                         getTextureString = baseTextureString + "ProvidenceAttackAlt";
                         getTextureGlowString = baseGlowTextureString + "ProvidenceAttackAltGlow";
                         getTextureGlow2String = baseGlowTextureString + "ProvidenceAttackAltGlow2";
@@ -1505,9 +2610,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
                 }
 
                 float wingVibrance = 1f;
-                if (attackType == ProvidenceAttackType.SpawnEffect)
-                    wingVibrance = npc.ai[1] / AuraTime;
-
                 getTextureGlowString += "Night";
 
                 Texture2D generalTexture = ModContent.GetTexture(getTextureString);
@@ -1521,18 +2623,35 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
                 Vector2 drawOrigin = npc.frame.Size() * 0.5f;
 
-                float rainbowVibrance = npc.Infernum().ExtraAI[5];
-
                 // Draw the crystal behind everything. It will appear if providence is herself invisible.
-                applyShaderAndDoThing(() =>
+                if (npc.localAI[3] <= 0f)
                 {
-                    if (npc.localAI[3] > 0f)
-                        return;
+                    float backglowTelegraphInterpolant = 0f;
+                    if (npc.ai[0] == (int)ProvidenceAttackType.RockMagicRitual)
+                        backglowTelegraphInterpolant = npc.Infernum().ExtraAI[2];
 
                     Vector2 crystalOrigin = fatCrystalTexture.Size() * 0.5f;
-                    Vector2 crystalDrawPosition = npc.Center - Main.screenPosition;
-                    Main.spriteBatch.Draw(fatCrystalTexture, crystalDrawPosition, null, Color.White, npc.rotation, crystalOrigin, npc.scale, spriteEffects, 0f);
-                }, rainbowVibrance * 1.5f);
+
+                    // Draw a backglow if necessary.
+                    if (backglowTelegraphInterpolant > 0f)
+                    {
+                        int backglowCount = (InfernumConfig.Instance.ReducedGraphicsConfig ? 4 : 8);
+                        for (int i = 0; i < backglowCount; i++)
+                        {
+                            Vector2 drawOffset = (TwoPi * i / 8f).ToRotationVector2() * backglowTelegraphInterpolant * 12f;
+                            Color backglowColor = new Color((Color.Pink).R, (Color.Pink).G, (Color.Pink).B, (byte)0);
+                            Main.spriteBatch.Draw(fatCrystalTexture, npc.Center - Main.screenPosition + drawOffset, null, backglowColor, npc.rotation, crystalOrigin, npc.scale, spriteEffects, 0f);
+                        }
+                    }
+
+                    int crystalAfterimageCount = (InfernumConfig.Instance.ReducedGraphicsConfig ? 3 : 5);
+                    for (int i = crystalAfterimageCount - 1; i >= 0; i--)
+                    {
+                        Color afterimageColor = Color.White * (1f - i / 5f);
+                        Vector2 crystalDrawPosition = Vector2.Lerp(npc.oldPos[i], npc.position, 0.4f) + npc.Size * 0.5f - Main.screenPosition;
+                        Main.spriteBatch.Draw(fatCrystalTexture, crystalDrawPosition, null, afterimageColor, npc.rotation, crystalOrigin, npc.scale, spriteEffects, 0f);
+                    }
+                }
 
                 int frameHeight = generalTexture.Height / 3;
                 if (frameHeight <= 0)
@@ -1540,87 +2659,76 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 
                 Rectangle frame = generalTexture.Frame(1, 3, 0, (npc.frame.Y / frameHeight + frameOffset) % 3);
 
+                // Draw the converging shell if applicable.
+                float rockReformOffset = npc.Infernum().ExtraAI[RockReformOffsetIndex];
+                if (rockReformOffset > 0f)
+                {
+                    Texture2D headRock = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Providence/Sheets/ProvidenceRock1");
+                    Texture2D leftBodyRock = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Providence/Sheets/ProvidenceRock2");
+                    Texture2D rightBodyRock = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Providence/Sheets/ProvidenceRock3");
+
+                    float rockOffsetRotation = TwoPi * rockReformOffset / 2500f;
+                    float rockOpacity = Utils.InverseLerp(700f, 300f, rockReformOffset, true);
+                    Vector2 crystalOffsetCorrection = -Vector2.UnitY.RotatedBy(npc.rotation * npc.spriteDirection) * npc.scale * 40f;
+                    Vector2 headDrawPosition = baseDrawPosition - new Vector2(0.1f, 1f).RotatedBy(npc.rotation * npc.spriteDirection) * (npc.scale * 60f + rockReformOffset) + crystalOffsetCorrection;
+                    Vector2 leftDrawPosition = baseDrawPosition - Vector2.UnitX.RotatedBy(npc.rotation * npc.spriteDirection) * (rockReformOffset - 10f) + crystalOffsetCorrection;
+                    Vector2 rightDrawPosition = baseDrawPosition + Vector2.UnitX.RotatedBy(npc.rotation * npc.spriteDirection) * (rockReformOffset - 12f) + crystalOffsetCorrection;
+                    Main.spriteBatch.Draw(headRock, headDrawPosition, null, baseDrawColor * rockOpacity, npc.rotation + rockOffsetRotation, headRock.Size() * new Vector2(0.5f, 1f), npc.scale, spriteEffects, 0f);
+                    Main.spriteBatch.Draw(leftBodyRock, leftDrawPosition, null, baseDrawColor * rockOpacity, npc.rotation + rockOffsetRotation, leftBodyRock.Size() * new Vector2(1f, 0.5f), npc.scale, spriteEffects, 0f);
+                    Main.spriteBatch.Draw(rightBodyRock, rightDrawPosition, null, baseDrawColor * rockOpacity, npc.rotation + rockOffsetRotation, leftBodyRock.Size() * new Vector2(0f, 0.5f), npc.scale, spriteEffects, 0f);
+                }
+
                 // Draw the base texture.
-                baseDrawColor *= npc.Opacity;
-                Main.spriteBatch.Draw(generalTexture, baseDrawPosition, frame, baseDrawColor, npc.rotation, drawOrigin, npc.scale, spriteEffects, 0f);
+                Main.spriteBatch.Draw(generalTexture, baseDrawPosition, frame, npc.GetAlpha(baseDrawColor), npc.rotation, drawOrigin, npc.scale, spriteEffects, 0f);
 
                 // Draw the wings.
-                DrawProvidenceWings(npc, spriteBatch, wingTexture, wingVibrance, baseDrawPosition, frame, drawOrigin, spriteEffects);
+                DrawProvidenceWings(npc, wingTexture, wingVibrance, baseDrawPosition, frame, drawOrigin, spriteEffects);
 
-                // Draw the crystals. They become more and more rainbow as Providence gets closer to death.
-                // This effect fades away as she burns.
-                float crystalRainbowIntensity = Utils.InverseLerp(LifeRainbowCrystalStartRatio, LifeRainbowCrystalEndRatio, lifeRatio, true);
-                if (rainbowVibrance > 0.02f)
-                    crystalRainbowIntensity = 0f;
-                crystalRainbowIntensity *= 1f - npc.localAI[3];
-                applyShaderAndDoThing(() =>
+                // Draw the crystals.
+                for (int i = 0; i < 9; i++)
                 {
-                    Main.spriteBatch.Draw(crystalTexture, baseDrawPosition, frame, baseDrawColor, npc.rotation, drawOrigin, npc.scale, spriteEffects, 0f);
-                }, crystalRainbowIntensity);
+                    Vector2 drawOffset = (TwoPi * i / 9f).ToRotationVector2() * 2f;
+                    Main.spriteBatch.Draw(crystalTexture, baseDrawPosition + drawOffset, frame, new Color((Color.White).R, (Color.White).G, (Color.White).B, (byte)0) * npc.Opacity * (float)Pow(1f - npc.localAI[3], 3f), npc.rotation, drawOrigin, npc.scale, spriteEffects, 0f);
+                }
             }
 
-            void applyShaderAndDoThing(Action thingToDo, float rainbowOpacity)
-            {
-                Main.spriteBatch.EnterShaderRegion();
-
-                // Apply a super special shader.
-                MiscShaderData gradientShader = GameShaders.Misc["Infernum:GradientWingShader"];
-                gradientShader.UseImage("Images/Misc/noise");
-                gradientShader.UseOpacity(rainbowOpacity);
-                gradientShader.SetShaderTexture(ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Providence/ProvidenceShaderTexture"));
-
-                //gradientShader.Apply(null);
-
-                thingToDo();
-
-                Main.spriteBatch.ExitShaderRegion();
-            }
-
-            int totalProvidencesToDraw = (int)MathHelper.Lerp(1f, 30f, burnIntensity);
-            Texture2D baseTexture = ModContent.GetTexture("CalamityMod/NPCs/Providence/Providence");
-            Vector2 textureOrigin = npc.frame.Size() * 0.5f;
+            int totalProvidencesToDraw = (InfernumConfig.Instance.ReducedGraphicsConfig ? (int)Lerp(1f, 12f, burnIntensity) : (int)Lerp(1f, 30f, burnIntensity));
             for (int i = 0; i < totalProvidencesToDraw; i++)
             {
-                float offsetAngle = MathHelper.TwoPi * i * 2f / totalProvidencesToDraw;
-                float drawOffsetScalar = (float)Math.Sin(offsetAngle * 6f + Main.GlobalTime * MathHelper.Pi);
-                drawOffsetScalar *= (float)Math.Pow(burnIntensity, 3f) * 36f;
-                drawOffsetScalar *= MathHelper.Lerp(1f, 2f, 1f - lifeRatio);
+                float offsetAngle = TwoPi * i * 2f / totalProvidencesToDraw;
+                float drawOffsetScalar = (float)Sin(offsetAngle * 6f + Main.GlobalTime * Pi);
+                drawOffsetScalar *= (float)Pow(burnIntensity, 1.4f) * 36f;
+                drawOffsetScalar *= Lerp(1f, 2f, 1f - lifeRatio);
 
                 Vector2 drawOffset = offsetAngle.ToRotationVector2() * drawOffsetScalar;
+                if (totalProvidencesToDraw <= 1)
+                    drawOffset = Vector2.Zero;
 
-                Vector2 drawPosition = npc.Center - Main.screenPosition;
-                drawPosition -= new Vector2(baseTexture.Width, baseTexture.Height / Main.npcFrameCount[npc.type]) * npc.scale / 2f;
-                drawPosition += textureOrigin * npc.scale + new Vector2(0f, 4f + npc.gfxOffY) + drawOffset;
+                Vector2 drawPosition = npc.Center - Main.screenPosition + drawOffset;
 
-                Color baseColor = Color.White * (MathHelper.Lerp(0.4f, 0.8f, burnIntensity) / totalProvidencesToDraw * 7f);
+                Color baseColor = Color.White * (Lerp(0.4f, 0.8f, burnIntensity) / totalProvidencesToDraw * 7f);
                 baseColor.A = 0;
                 baseColor = Color.Lerp(Color.White, baseColor, burnIntensity);
                 if (IsEnraged)
-                    baseColor = Color.Lerp(baseColor, Color.Cyan, 0.5f);
+                {
+                    baseColor = Color.Lerp(baseColor, new Color((Color.Cyan).R, (Color.Cyan).G, (Color.Cyan).B, (byte)0), 0.5f);
+                }
 
                 drawProvidenceInstance(drawPosition, 0, baseColor);
             }
 
-            // Draw the telegraph.
-            if (lifeRatio > 0.04f && attackType == ProvidenceAttackType.CrystalBladesWithLaser)
+            // Draw the rock texture above the bloom effects.
+            Texture2D rockTexture = ModContent.GetTexture(rockTextureString);
+            float opacity = Utils.InverseLerp(0.038f, 0.04f, lifeRatio, true) * (1f - npc.localAI[3]) * 0.6f;
+            Main.spriteBatch.Draw(rockTexture, npc.Center - Main.screenPosition, npc.frame, npc.GetAlpha(Color.White) * opacity, npc.rotation, npc.frame.Size() * 0.5f, npc.scale, 0, 0);
+
+            // Draw the rune strip on top of everything else during the ritual attack.
+            if (npc.ai[0] == (int)ProvidenceAttackType.RockMagicRitual)
             {
-                float telegraphOffsetAngle = npc.Infernum().ExtraAI[0];
-                float telegraphOpacity = npc.Infernum().ExtraAI[1];
-                int laserCount = (int)npc.Infernum().ExtraAI[2];
-
-                if (telegraphOpacity <= 0f)
-                    return false;
-
-                Color telegraphColor = (!IsEnraged ? Color.Yellow : Color.Cyan) * telegraphOpacity;
-                telegraphColor.A = 127;
-                for (int i = 0; i < laserCount; i++)
-                {
-                    float telegraphRotation = MathHelper.TwoPi * i / laserCount + telegraphOffsetAngle;
-                    Vector2 telegraphDirection = telegraphRotation.ToRotationVector2();
-                    Vector2 start = crystalCenter;
-                    Vector2 end = start + telegraphDirection * 5000f;
-                    Main.spriteBatch.DrawLineBetter(start, end, telegraphColor, telegraphOpacity * 4f);
-                }
+                Main.spriteBatch.SetBlendState(BlendState.NonPremultiplied);
+                npc.Infernum().Optional3DStripDrawer.UseBandTexture(ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/AdultEidolonWyrm/TerminusSymbols"));
+                npc.Infernum().Optional3DStripDrawer.Draw(npc.Center - Vector2.UnitX * 80f - Main.screenPosition, npc.Center + Vector2.UnitX * 80f - Main.screenPosition, 0.4f, 0f, 0f);
+                Main.spriteBatch.ExitShaderRegion();
             }
 
             return false;

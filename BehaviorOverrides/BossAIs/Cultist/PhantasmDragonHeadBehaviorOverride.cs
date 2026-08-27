@@ -76,7 +76,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                         fireballVelocity = fireballVelocity.RotateTowards(npc.AngleTo(target.Center), MathHelper.Pi / 5f).RotatedByRandom(0.16f);
                         fireballVelocity = fireballVelocity.RotatedBy(MathHelper.Lerp(-0.27f, 0.27f, i / 2f));
 
-                        int fireball = Utilities.NewProjectileBetter(npc.Center + fireballVelocity, fireballVelocity, ProjectileID.CultistBossFireBallClone, 180, 0f);
+                        int fireball = Utilities.NewProjectileBetter(npc.Center + fireballVelocity, fireballVelocity, ProjectileID.CultistBossFireBallClone, CultistBehaviorOverride.ShadowFireballDamage, 0f);
                         if (!Main.projectile.IndexInRange(fireball))
                             Main.projectile[fireball].tileCollide = false;
                     }
@@ -95,11 +95,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
                     newSpeed -= 0.045f;
 
                 float angleBetweenDirectionAndTarget = npc.velocity.AngleBetween(npc.SafeDirectionTo(target.Center));
+#pragma warning disable IDE0078 // Use pattern matching
                 if (angleBetweenDirectionAndTarget < 0.55f && angleBetweenDirectionAndTarget > MathHelper.Pi / 3f)
                     newSpeed += 0.09f;
 
                 if (angleBetweenDirectionAndTarget < MathHelper.Pi / 3f && angleBetweenDirectionAndTarget > MathHelper.Pi * 0.75f)
                     newSpeed -= 0.0725f;
+#pragma warning restore IDE0078 // Use pattern matching
 
                 newSpeed = MathHelper.Clamp(newSpeed, 8.5f, 19f) * (BossRushEvent.BossRushActive ? 1.8f : 1.32f);
 

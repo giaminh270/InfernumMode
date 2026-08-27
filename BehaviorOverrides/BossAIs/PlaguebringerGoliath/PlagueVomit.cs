@@ -1,4 +1,5 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -18,6 +19,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
             projectile.tileCollide = true;
             projectile.penetrate = -1;
             projectile.timeLeft = 120;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -36,8 +38,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
             for (int i = 0; i < 7; i++)
             {
                 Vector2 seekerVelocity = (MathHelper.TwoPi * (i + 0.5f) / 7f).ToRotationVector2() * 13.5f;
-                Utilities.NewProjectileBetter(projectile.Center, seekerVelocity, ModContent.ProjectileType<HostilePlagueSeeker>(), 155, 0f);
+                Utilities.NewProjectileBetter(projectile.Center, seekerVelocity, ModContent.ProjectileType<HostilePlagueSeeker>(), PlaguebringerGoliathBehaviorOverride.PlagueSeekerDamage, 0f);
             }
+        }
+
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        {
+            projectile.DrawProjectileWithBackglowTemp(Color.White, lightColor, 4f);
+            return false;
         }
 
         public override Color? GetAlpha(Color lightColor) => Color.Lerp(Color.White, Color.DarkGreen, Utils.InverseLerp(45f, 0f, projectile.timeLeft, true)) * projectile.Opacity;

@@ -1,4 +1,7 @@
 using CalamityMod;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -9,8 +12,10 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
-    public class SuicideBomberDemonHostile : ModProjectile
+    public class SuicideBomberDemonHostile : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
+		
         public bool HasDamagedSomething
         {
             get => projectile.ai[0] == 1f;
@@ -21,7 +26,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 
         public Player Owner => Main.player[projectile.owner];
 
-        public PrimitiveTrail FlameTrailDrawer = null;
+        public PrimitiveTrailCopy FlameTrailDrawer;
 
         public const int RiseTime = 45;
 
@@ -48,6 +53,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.hostile = true;
             projectile.Opacity = 0f;
             projectile.timeLeft = AttackDuration + 45;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -213,13 +219,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
         {
             Main.spriteBatch.EnterShaderRegion();
 
-            // Initialize the flame trail drawer.
-            if (FlameTrailDrawer is null)
-                FlameTrailDrawer = new PrimitiveTrail(FlameTrailWidthFunction, FlameTrailColorFunction, null, GameShaders.Misc["CalamityMod:ImpFlameTrail"]);
-
-            // Prepare the flame trail shader with its map texture.
-            GameShaders.Misc["CalamityMod:ImpFlameTrail"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/PrismaticLaserbeamStreak2"));
-
             Texture2D texture = ModContent.GetTexture("CalamityMod/Projectiles/Typeless/SuicideBomberDemon");
             Texture2D glowmask = ModContent.GetTexture("CalamityMod/Projectiles/Typeless/SuicideBomberDemonGlowmask");
             Texture2D orbTexture = ModContent.GetTexture("CalamityMod/Projectiles/Typeless/SuicideBomberDemonOrb");
@@ -228,6 +227,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             SpriteEffects direction = projectile.spriteDirection == 1 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
 
             // Draw the base sprite and glowmask.
+            for (int i = 0; i < 8; i++)
+            {
+                Vector2 drawOffset = (MathHelper.TwoPi * i / 8f).ToRotationVector2() * 6f;
+                Main.spriteBatch.Draw(texture, drawPosition + drawOffset, frame, projectile.GetAlpha(Color.Yellow), projectile.rotation, frame.Size() * 0.5f, projectile.scale, direction, 0);
+            }
             Main.spriteBatch.Draw(texture, drawPosition, frame, projectile.GetAlpha(lightColor), projectile.rotation, frame.Size() * 0.5f, projectile.scale, direction, 0);
             Main.spriteBatch.Draw(glowmask, drawPosition, frame, projectile.GetAlpha(Color.White), projectile.rotation, frame.Size() * 0.5f, projectile.scale, direction, 0);
 
@@ -243,15 +247,27 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
                     flameOrbDrawOffset *= flameOrbGlowIntensity * 3f;
                     Main.spriteBatch.Draw(orbTexture, drawPosition + flameOrbDrawOffset, frame, projectile.GetAlpha(flameOrbColor), projectile.rotation, frame.Size() * 0.5f, projectile.scale, direction, 0);
                 }
-
-                Vector2 trailOffset = projectile.Size * 0.5f;
-                trailOffset += (projectile.rotation + MathHelper.PiOver2).ToRotationVector2() * 20f;
-                FlameTrailDrawer.Draw(projectile.oldPos, trailOffset - Main.screenPosition, 61);
             }
 
             Main.spriteBatch.ExitShaderRegion();
 
             return false;
+        }
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
+        {
+            // Initialize the flame trail drawer.
+			if (FlameTrailDrawer is null)
+            	FlameTrailDrawer = new PrimitiveTrailCopy(FlameTrailWidthFunction, FlameTrailColorFunction, null, true, GameShaders.Misc["CalamityMod:ImpFlameTrail"]);
+
+            // Prepare the flame trail shader with its map texture.
+            GameShaders.Misc["CalamityMod:ImpFlameTrail"].SetShaderTexture(InfernumTextureRegistry.StreakFaded);
+            if (Time >= 90f)
+            {
+                Vector2 trailOffset = projectile.Size * 0.5f;
+                trailOffset += (projectile.rotation + MathHelper.PiOver2).ToRotationVector2() * 20f;
+                FlameTrailDrawer.DrawPixelated(projectile.oldPos, trailOffset - Main.screenPosition, 61);
+            }
         }
 
         public override void OnHitPlayer(Player target, int damage, bool crit)

@@ -27,6 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             projectile.Opacity = 0f;
             projectile.extraUpdates = 1;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -41,7 +42,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
         public override bool CanDamage() => projectile.Opacity >= 1f;
 
-        
+
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {

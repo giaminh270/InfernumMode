@@ -35,16 +35,31 @@ namespace InfernumMode.Particles
             if (Main.netMode == NetmodeID.Server)
                 return;
 
-            // Use fallbacks for width and height based on the screen.
+            // Use fallbacks for width and height based on the screen, with hard memory caps for tML 1.3 (32-bit).
+            int maxDim = 1280;
+            try
+            {
+                if (InfernumConfig.Instance != null)
+                {
+                    if (InfernumConfig.Instance.ReducedGraphicsConfig)
+                        maxDim = 720;
+                }
+            }
+            catch { /* config may not be ready yet during early load */ }
+
             if (width == -1 || height == -1)
             {
-                width = Main.screenWidth;
-                height = Main.screenHeight;
+                width = Math.Min(Main.screenWidth, maxDim);
+                height = Math.Min(Main.screenHeight, maxDim);
+            }
+            else
+            {
+                width = Math.Min(width, maxDim);
+                height = Math.Min(height, maxDim);
             }
 
-            // Otherwise, if a width and height are defined, but they are the exact same as the screen bounds,
-            // do nothing. This indicates that the render targets already have the correct size and re-initailizing would be unnecessary.
-            else if (width == Main.screenWidth && height == Main.screenHeight)
+            // If already correctly sized (capped) and not a forced reload, skip re-init.
+            if (!reload && ParticleSets != null && ParticleSets.Count > 0)
                 return;
 
             // Redefine the particle set list in case the mod was reloaded and this field was nullified during that.

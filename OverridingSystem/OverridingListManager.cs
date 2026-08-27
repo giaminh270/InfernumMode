@@ -17,12 +17,14 @@ namespace InfernumMode.OverridingSystem
         internal static Dictionary<int, Delegate> InfernumSetDefaultsOverrideList = new Dictionary<int, Delegate>();
         internal static Dictionary<int, NPCPreDrawDelegate> InfernumPreDrawOverrideList = new Dictionary<int, NPCPreDrawDelegate>();
         internal static Dictionary<int, Delegate> InfernumFrameOverrideList = new Dictionary<int, Delegate>();
+        internal static Dictionary<int, NPCCheckDeadDelegate> InfernumCheckDeadOverrideList = new Dictionary<int, NPCCheckDeadDelegate>();
 
         internal static Dictionary<int, Delegate> InfernumProjectilePreAIOverrideList = new Dictionary<int, Delegate>();
         internal static Dictionary<int, Delegate> InfernumProjectilePreDrawOverrideList = new Dictionary<int, Delegate>();
 
         public delegate bool NPCPreAIDelegate(NPC npc);
         public delegate bool NPCPreDrawDelegate(NPC npc, SpriteBatch spriteBatch, Color lightColor);
+        public delegate bool NPCCheckDeadDelegate(NPC npc);
 
         public static bool Registered(int npcID) => InfernumNPCPreAIOverrideList.ContainsKey(npcID);
 
@@ -34,6 +36,7 @@ namespace InfernumMode.OverridingSystem
             InfernumSetDefaultsOverrideList = new Dictionary<int, Delegate>();
             InfernumPreDrawOverrideList = new Dictionary<int, NPCPreDrawDelegate>();
             InfernumFrameOverrideList = new Dictionary<int, Delegate>();
+            InfernumCheckDeadOverrideList = new Dictionary<int, NPCCheckDeadDelegate>();
             InfernumProjectilePreAIOverrideList = new Dictionary<int, Delegate>();
             InfernumProjectilePreDrawOverrideList = new Dictionary<int, Delegate>();
         }
@@ -44,6 +47,7 @@ namespace InfernumMode.OverridingSystem
             InfernumSetDefaultsOverrideList = null;
             InfernumPreDrawOverrideList = null;
             InfernumFrameOverrideList = null;
+            InfernumCheckDeadOverrideList = null;
             InfernumProjectilePreAIOverrideList = null;
             InfernumProjectilePreDrawOverrideList = null;
         }

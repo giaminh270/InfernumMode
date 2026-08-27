@@ -40,6 +40,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             cooldownSlot = 1;
         }
 
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(projectile.MaxUpdates);
+            writer.WriteVector2(OldVelocity);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            projectile.MaxUpdates = reader.ReadInt32();
+            OldVelocity = reader.ReadVector2();
+        }
+
         public override void AI()
         {
             // Determine the relative opacities for each player based on their distance.
@@ -110,8 +122,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.DoG
             colorOuter *= 0.7f;
             colorInner *= 0.7f;
 
-            spriteBatch.Draw(laserTelegraph, projectile.Center - Main.screenPosition, null, colorInner, OldVelocity.ToRotation(), origin, scaleInner, SpriteEffects.None, 0f);
-            spriteBatch.Draw(laserTelegraph, projectile.Center - Main.screenPosition, null, colorOuter, OldVelocity.ToRotation(), origin, scaleOuter, SpriteEffects.None, 0f);
+            spriteBatch.Draw(laserTelegraph, projectile.Center - Main.screenPosition, null, colorInner, OldVelocity.ToRotation(), origin, scaleInner, SpriteEffects.None, 0);
+            spriteBatch.Draw(laserTelegraph, projectile.Center - Main.screenPosition, null, colorOuter, OldVelocity.ToRotation(), origin, scaleOuter, SpriteEffects.None, 0);
             return false;
         }
     }

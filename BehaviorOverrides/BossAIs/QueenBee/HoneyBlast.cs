@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -26,6 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.QueenBee
             projectile.tileCollide = true;
             projectile.friendly = false;
             projectile.hostile = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -61,7 +63,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.QueenBee
                 if (projectile.velocity.Y != oldVelocity.Y)
                     projectile.velocity.Y = -oldVelocity.Y;
 
-                if (projectile.velocity.Y < 3f && projectile.velocity.Y > -3f)
+                if (Math.Abs(projectile.velocity.Y) < 3f)
                     projectile.velocity = Vector2.Zero;
             }
             else

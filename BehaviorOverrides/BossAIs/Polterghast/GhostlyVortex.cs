@@ -42,10 +42,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
 
             projectile.rotation -= MathHelper.Pi / 12f;
             projectile.Opacity = Utils.InverseLerp(300f, 295f, projectile.timeLeft, true) * Utils.InverseLerp(0f, 25f, projectile.timeLeft, true);
-            //Lighting.AddLight(projectile.Center, Color.White.ToVector3());
 
-            // Spawn excessively complicated dust.
-            if (Main.rand.NextBool(5))
+            bool reducedGraphics = PolterghastPerformanceUtils.ReducedGraphics;
+            if (!reducedGraphics || projectile.timeLeft % 3 == 0)
+                Lighting.AddLight(projectile.Center, Color.White.ToVector3());
+
+            // Spawn expensive dust less frequently on low-end graphics.
+            if (!reducedGraphics && Main.rand.NextBool(5))
             {
                 Vector2 offsetDirection = Main.rand.NextVector2Unit();
                 Dust phantoplasm = Dust.NewDustDirect(projectile.Center - offsetDirection * 30f, 0, 0, 60, 0f, 0f, 0, default, 1f);
@@ -65,14 +68,14 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
                 phantoplasm.customData = projectile;
                 phantoplasm.color = Color.Crimson;
             }
-            else
+            else if (!reducedGraphics || projectile.timeLeft % 8 == 0)
             {
                 Vector2 offsetDirection = Main.rand.NextVector2Unit();
-                Dust phantoplasm = Dust.NewDustDirect(projectile.Center - offsetDirection * 30f, 0, 0, 60, 0f, 0f, 0, default, 1f);
+                Dust phantoplasm = Dust.NewDustDirect(projectile.Center - offsetDirection * 30f, 0, 0, 60, 0f, 0f, 0, default, reducedGraphics ? 0.75f : 1f);
                 phantoplasm.noGravity = true;
                 phantoplasm.position = projectile.Center - offsetDirection * Main.rand.Next(20, 31);
                 phantoplasm.velocity = offsetDirection.RotatedBy(-MathHelper.PiOver2) * 5f;
-                phantoplasm.scale = Main.rand.NextFloat(0.9f, 1.9f);
+                phantoplasm.scale = reducedGraphics ? 0.8f : Main.rand.NextFloat(0.9f, 1.9f);
                 phantoplasm.fadeIn = 0.5f;
                 phantoplasm.customData = projectile;
             }
@@ -80,7 +83,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            CalamityUtils.DrawAfterimagesCentered(projectile, ProjectileID.Sets.TrailingMode[projectile.type], lightColor, 1);
+            if (!PolterghastPerformanceUtils.ReducedGraphics)
+            {
+                CalamityUtils.DrawAfterimagesCentered(projectile, ProjectileID.Sets.TrailingMode[projectile.type], lightColor, 1);
+                return false;
+            }
+
+            Texture2D texture = Main.projectileTexture[projectile.type];
+            Vector2 drawPosition = projectile.Center - Main.screenPosition;
+            Rectangle frame = texture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
+            spriteBatch.Draw(texture, drawPosition, frame, projectile.GetAlpha(lightColor), projectile.rotation, frame.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
             return false;
         }
 

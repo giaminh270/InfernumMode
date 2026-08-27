@@ -4,6 +4,9 @@ using CalamityMod.Items.Tools;
 using CalamityMod.Items.Weapons.DraedonsArsenal;
 using CalamityMod.NPCs.AstrumDeus;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -26,6 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
         public ref float Radius => ref projectile.ai[1];
 
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Consumed Star");
 
         public override void SetDefaults()
@@ -61,7 +65,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                     if (BossRushEvent.BossRushActive)
                         sparkVelocity *= 1.6f;
 
-                    Utilities.NewProjectileBetter(projectile.Center + sparkVelocity * 3f, sparkVelocity, ModContent.ProjectileType<AstralPlasmaSpark>(), 200, 0f);
+                    Utilities.NewProjectileBetter(projectile.Center + sparkVelocity * 3f, sparkVelocity, ModContent.ProjectileType<AstralPlasmaSpark>(), AstrumDeusHeadBehaviorOverride.AstralPlasmaSparkDamage, 0f);
                 }
             }
             else
@@ -89,10 +93,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             if (FireDrawer is null)
-                FireDrawer = new PrimitiveTrailCopy(SunWidthFunction, SunColorFunction, null, true, GameShaders.Misc["Infernum:Fire"]);
-
-            GameShaders.Misc["Infernum:Fire"].UseSaturation(0.45f);
-            GameShaders.Misc["Infernum:Fire"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/CultistRayMap"));
+                FireDrawer = new PrimitiveTrailCopy(SunWidthFunction, SunColorFunction, null, true, InfernumEffectsRegistry.FireVertexShader);
+            InfernumEffectsRegistry.FireVertexShader.UseSaturation(0.45f);
+            InfernumEffectsRegistry.FireVertexShader.SetShaderTexture(InfernumTextureRegistry.CultistRayMap);
 
             List<float> rotationPoints = new List<float>();
             List<Vector2> drawPoints = new List<Vector2>();
@@ -117,7 +120,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             if (giantTwinkleSize > 0f)
             {
                 float twinkleScale = giantTwinkleSize * 4.75f;
-                Texture2D twinkleTexture = ModContent.GetTexture("InfernumMode/ExtraTextures/LargeStar");
+                Texture2D twinkleTexture = InfernumTextureRegistry.LargeStar;
                 Vector2 drawPosition = projectile.Center - Main.screenPosition;
                 float secondaryTwinkleRotation = Main.GlobalTime * 7.13f;
 
@@ -144,7 +147,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             for (int i = 0; i < 45; i++)
             {
                 Vector2 sparkVelocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(4f, 14f);
-                Utilities.NewProjectileBetter(projectile.Center + sparkVelocity * 3f, sparkVelocity, ModContent.ProjectileType<AstralShot2>(), 200, 0f);
+                Utilities.NewProjectileBetter(projectile.Center + sparkVelocity * 3f, sparkVelocity, ModContent.ProjectileType<AstralShot2>(), AstrumDeusHeadBehaviorOverride.AstralLaserDamage, 0f);
             }
         }
 

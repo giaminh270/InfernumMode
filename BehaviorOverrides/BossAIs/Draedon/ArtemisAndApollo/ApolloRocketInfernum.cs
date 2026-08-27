@@ -1,22 +1,29 @@
-using CalamityMod;
+﻿using CalamityMod;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.IO;
 using Terraria;
+using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 {
-    public class ApolloRocketInfernum : ModProjectile
+    public class ApolloRocketInfernum : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
+		
+        public PrimitiveTrailCopy FlameTrailDrawer;
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("High Explosive Plasma Rocket");
             Main.projFrames[projectile.type] = 5;
-            ProjectileID.Sets.TrailCacheLength[projectile.type] = 4;
-            ProjectileID.Sets.TrailingMode[projectile.type] = 0;
+            ProjectileID.Sets.TrailCacheLength[projectile.type] = 6;
+            ProjectileID.Sets.TrailingMode[projectile.type] = 2;
         }
 
         public override void SetDefaults()
@@ -52,7 +59,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             projectile.frame = projectile.frameCounter / 5 % Main.projFrames[projectile.type];
 
             // Rotation.
-            projectile.rotation = (float)Math.Atan2(projectile.velocity.Y, projectile.velocity.X) + MathHelper.PiOver2;
+            projectile.rotation = projectile.velocity.ToRotation() + MathHelper.PiOver2;
 
             // Spawn effects.
             if (projectile.localAI[0] == 0f)
@@ -153,34 +160,42 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             }
         }
 
-        public override void OnHitPlayer(Player target, int damage, bool crit)
+		public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            target.AddBuff(BuffID.OnFire, 360);
-            target.AddBuff(BuffID.CursedInferno, 180);
-        }
-
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
-        {
-            lightColor = Color.Lerp(lightColor, Color.Lime, 0.75f);
-            lightColor.A = 0;
-            CalamityUtils.DrawAfterimagesCentered(projectile, ProjectileID.Sets.TrailingMode[projectile.type], lightColor, 1);
-            return false;
-        }
-
-        public override void PostDraw(SpriteBatch spriteBatch, Color lightColor)
-        {
-            Texture2D texture = Main.projectileTexture[projectile.type];
-            Rectangle frame = texture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
+		    Texture2D texture = Main.projectileTexture[projectile.type];
+		    Rectangle frame = texture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
             Vector2 origin = frame.Size() * 0.5f;
             SpriteEffects direction = SpriteEffects.None;
             if (projectile.spriteDirection == -1)
                 direction = SpriteEffects.FlipHorizontally;
+            Utilities.DrawBackglow(projectile, Color.Lime, 4f, frame);
             Main.spriteBatch.Draw(texture, projectile.Center - Main.screenPosition, frame, Color.White, projectile.rotation, origin, projectile.scale, direction, 0f);
+            return false;
+        }
+
+        public static float FlameTrailWidthFunction(float completionRatio) => MathHelper.SmoothStep(27f, 8f, completionRatio);
+
+        public static Color FlameTrailColorFunction(float completionRatio)
+        {
+            float trailOpacity = Utils.InverseLerp(0.8f, 0.27f, completionRatio, true) * Utils.InverseLerp(0f, 0.067f, completionRatio, true);
+            Color startingColor = Color.Lerp(Color.LawnGreen, Color.White, 0.4f);
+            Color middleColor = Color.Lerp(Color.DarkGreen, Color.Red, 0.2f);
+            Color endColor = Color.Lerp(Color.DarkGreen, Color.Red, 0.67f);
+            return CalamityUtils.MulticolorLerp(completionRatio, startingColor, middleColor, endColor) * trailOpacity;
+        }
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
+        {
+            // Initialize the flame trail drawer.
+		    if (FlameTrailDrawer is null)
+				FlameTrailDrawer = new PrimitiveTrailCopy(FlameTrailWidthFunction, FlameTrailColorFunction, null, true, GameShaders.Misc["CalamityMod:ImpFlameTrail"]);
+		    Vector2 trailOffset = projectile.Size * 0.5f - projectile.velocity;
+		    FlameTrailDrawer.DrawPixelated(projectile.oldPos, trailOffset - Main.screenPosition, 61);
         }
 
         public override void Kill(int timeLeft)
         {
-            // Rocket explosion.
+            // Create a rocket explosion.
             int height = 90;
             projectile.position = projectile.Center;
             projectile.width = projectile.height = height;
@@ -211,10 +226,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
                 plasma.velocity *= 2f;
             }
         }
-
-        public override void ModifyHitPlayer(Player target, ref int damage, ref bool crit)
+		
+        public override void OnHitPlayer(Player target, int damage, bool crit)
         {
-            
-        }
+            target.AddBuff(BuffID.OnFire, 360);
+            target.AddBuff(BuffID.CursedInferno, 180);
+        }		
     }
 }

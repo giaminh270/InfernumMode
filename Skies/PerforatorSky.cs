@@ -10,8 +10,8 @@ namespace InfernumMode.Skies
 {
     public class PerforatorSky : CustomSky
     {
-        private bool isActive = false;
-        private float intensity = 0f;
+        private bool isActive;
+        private float intensity;
         private int HiveIndex = -1;
 
         public override void Update(GameTime gameTime)
@@ -31,12 +31,12 @@ namespace InfernumMode.Skies
 
         private float GetIntensity()
         {
-            if (this.UpdatePIndex())
+            if (UpdatePIndex())
             {
                 float x = 0f;
-                if (this.HiveIndex != -1)
+                if (HiveIndex != -1)
                 {
-                    x = Vector2.Distance(Main.player[Main.myPlayer].Center, Main.npc[this.HiveIndex].Center);
+                    x = Vector2.Distance(Main.player[Main.myPlayer].Center, Main.npc[HiveIndex].Center);
                 }
                 return (1f - Utils.SmoothStep(3000f, 6000f, x)) * Main.npc[HiveIndex].localAI[1] * 0.25f;
             }
@@ -45,7 +45,7 @@ namespace InfernumMode.Skies
 
         public override Color OnTileColor(Color inColor)
         {
-            float intensity = this.GetIntensity();
+            float intensity = GetIntensity();
             return new Color(Vector4.Lerp(new Vector4(0.6f, 0f, 0f, 1f), inColor.ToVector4(), 1f - intensity));
         }
 

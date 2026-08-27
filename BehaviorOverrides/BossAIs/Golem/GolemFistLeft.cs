@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -17,7 +17,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
         public override void SetDefaults()
         {
             npc.lifeMax = 1;
-            npc.defDamage = npc.damage = 75;
+            npc.defDamage = npc.damage = 125;
             npc.dontTakeDamage = true;
             npc.width = 40;
             npc.height = 40;
@@ -30,13 +30,21 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color drawColor) => DrawFist(npc, spriteBatch, drawColor, true);
 
+        public override bool CanHitPlayer(Player target, ref int cooldownSlot)
+        {
+            cooldownSlot = 1;
+            return base.CanHitPlayer(target, ref cooldownSlot);
+        }
+
         public static bool DoFistAI(NPC npc, bool leftFist)
         {
             if (!Main.npc[(int)npc.ai[0]].active || Main.npc[(int)npc.ai[0]].type != NPCID.Golem)
             {
-                GolemBodyBehaviorOverride.DespawnNPC(npc.whoAmI);
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                    GolemBodyBehaviorOverride.DespawnNPC(npc.whoAmI);
                 return false;
             }
+            npc.damage = Main.npc[(int)npc.ai[0]].damage >= 1 ? npc.defDamage : 0;
             npc.dontTakeDamage = true;
             npc.chaseable = false;
             return false;
@@ -67,9 +75,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
             }
 
             SpriteEffects effect = leftFist ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
-            Texture2D texture = Main.projectileTexture[ModContent.ProjectileType<FistBullet>()];
-            Rectangle rect = new Rectangle(0, 0, texture.Width, texture.Height);
-            Main.spriteBatch.Draw(texture, npc.Center - Main.screenPosition, rect, lightColor * npc.Opacity, npc.rotation, rect.Size() * 0.5f, 1f, effect, 0f);
+
+            Main.instance.LoadNPC(NPCID.GolemFistRight);
+            Texture2D texture = Main.npcTexture[NPCID.GolemFistRight];
+            Main.spriteBatch.Draw(texture, npc.Center - Main.screenPosition, npc.frame, lightColor * npc.Opacity, npc.rotation, npc.frame.Size() * 0.5f, 1f, effect, 0f);
             return false;
         }
     }

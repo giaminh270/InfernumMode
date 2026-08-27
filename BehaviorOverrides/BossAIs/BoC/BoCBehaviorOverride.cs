@@ -1,5 +1,6 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
+using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -38,9 +39,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
 
         #region AI
 
+        public static int ElectricBoltDamage => 90;
+
+        public static int BloodSpitDamage => 95;
+
+        public static int IchorSpitDamage => 95;
+
+        public static int PsionicOrbDamage => 100;
+
+        public static int PsionicLightningBoltDamage => 140;
+
         public override bool PreAI(NPC npc)
         {
             NPC.crimsonBoss = npc.whoAmI;
+
+            // Disable knockback since it fucks up the fight.
+            npc.knockBackResist = 0f;
 
             // Emit a crimson light idly.
             Lighting.AddLight(npc.Center, Color.Crimson.ToVector3());
@@ -61,6 +75,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             }
 
             Player target = Main.player[npc.target];
+
+            // Lol. Lmao.
+            if (target.HasBuff(BuffID.Electrified))
+                target.ClearBuff(BuffID.Electrified);
+
             int creeperCount = 8;
             ref float attackType = ref npc.ai[0];
             ref float attackTimer = ref npc.ai[1];
@@ -149,7 +168,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             if (!DoTeleportFadeEffect(npc, attackTimer, target.Center + Main.rand.NextVector2CircularEdge(teleportOffset, teleportOffset), teleportFadeTime))
                 return;
 
-            float floatSpeed = MathHelper.Lerp(5.8f, 8f, 1f - lifeRatio);
+            float floatSpeed = MathHelper.Lerp(5.8f, 8f, 1f - lifeRatio) + npc.Distance(target.Center) * 0.009f;
             if (enraged)
                 floatSpeed *= 1.5f;
             if (BossRushEvent.BossRushActive)
@@ -196,7 +215,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             }
             if (attackTimer == teleportFadeTime + 25f)
             {
-                Main.PlaySound(SoundID.Roar, target.Center);
+                Main.PlaySound(SoundID.Roar, target.Center, 0);
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
@@ -220,9 +239,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
                     {
                         Vector2 shootVelocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(5f, 8f);
                         Vector2 spawnPosition = npc.Center + Main.rand.NextVector2Circular(40f, 40f);
-                        int ichor = Utilities.NewProjectileBetter(spawnPosition, shootVelocity, ModContent.ProjectileType<IchorSpit>(), 100, 0f);
-                        if (Main.projectile.IndexInRange(ichor))
-                            Main.projectile[ichor].ai[1] = 1f;
+                        Utilities.NewProjectileBetter(spawnPosition, shootVelocity, ModContent.ProjectileType<IchorSpit>(), IchorSpitDamage, 0f, -1, 0f, 1f);
                     }
                 }
                 else
@@ -247,7 +264,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             if (phase3)
                 teleportFadeTime -= 6;
 
-            Vector2 teleportDestination = target.Center + new Vector2(target.direction * -350f, -360f);
+            Vector2 teleportDestination = target.Center + new Vector2(target.direction * -350f, -420f);
             if (Math.Abs(target.velocity.X) > 0f)
                 teleportDestination = target.Center + new Vector2(Math.Sign(target.velocity.X) * -310f, -360f);
 
@@ -256,7 +273,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
 
             if (attackTimer == teleportFadeTime + 10f)
             {
-                Main.PlaySound(SoundID.Roar, target.Center);
+                Main.PlaySound(SoundID.Roar, target.Center, 0);
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
@@ -272,7 +289,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
                         if (BossRushEvent.BossRushActive)
                             bloodVelocity *= 1.35f;
 
-                        Utilities.NewProjectileBetter(spawnPosition, bloodVelocity, ModContent.ProjectileType<BloodGeyser2>(), 100, 0f);
+                        Utilities.NewProjectileBetter(spawnPosition, bloodVelocity, ModContent.ProjectileType<BloodGeyser2>(), BloodSpitDamage, 0f);
                     }
                 }
             }
@@ -333,9 +350,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
 
         public static void DoAttack_DashingIllusions(NPC npc, Player target, bool enraged, ref float attackTimer)
         {
-            ref float chargeCounter = ref npc.Infernum().ExtraAI[0];
-
             int teleportFadeTime = 35;
+            int chargeDelay = 56;
+            ref float chargeCounter = ref npc.Infernum().ExtraAI[0];
 
             Vector2 teleportDestination = target.Center + Vector2.UnitY * 435f;
             if (!DoTeleportFadeEffect(npc, attackTimer, teleportDestination, teleportFadeTime))
@@ -355,9 +372,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
                 }
             }
 
-            if (attackTimer == teleportFadeTime + 75f)
+            if (attackTimer == teleportFadeTime + chargeDelay)
             {
-                Main.PlaySound(SoundID.Roar, target.Center);
+                Main.PlaySound(SoundID.Roar, target.Center, 0);
 
                 npc.velocity = npc.SafeDirectionTo(target.Center + target.velocity * 20f) * 17f;
                 if (enraged)
@@ -368,7 +385,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
                 npc.netUpdate = true;
             }
 
-            if (attackTimer > teleportFadeTime + 120f)
+            if (attackTimer > teleportFadeTime + chargeDelay + 50f)
             {
                 npc.velocity *= 0.97f;
                 npc.Opacity = MathHelper.Clamp(npc.Opacity - 0.05f, 0f, 1f);
@@ -380,7 +397,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
                     if (chargeCounter >= 2f)
                         GotoNextAttackState(npc);
                     else
-                        attackTimer = teleportFadeTime + 35f;
+                        attackTimer = teleportFadeTime + 28f;
                     npc.Opacity = 1f;
                     npc.netUpdate = true;
                 }
@@ -414,18 +431,25 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
                     bool shouldUseUndergroundAI = target.Center.Y / 16f < Main.worldSurface || Collision.SolidCollision(npc.Center - Vector2.One * 24f, 48, 48);
                     if (lifeRatio < 0.2f)
                     {
-                        int orb = Utilities.NewProjectileBetter(spawnPosition, Vector2.UnitY.RotatedBy(-0.17f) * -5f, ModContent.ProjectileType<PsionicOrb>(), 110, 0f);
-                        if (Main.projectile.IndexInRange(orb))
-                            Main.projectile[orb].localAI[0] = shouldUseUndergroundAI.ToInt();
-                        orb = Utilities.NewProjectileBetter(spawnPosition, Vector2.UnitY.RotatedBy(0.17f) * -5f, ModContent.ProjectileType<PsionicOrb>(), 110, 0f);
-                        if (Main.projectile.IndexInRange(orb))
-                            Main.projectile[orb].localAI[0] = shouldUseUndergroundAI.ToInt();
+                        ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(orb =>
+                        {
+                            orb.ModProjectile<PsionicOrb>().UseUndergroundAI = shouldUseUndergroundAI;
+                        });
+                        Utilities.NewProjectileBetter(spawnPosition, Vector2.UnitY.RotatedBy(-0.17f) * -5f, ModContent.ProjectileType<PsionicOrb>(), PsionicOrbDamage, 0f);
+
+                        ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(orb =>
+                        {
+                            orb.ModProjectile<PsionicOrb>().UseUndergroundAI = shouldUseUndergroundAI;
+                        });
+                        Utilities.NewProjectileBetter(spawnPosition, Vector2.UnitY.RotatedBy(0.17f) * -5f, ModContent.ProjectileType<PsionicOrb>(), PsionicOrbDamage, 0f);
                     }
                     else
                     {
-                        int orb = Utilities.NewProjectileBetter(spawnPosition, Vector2.UnitY * -6f, ModContent.ProjectileType<PsionicOrb>(), 110, 0f);
-                        if (Main.projectile.IndexInRange(orb))
-                            Main.projectile[orb].localAI[0] = shouldUseUndergroundAI.ToInt();
+                        ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(orb =>
+                        {
+                            orb.ModProjectile<PsionicOrb>().UseUndergroundAI = shouldUseUndergroundAI;
+                        });
+                        Utilities.NewProjectileBetter(spawnPosition, Vector2.UnitY * -6f, ModContent.ProjectileType<PsionicOrb>(), PsionicOrbDamage, 0f);
                     }
                 }
                 npc.velocity = Vector2.Zero;
@@ -518,7 +542,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
                     newAttackType = BoCAttackState.CreeperBloodDripping;
                     break;
                 case BoCAttackState.CreeperBloodDripping:
-                    newAttackType = lifeRatio < Phase3LifeRatio ? (Main.rand.NextBool() ? BoCAttackState.PsionicBombardment : BoCAttackState.DashingIllusions) : BoCAttackState.IdlyFloat;
+                    newAttackType = lifeRatio < Phase3LifeRatio ? Main.rand.NextBool() ? BoCAttackState.PsionicBombardment : BoCAttackState.DashingIllusions : BoCAttackState.IdlyFloat;
                     break;
                 case BoCAttackState.DashingIllusions:
                     newAttackType = BoCAttackState.PsionicBombardment;
@@ -591,7 +615,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BoC
             void drawInstance(Vector2 drawPosition, Color color, float scale)
             {
                 drawPosition -= Main.screenPosition;
-                spriteBatch.Draw(texture, drawPosition, frame, color, npc.rotation, frame.Size() * 0.5f, scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(texture, drawPosition, frame, color, npc.rotation, frame.Size() * 0.5f, scale, SpriteEffects.None, 0f);
             }
 
             float cyanAuraStrength = npc.localAI[1];

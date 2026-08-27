@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Dusts;
 using CalamityMod.Events;
@@ -20,6 +20,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Brimstone Rose");
+            Main.projFrames[projectile.type] = 4;
             ProjectileID.Sets.TrailCacheLength[projectile.type] = 2;
             ProjectileID.Sets.TrailingMode[projectile.type] = 0;
         }
@@ -46,24 +47,31 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
 
             Lighting.AddLight(projectile.Center, projectile.Opacity * 0.9f, 0f, 0f);
 
+            projectile.frameCounter++;
+            if (projectile.frameCounter >= 8)
+            {
+                projectile.frame = (projectile.frame + 1) % Main.projFrames[projectile.type];
+                projectile.frameCounter = 0;
+            }
+
             Time++;
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             lightColor.R = (byte)(255 * projectile.Opacity);
-            Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type], 1);
+            Utilities.DrawProjectileWithBackglowTemp(projectile, Color.White, lightColor, 4f);
             return false;
         }
 
         public override void OnHitPlayer(Player target, int damage, bool crit)
         {
-            if ((CalamityWorld.downedProvidence && BrimstoneElementalBehaviorOverride.ReadyToUseBuffedAI) || BossRushEvent.BossRushActive)
+            if (CalamityWorld.downedProvidence || BossRushEvent.BossRushActive)
                 target.AddBuff(ModContent.BuffType<AbyssalFlames>(), 180);
             else
                 target.AddBuff(ModContent.BuffType<BrimstoneFlames>(), 120);
         }
-
+		
         public override void Kill(int timeLeft)
         {
             Player target = Main.player[Player.FindClosest(projectile.Center, 1, 1)];
@@ -73,24 +81,23 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
 
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
-                int petalCount = CalamityWorld.downedProvidence && BrimstoneElementalBehaviorOverride.ReadyToUseBuffedAI ? 3 : 2;
-                int petalDamage = CalamityWorld.downedProvidence && BrimstoneElementalBehaviorOverride.ReadyToUseBuffedAI ? 325 : 145;
-                float petalShootSpeed = CalamityWorld.downedProvidence && BrimstoneElementalBehaviorOverride.ReadyToUseBuffedAI ? 13.5f : 10f;
+                int petalCount = 2;
+                float petalShootSpeed = 10f;
                 if (BossRushEvent.BossRushActive)
                 {
                     petalCount = 3;
                     petalShootSpeed = 14f;
                 }
-
                 if (SpawnedWhileAngry)
                 {
                     petalShootSpeed *= 1.6f;
                     petalCount = 5;
                 }
+
                 for (int i = 0; i < petalCount; i++)
                 {
                     Vector2 shootVelocity = projectile.SafeDirectionTo(target.Center).RotatedBy(MathHelper.Lerp(-0.68f, 0.68f, i / (float)petalCount)) * petalShootSpeed;
-                    Utilities.NewProjectileBetter(projectile.Center, shootVelocity, ModContent.ProjectileType<BrimstonePetal>(), petalDamage, 0f);
+                    Utilities.NewProjectileBetter(projectile.Center, shootVelocity, ModContent.ProjectileType<BrimstonePetal>(), BrimstoneElementalBehaviorOverride.BrimstonePetalDamage, 0f);
                 }
             }
         }

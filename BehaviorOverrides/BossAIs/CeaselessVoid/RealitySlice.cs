@@ -10,6 +10,8 @@ using Terraria;
 using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.ModLoader;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
 {
@@ -24,7 +26,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
         public Vector2 End;
 
         public List<Vector2> TrailCache = new List<Vector2>();
-        
+
+        public int Lifetime => Cosmilite ? 248 : 84;
+
         public ref float Time => ref projectile.ai[0];
 
         public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
@@ -39,10 +43,31 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
             projectile.penetrate = -1;
             projectile.ignoreWater = true;
             projectile.tileCollide = false;
-            projectile.timeLeft = 84;
+            projectile.timeLeft = Lifetime;
             projectile.MaxUpdates = 2;
             cooldownSlot = 1;
         }
+
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(Cosmilite);
+            writer.WriteVector2(Start);
+            writer.WriteVector2(End);
+            writer.Write(TrailCache.Count);
+            for (int i = 0; i < TrailCache.Count; i++)
+                writer.WriteVector2(TrailCache[i]);
+        }
+
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            Cosmilite = reader.ReadBoolean();
+            Start = reader.ReadVector2();
+            End = reader.ReadVector2();
+            int trailCount = reader.ReadInt32();
+            for (int i = 0; i < trailCount; i++)
+                TrailCache[i] = reader.ReadVector2();
+        }
+
         public override void AI()
         {
             // Disappear if neither the Ceaseless Void nor DoG not present.
@@ -88,10 +113,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             if (LightningDrawer is null)
-                LightningDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:RealityTear"]);
+                LightningDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.RealityTearVertexShader);
 
-            GameShaders.Misc["Infernum:RealityTear"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/Stars"));
-            GameShaders.Misc["Infernum:RealityTear"].Shader.Parameters["useOutline"].SetValue(true);
+            InfernumEffectsRegistry.RealityTearVertexShader.SetShaderTexture(InfernumTextureRegistry.Stars);
+            InfernumEffectsRegistry.RealityTearVertexShader.Shader.Parameters["useOutline"].SetValue(true);
             projectile.localAI[0] = 0f;
             LightningDrawer.Draw(TrailCache, projectile.Size * 0.5f - Main.screenPosition, 50);
             if (Cosmilite)

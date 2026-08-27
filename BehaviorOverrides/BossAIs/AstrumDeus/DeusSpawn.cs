@@ -130,7 +130,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             for (int i = 0; i < 8; i++)
             {
                 Vector2 cinderVelocity = (MathHelper.TwoPi * i / 8f).ToRotationVector2() * 5.5f;
-                Utilities.NewProjectileBetter(npc.Center, cinderVelocity, ModContent.ProjectileType<AstralPlasmaSpark>(), 180, 0f);
+                Utilities.NewProjectileBetter(npc.Center, cinderVelocity, ModContent.ProjectileType<AstralPlasmaSpark>(), AstrumDeusHeadBehaviorOverride.AstralPlasmaSparkDamage, 0f, -1, 1f);
             }
             return false;
         }

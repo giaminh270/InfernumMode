@@ -1,6 +1,9 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Events;
+using CalamityMod.Particles;
+using InfernumMode.Particles;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -25,11 +28,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             projectile.timeLeft = 240;
             projectile.extraUpdates = BossRushEvent.BossRushActive ? 1 : 0;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
         {
-            projectile.Opacity = Utils.InverseLerp(0f, 12f, Time, true) * Utils.InverseLerp(0f, 12f, projectile.timeLeft, true);
+            if (projectile.alpha > 0)
+                projectile.alpha -= 12;
 
             Player closestPlayer = Main.player[Player.FindClosest(projectile.Center, 1, 1)];
             if (Time < 60f)
@@ -52,15 +57,31 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             if (Time > 60f && projectile.velocity.Length() < 18f)
                 projectile.velocity *= BossRushEvent.BossRushActive ? 1.02f : 1.01f;
 
+            if (Time % 10 == 0)
+            {
+                // Leave a trail of particles.
+                Particle iceParticle = new SnowyIceParticle(projectile.Center, projectile.velocity * 0.5f, Color.White, Main.rand.NextFloat(0.75f, 0.95f), 30);
+                GeneralParticleHandler.SpawnParticle(iceParticle);
+            }
+
             Lighting.AddLight(projectile.Center, Vector3.One * projectile.Opacity * 0.4f);
             Time++;
         }
 
-        public override Color? GetAlpha(Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            return Main.dayTime ? new Color(50, 50, 255, 255 - projectile.alpha) : new Color(255, 255, 255, projectile.alpha);
-        }
+            Texture2D texture = Main.projectileTexture[projectile.type];
 
+            // Draw backglow effects.
+            for (int i = 0; i < 12; i++)
+            {
+                Vector2 afterimageOffset = (MathHelper.TwoPi * i / 12f).ToRotationVector2() * 4f;
+                Color afterimageColor = new Color(46, 188, 234, 0f) * 0.4f * projectile.Opacity;
+                Main.spriteBatch.Draw(texture, projectile.Center - Main.screenPosition + afterimageOffset, null, projectile.GetAlpha(afterimageColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
+            }
+            Main.spriteBatch.Draw(texture, projectile.Center - Main.screenPosition, null, Color.White * projectile.Opacity, projectile.rotation, texture.Size() * 0.5f, 1, 0, 0);
+            return false;
+        }
         public override bool CanDamage() => Time >= 60f;
     }
 }

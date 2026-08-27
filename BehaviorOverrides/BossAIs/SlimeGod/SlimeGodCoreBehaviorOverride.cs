@@ -36,6 +36,20 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             VerticalHoverBursts
         }
         #endregion
+        private void MakeSplitSlimesCreateDeathStuff(NPC npc)
+        {
+            bool bigSlimeGod = npc.type == ModContent.NPCType<EbonianSGBig>() || npc.type == ModContent.NPCType<CrimulanSGBig>();
+            if (bigSlimeGod && OverridingListManager.Registered(npc.type))
+            {
+                for (int i = 0; i < 12; i++)
+                {
+                    int slime = NPC.NewNPC((int)npc.Center.X, (int)npc.Center.Y, npc.type, ModContent.NPCType<SplitBigSlimeAnimation>());
+                    Main.npc[slime].velocity = Main.rand.NextVector2Circular(8f, 8f);
+                }
+
+                SelectNextAttackSpecific(LeaderOfFight);
+            }
+        }
 
         #region AI
 
@@ -85,6 +99,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
 
             // Set the universal whoAmI variable.
             CalamityGlobalNPC.slimeGod = npc.whoAmI;
+
+            npc.boss = FightState == SlimeGodFightState.CorePhase;
+            npc.Calamity().CanHaveBossHealthBar = npc.boss;
+            npc.Calamity().ShouldCloseHPBar = !npc.boss;
 
             if (npc.ai[0] <= 1f)
             {
@@ -164,13 +182,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                 Utilities.DeleteAllProjectiles(true, ModContent.ProjectileType<DeceleratingEbonianGlob>(), ModContent.ProjectileType<DeceleratingCrimulanGlob>(), ModContent.ProjectileType<GroundSlimeGlob>());
 
             // Move the camera to the core and draw in slime from outside sources.
-            if (Main.LocalPlayer.WithinRange(Main.LocalPlayer.Center, 2000f) && attackTimer < 150f)
+            if (npc.WithinRange(Main.LocalPlayer.Center, 2000f) && attackTimer < 150f)
             {
                 Main.LocalPlayer.Infernum().ScreenFocusPosition = npc.Center;
                 Main.LocalPlayer.Infernum().ScreenFocusInterpolant = Utils.InverseLerp(0f, 24f, attackTimer, true);
                 Main.LocalPlayer.Infernum().ScreenFocusInterpolant *= Utils.InverseLerp(dustAnimationTime, dustAnimationTime - 10f, attackTimer, true);
 
-                float offsetAngle = MathHelper.Lerp(0f, MathHelper.Pi, (float)Math.Pow(attackTimer / dustAnimationTime, 4.2));
+                float offsetAngle = (float)Math.Pow(attackTimer / dustAnimationTime, 4.2f) * MathHelper.Pi;
                 float dustOffsetRadius = MathHelper.Lerp(24f, 300f, attackTimer / dustAnimationTime);
                 for (int i = 0; i < 6; i++)
                 {

@@ -4,6 +4,7 @@ using Terraria;
 using Terraria.ModLoader;
 using System.Collections.Generic;
 using Terraria.ID;
+using InfernumMode.GlobalInstances;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
 {
@@ -24,6 +25,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.hide = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -36,9 +38,11 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SupremeCalamitas
             {
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
-                    int flamePillar = Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<BrimstoneFlamePillar>(), 900, 0f);
-                    if (Main.projectile.IndexInRange(flamePillar))
-                        Main.projectile[flamePillar].BottomLeft = projectile.Center;
+                    ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(pillar =>
+                    {
+                        pillar.BottomLeft = projectile.Center;
+                    });
+                    Utilities.NewProjectileBetter(projectile.Center, Vector2.Zero, ModContent.ProjectileType<BrimstoneFlamePillar>(), SupremeCalamitasBehaviorOverride.FlamePillarDamage, 0f);
                 }
                 projectile.Kill();
             }

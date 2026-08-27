@@ -1,3 +1,4 @@
+﻿using InfernumMode.ExtraTextures;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -32,7 +33,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             ref float transitionTimer = ref npc.ai[3];
 
             // Create an eye effect, sans-style.
-            if ((phaseState == 1f && transitionTimer >= CultistBehaviorOverride.TransitionAnimationTime + 8f) || phase2)
+            if (phaseState == 1f && transitionTimer >= CultistBehaviorOverride.TransitionAnimationTime + 8f || phase2)
                 CultistBehaviorOverride.DoEyeEffect(npc);
 
             // Don't fade in completely. A small amount of translucency should remain for the sake of being able to discern
@@ -74,7 +75,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
 
         public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor)
         {
-            CultistBehaviorOverride.ExtraDrawcode(npc, spriteBatch);
+            CultistBehaviorOverride.ExtraDrawcode(npc);
+            CultistBehaviorOverride.DrawForcefield(npc.Center - Main.screenPosition, npc.Opacity * 0.55f, Color.DeepSkyBlue, InfernumTextureRegistry.WavyNoise);
             return true;
         }
 

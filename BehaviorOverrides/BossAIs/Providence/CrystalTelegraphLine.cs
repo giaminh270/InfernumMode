@@ -1,8 +1,9 @@
-using CalamityMod;
+﻿using CalamityMod;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ModLoader;
+using System;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
 {
@@ -11,6 +12,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
         public ref float Time => ref projectile.ai[0];
 
         public ref float Lifetime => ref projectile.ai[1];
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
 
         public override void SetStaticDefaults() => DisplayName.SetDefault("Telegraph");
 
@@ -41,7 +44,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Providence
             // Draw a telegraph line outward.
             Color telegraphColor = !ProvidenceBehaviorOverride.IsEnraged ? Color.Yellow : Color.Lerp(Color.Cyan, Color.Green, 0.15f);
             Vector2 start = projectile.Center;
-            Vector2 end = projectile.Center + projectile.velocity.SafeNormalize(Vector2.UnitY) * 3000f;
+            Vector2 end = projectile.Center + projectile.velocity.SafeNormalize(Vector2.UnitY) * 5000f;
             Main.spriteBatch.DrawLineBetter(start, end, telegraphColor, telegraphWidth);
             return false;
         }

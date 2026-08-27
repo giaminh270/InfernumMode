@@ -7,15 +7,16 @@ using System;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
-using InfernumMode;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 {
     public class LingeringDragonFlames : ModProjectile, IAdditiveDrawer
     {
         public ref float Time => ref projectile.ai[0];
+
         public ref float LaserLength => ref projectile.ai[1];
-        public override string Texture => "InfernumMode/ExtraTextures/Smoke";
+
+        public override string Texture => "InfernumMode/ExtraTextures/GreyscaleObjects/Smoke";
 
         public override void SetStaticDefaults() => DisplayName.SetDefault("Dragonfire");
 
@@ -49,7 +50,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Yharon
 
         public Color ColorFunction(float completionRatio)
         {
-            Color color = Color.Lerp(Color.Orange, Color.DarkRed, (float)Math.Pow(completionRatio, 2D));
+            Color color = Color.Lerp(Color.Orange, Color.DarkRed, (float)Math.Pow(completionRatio, 2f));
             color = Color.Lerp(color, Color.Red, 0.65f);
             return color * projectile.Opacity * 0.6f;
         }

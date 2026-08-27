@@ -1,5 +1,6 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Buffs.DamageOverTime;
+using CalamityMod.NPCs.Perforator;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
@@ -19,16 +20,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Perforators
             projectile.tileCollide = false;
             projectile.timeLeft = 420;
             projectile.penetrate = 1;
+           	cooldownSlot = 1;
         }
 
         public override void AI()
         {
-            projectile.tileCollide = projectile.timeLeft < 350;
+            projectile.tileCollide = projectile.timeLeft < 300;
+
+            bool smallWormIsPresent = NPC.AnyNPCs(ModContent.NPCType<PerforatorHeadSmall>());
+            if (smallWormIsPresent)
+                projectile.tileCollide = false;
+
             projectile.rotation = projectile.velocity.ToRotation() + MathHelper.PiOver2;
 
             bool shouldDie = Collision.SolidCollision(projectile.position, projectile.width, projectile.height);
             shouldDie &= !TileID.Sets.Platforms[CalamityUtils.ParanoidTileRetrieval((int)projectile.Center.X / 16, (int)projectile.Center.Y / 16).type];
-            if (shouldDie)
+            if (shouldDie && projectile.tileCollide)
                 projectile.Kill();
 
             // Release blood idly.
@@ -38,8 +45,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Perforators
 
             projectile.velocity.Y += Gravity;
         }
-
-        
 
         public override void OnHitPlayer(Player target, int damage, bool crit) => target.AddBuff(ModContent.BuffType<BurningBlood>(), 120);
 

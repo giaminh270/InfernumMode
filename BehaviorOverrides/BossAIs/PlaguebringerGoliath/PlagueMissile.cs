@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ID;
@@ -20,6 +20,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
             projectile.tileCollide = true;
             projectile.penetrate = -1;
             projectile.timeLeft = 210;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -31,6 +32,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
 
             if (Time > 30f)
                 projectile.velocity *= 1.01f;
+
+            // Emit smoke effects.
+            RedirectingPlagueMissile.EmitSmoke(projectile);
 
             projectile.tileCollide = Time > 34f;
             Time++;
@@ -63,6 +67,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.PlaguebringerGoliath
                 spriteBatch.Draw(texture, drawPosition + afterimageOffset, null, projectile.GetAlpha(afterimageColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
             }
 
+            projectile.DrawProjectileWithBackglowTemp(Color.White, lightColor, 4f);
             spriteBatch.Draw(texture, drawPosition, null, projectile.GetAlpha(lightColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
             spriteBatch.Draw(glowmask, drawPosition, null, projectile.GetAlpha(Color.White), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
 

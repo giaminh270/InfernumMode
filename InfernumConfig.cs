@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 using Terraria.ModLoader;
 using Terraria.ModLoader.Config;
@@ -19,9 +20,21 @@ namespace InfernumMode
 		
 		[Label("Reduced Graphical Settings")]
         [BackgroundColor(224, 127, 180, 192)]
-        [DefaultValue(false)]
-        [Tooltip("Enables reduced graphics mode. Use this if lag is an issue.")]
+        [DefaultValue(true)]
+        [Tooltip("Enables reduced graphics mode.")]
         public bool ReducedGraphicsConfig { get; set; }
+
+        /// <summary>
+        /// Convenience: skip spawning heavy particles entirely under reduced graphics.
+        /// </summary>
+        public static bool SkipHeavyParticle
+        {
+            get
+            {
+                var cfg = Instance;
+                return cfg != null && cfg.ReducedGraphicsConfig;
+            }
+        }
 
         public override bool AcceptClientChanges(ModConfig pendingConfig, int whoAmI, ref string message) => false;
     }

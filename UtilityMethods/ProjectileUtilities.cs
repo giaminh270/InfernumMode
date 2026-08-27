@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
@@ -74,7 +74,11 @@ namespace InfernumMode
             damage = (int)(damage * 0.5);
             if (Main.expertMode)
                 damage = (int)(damage * 0.5);
-            return Projectile.NewProjectile(spawnX, spawnY, velocityX, velocityY, type, damage, knockback, owner, ai0, ai1);
+            int index = Projectile.NewProjectile(spawnX, spawnY, velocityX, velocityY, type, damage, knockback, owner, ai0, ai1);
+            if (index >= 0 && index < Main.maxProjectiles)
+                Main.projectile[index].netUpdate = true;
+
+            return index;
         }
 
         /// <summary>
@@ -92,21 +96,12 @@ namespace InfernumMode
         {
             return NewProjectileBetter(center.X, center.Y, velocity.X, velocity.Y, type, damage, knockback, owner, ai0, ai1);
         }
-		
-        public static void DrawBackglow(Projectile projectile, Color backglowColor, float backglowArea, Rectangle? frame = null)
+
+        public static void DrawBackglow(this Projectile projectile, Color backglowColor, float backglowArea, Rectangle? frame = null)
         {
             Texture2D texture = Main.projectileTexture[projectile.type];
 
-            // Use a fallback for the frame.
-			Rectangle actualFrame;
-			if (frame.HasValue)
-			{
-				actualFrame = frame.Value;
-			}
-			else
-			{
-				actualFrame = texture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
-			}
+            Rectangle actualFrame = frame ?? texture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
 
             Vector2 drawPosition = projectile.Center - Main.screenPosition;
             Vector2 origin = new Vector2(actualFrame.Width * 0.5f, actualFrame.Height * 0.5f);
@@ -115,9 +110,24 @@ namespace InfernumMode
             for (int i = 0; i < 10; i++)
             {
                 Vector2 drawOffset = (MathHelper.TwoPi * i / 10f).ToRotationVector2() * backglowArea;
-                Main.spriteBatch.Draw(texture, drawPosition + drawOffset, frame, backAfterimageColor, projectile.rotation, origin, projectile.scale, direction, 0f);
+                Main.spriteBatch.Draw(texture, drawPosition + drawOffset, actualFrame, backAfterimageColor, projectile.rotation, origin, projectile.scale, direction, 0f);
             }
         }
+		
+        public static void DrawProjectileWithBackglowTemp(this Projectile projectile, Color backglowColor, Color lightColor, float backglowArea, Rectangle? frame = null, Texture2D texture = null)
+        {
+            if (texture == null)
+                texture = Main.projectileTexture[projectile.type];
+
+            Rectangle actualFrame = frame ?? texture.Frame(1, Main.projFrames[projectile.type], 0, projectile.frame);
+
+            Vector2 drawPosition = projectile.Center - Main.screenPosition;
+            Vector2 origin = actualFrame.Size() * 0.5f;
+
+            DrawBackglow(projectile, backglowColor, backglowArea, actualFrame);
+            SpriteEffects direction = projectile.spriteDirection == 1 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
+            Main.spriteBatch.Draw(texture, drawPosition, actualFrame, projectile.GetAlpha(lightColor), projectile.rotation, origin, projectile.scale, direction, 0f);
+        }		
 		
     }
 }

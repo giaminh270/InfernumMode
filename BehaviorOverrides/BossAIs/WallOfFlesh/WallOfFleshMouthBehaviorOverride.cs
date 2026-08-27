@@ -19,6 +19,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
 
         public const float Phase2LifeRatio = 0.45f;
 
+        public static int EyeLaserDamage => 100;
+
+        public static int FleshTentacleDamage => 105;
+
+        public static int FireBeamDamage => 185;
+
         public override float[] PhaseLifeRatioThresholds => new float[]
         {
             Phase2LifeRatio
@@ -41,6 +47,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
 
             ref float initialized01Flag = ref npc.localAI[0];
             ref float attackTimer = ref npc.ai[3];
+
+            // Eye of Night debuffs.
+            npc.buffImmune[BuffID.CursedInferno] = true;
 
             // Select a new target if an old one was lost.
             npc.TargetClosestIfTargetIsInvalid();
@@ -130,6 +139,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
                 if (Main.npc.IndexInRange(leech))
                     Main.npc[leech].velocity = npc.velocity * 1.25f;
             }
+
+            // Start recording for the credits.
+            if (lifeRatio <= Phase2LifeRatio && npc.Infernum().ExtraAI[0] == 0f)
+            {
+                npc.Infernum().ExtraAI[0] = 1f;
+            }
+
+            // Roar before beginning the eye laser bursts.
+            if (attackTimer % 1200f == 600f && lifeRatio < Phase2LifeRatio)
+                Main.PlaySound(SoundID.NPCDeath10, npc.position);
 
             return false;
         }
@@ -246,16 +265,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
                 Main.npc[hungry].ai[0] = i * 0.2f - 0.05f;
             }
 
-            List<float> offsetFactors = new List<float>();
             for (int i = 0; i < 4; i++)
             {
-                float potentialOffsetFactor = Main.rand.NextFloat();
-                while (offsetFactors.Any(factor => MathHelper.Distance(factor, potentialOffsetFactor) < 0.25f))
-                {
-                    i--;
-                    continue;
-                }
-
+                float potentialOffsetFactor = i / 3f;
                 NPC.NewNPC((int)npc.Center.X, (int)npc.Center.Y, NPCID.WallofFleshEye, ai0: potentialOffsetFactor);
             }
         }
@@ -322,6 +334,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
                 {
                     roarTimer = 660f;
 
+                    // Roar.
                     if (Main.LocalPlayer.Center.Y > (Main.maxTilesY - 300f) * 16f)
                     {
                         // Scream.
@@ -365,9 +378,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.WallOfFlesh
                 return;
 
             Vector2 aimDirection = npc.SafeDirectionTo(target.Center);
-            int fire = Utilities.NewProjectileBetter(npc.Center, aimDirection, ModContent.ProjectileType<FireBeamTelegraph>(), 0, 0f);
-            if (Main.projectile.IndexInRange(fire))
-                Main.projectile[fire].ai[1] = npc.whoAmI;
+            Utilities.NewProjectileBetter(npc.Center, aimDirection, ModContent.ProjectileType<FireBeamTelegraph>(), 0, 0f, -1, 0f, npc.whoAmI);
         }
 
         #endregion

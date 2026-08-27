@@ -3,6 +3,7 @@ using CalamityMod.NPCs;
 using CalamityMod.NPCs.Ravager;
 using InfernumMode.Dusts;
 using InfernumMode.OverridingSystem;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -28,7 +29,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
 
         public override bool PreAI(NPC npc) => DoClawAI(npc, true);
 
-        public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor) => DrawClaw(npc, spriteBatch, lightColor, true);
+        public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor) => DrawClaw(npc, Main.spriteBatch, lightColor, true);
 
         public static bool DoClawAI(NPC npc, bool leftClaw)
         {
@@ -133,6 +134,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
                             else
                                 canPunch = npc.Center.X - 100f < target.Center.X;
 
+                            // Punch at the target.
                             if (canPunch)
                             {
                                 punchTimer = 0f;
@@ -143,6 +145,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
                                 npc.velocity = npc.SafeDirectionTo(target.Center) * punchSpeed;
                                 npc.rotation = npc.velocity.ToRotation();
                                 npc.netUpdate = true;
+
+                                Main.PlaySound(InfernumSoundRegistry.RavagerPunch, npc.Center);
+
                                 return false;
                             }
                             punchTimer = 0f;

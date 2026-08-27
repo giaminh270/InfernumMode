@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Items.Weapons.DraedonsArsenal;
 using CalamityMod.Items.Weapons.Typeless;
 using CalamityMod.NPCs;
@@ -12,6 +12,8 @@ using Terraria;
 using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.ModLoader;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
 
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
@@ -58,8 +60,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
             // Create a slice effect on the first frame.
             if (Timer == 2f)
             {
-				Main.PlaySound(mod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/YanmeiKnifeHit"), (int)Target.Center.X, (int)Target.Center.Y);
-				Main.PlaySound(mod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/TeslaCannonFire"), (int)Target.Center.X, (int)Target.Center.Y);
+                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/TeslaCannonFire"), Target.Center);
+                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/YanmeiKnifeHit"), Target.Center);
 
                 Target.Calamity().GeneralScreenShakePower = 20f;
                 if (Main.netMode != NetmodeID.MultiplayerClient)
@@ -143,10 +145,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
             int sideCount = 512;
             Utilities.GetCircleVertices(sideCount, Radius, projectile.Center, out var triangleIndices, out var vertices);
             CalamityUtils.CalculatePerspectiveMatricies(out Matrix view, out Matrix projection);
-            GameShaders.Misc["Infernum:RealityTear"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/Stars"));
-            GameShaders.Misc["Infernum:RealityTear"].Shader.Parameters["uWorldViewProjection"].SetValue(view * projection);
-            GameShaders.Misc["Infernum:RealityTear"].Shader.Parameters["useOutline"].SetValue(false);
-            GameShaders.Misc["Infernum:RealityTear"].Apply();
+            InfernumEffectsRegistry.RealityTearVertexShader.SetShaderTexture(InfernumTextureRegistry.Stars);
+            InfernumEffectsRegistry.RealityTearVertexShader.Shader.Parameters["uWorldViewProjection"].SetValue(view * projection);
+            InfernumEffectsRegistry.RealityTearVertexShader.Shader.Parameters["useOutline"].SetValue(false);
+            InfernumEffectsRegistry.RealityTearVertexShader.Apply();
 
             Main.instance.GraphicsDevice.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, vertices.ToArray(), 0, vertices.Count, triangleIndices.ToArray(), 0, sideCount * 2);
             Main.pixelShader.CurrentTechnique.Passes[0].Apply();
@@ -168,7 +170,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CeaselessVoid
             Main.spriteBatch.ExitShaderRegion();
 
             // Draw the black hole.
-            Texture2D blackHoleTexture = ModContent.GetTexture("InfernumMode/ExtraTextures/WhiteHole");
+            Texture2D blackHoleTexture = InfernumTextureRegistry.WhiteHole;
             Vector2 blackHoleScale = Vector2.One * Radius / blackHoleTexture.Size() * 1.2f;
             Main.spriteBatch.SetBlendState(BlendState.Additive);
             for (int i = 0; i < 3; i++)

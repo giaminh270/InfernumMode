@@ -22,8 +22,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
             projectile.timeLeft = 240;
             projectile.scale = 0.15f;
             projectile.extraUpdates = 3;
+            projectile.penetrate = -1;
             projectile.hide = true;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()

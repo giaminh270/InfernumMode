@@ -50,7 +50,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             if (projectile.whoAmI % 2 == 0)
                 texture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/Polterghast/SoulMedium" + (Cyan ? "Cyan" : ""));
 
-            Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type], 2, texture);
+            PolterghastPerformanceUtils.DrawSoul(projectile, lightColor, texture);
             return false;
         }
 
@@ -61,6 +61,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Polterghast
             return color * projectile.Opacity;
         }
 
-        public override bool CanDamage() => projectile.Opacity >= 1f;
+        public override bool CanDamage() => projectile.Opacity >= 0.3f;
     }
 }

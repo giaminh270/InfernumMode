@@ -10,7 +10,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
     public class AstralCrystal : ModProjectile
     {
         public ref float Time => ref projectile.ai[0];
-        
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Astral Crystal");

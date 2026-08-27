@@ -13,6 +13,9 @@ using Terraria.Enums;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ObjectData;
+using CalamityMod.CalPlayer;
+using InfernumMode.GlobalInstances;
+using InfernumMode.UI;
 
 namespace InfernumMode.Tiles
 {
@@ -28,6 +31,9 @@ namespace InfernumMode.Tiles
             Main.tileNoAttach[Type] = true;
             Main.tileSpelunker[Type] = true;
 
+            // Apparently this is necessary in multiplayer for some reason???
+            minPick = int.MaxValue;
+
             TileObjectData.newTile.CopyFrom(TileObjectData.Style3x2);
             TileObjectData.newTile.Width = Width;
             TileObjectData.newTile.Height = Height;
@@ -37,6 +43,8 @@ namespace InfernumMode.Tiles
             TileObjectData.newTile.DrawYOffset = 4;
             TileObjectData.newTile.StyleHorizontal = true;
             TileObjectData.newTile.LavaDeath = false;
+            //ModTileEntity tileEntity = ModContent.GetInstance<GuardiansPlaqueTileEntity>();
+            //TileObjectData.newTile.HookPostPlaceMyPlayer = new PlacementHook(tileEntity.Hook_AfterPlacement, -1, 0, processedCoordinates: true);
             TileObjectData.addTile(Type);
             AddMapEntry(new Color(122, 66, 59));
         }
@@ -54,41 +62,42 @@ namespace InfernumMode.Tiles
 
         public override bool NewRightClick(int i, int j)
         {
-            Tile tile = Main.tile[i, j];
+            // Don't open if a boss is active, to avoid popping up in the guards fight.
+            if (CalamityPlayer.areThereAnyDamnBosses)
+                return false;
 
-            int left = i - tile.frameX / 18;
-            int top = j - tile.frameY / 18;
-
-            if (!Main.LocalPlayer.HasItem(ModContent.ItemType<ProfanedShard>()))
-                return true;
-
-            if (NPC.AnyNPCs(ModContent.NPCType<Providence>()) || NPC.AnyNPCs(ModContent.NPCType<ProfanedGuardianBoss>()) || BossRushEvent.BossRushActive)
-                return true;
-
-            if (CalamityUtils.CountProjectiles(ModContent.ProjectileType<GuardiansSummonerProjectile>()) > 0)
-                return true;
-
-            Vector2 ritualSpawnPosition = new Vector2(left + Width * 0.5f, top).ToWorldCoordinates();
-            ritualSpawnPosition += new Vector2(-10f, 76f);
-
-            Main.PlaySound(SoundID.DD2_EtherianPortalOpen, ritualSpawnPosition);
-            Projectile.NewProjectile(ritualSpawnPosition, Vector2.Zero, ModContent.ProjectileType<GuardiansSummonerProjectile>(), 0, 0f, Main.myPlayer);
-
+            UIPlayer player = Main.LocalPlayer.Infernum_UI();
+            player.DrawPlaqueUI = !player.DrawPlaqueUI;
+            if (player.DrawPlaqueUI)
+                Main.PlaySound(SoundID.MenuOpen);
+            else
+                Main.PlaySound(SoundID.MenuClose);
             return true;
         }
 
         public override void MouseOver(int i, int j)
         {
-            Main.LocalPlayer.showItemIcon2 = ModContent.ItemType<ProfanedShard>();
-            Main.LocalPlayer.noThrow = 2;
-            Main.LocalPlayer.showItemIcon = true;
+            MouseOver();
         }
 
         public override void MouseOverFar(int i, int j)
         {
-            Main.LocalPlayer.showItemIcon2 = ModContent.ItemType<ProfanedShard>();
-            Main.LocalPlayer.noThrow = 2;
-            Main.LocalPlayer.showItemIcon = true;
+            MouseOver();
+        }
+
+        private void MouseOver()
+        {
+            // Don't show if a boss is active, to avoid popping up in the guards fight.
+            if (CalamityPlayer.areThereAnyDamnBosses)
+                return;
+
+            if (!GuardiansPlaqueUIManager.ShouldDraw)
+            {
+                Player player = Main.LocalPlayer;
+                player.showItemIconText = "Read";
+                player.showItemIcon2 = ModContent.ItemType<ProfanedShard>();
+                player.showItemIcon = true;
+            }
         }
     }
 }

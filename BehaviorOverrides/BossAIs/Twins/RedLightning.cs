@@ -1,3 +1,5 @@
+using CalamityMod;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -13,8 +15,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
 {
     public class RedLightning : ModProjectile
     {
-        internal PrimitiveTrailCopy LightningDrawer;
-
         public const float LightningTurnRandomnessFactor = 1.35f;
         public ref float InitialVelocityAngle => ref projectile.ai[0];
         // Technically not a ratio, and more of a seed, but it is used in a 0-2pi squash
@@ -27,7 +27,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
         {
             DisplayName.SetDefault("Lightning");
             ProjectileID.Sets.MinionShot[projectile.type] = true;
-            ProjectileID.Sets.TrailCacheLength[projectile.type] = 70;
+            ProjectileID.Sets.TrailCacheLength[projectile.type] = 10;
             ProjectileID.Sets.TrailingMode[projectile.type] = 1;
         }
 
@@ -41,16 +41,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
             projectile.ignoreWater = true;
             projectile.tileCollide = false;
             projectile.extraUpdates = 20;
-            projectile.timeLeft = 60 * projectile.extraUpdates;
+            projectile.timeLeft = 36 * projectile.extraUpdates;
+            projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
 
             // Readjust the velocity magnitude the moment this projectile is created
             // to make velocity setting outside the scope of this projectile less irritating
             // to consider alongside extraUpdate multipliers.
             // Also set the initial angle.
             if (projectile.velocity != Vector2.Zero)
-            {
                 projectile.velocity /= projectile.extraUpdates;
-            }
         }
 
         public override void SendExtraAI(BinaryWriter writer)
@@ -71,7 +71,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
             // which allows random turning to occur.
             projectile.frameCounter++;
 
-            projectile.scale = (float)Math.Sin(MathHelper.Pi * projectile.timeLeft / (60f * (projectile.MaxUpdates - 1))) * 4f;
+            projectile.scale = (float)Math.Sin(MathHelper.Pi * projectile.timeLeft / (36f * (projectile.MaxUpdates - 1))) * 4f;
             if (projectile.scale > 1f)
                 projectile.scale = 1f;
 
@@ -80,7 +80,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
             {
                 projectile.frameCounter = 0;
 
-                float originalSpeed = MathHelper.Min(6f, projectile.velocity.Length());
+                float originalSpeed = (float)Math.Min(6f, projectile.velocity.Length());
                 UnifiedRandom unifiedRandom = new UnifiedRandom((int)BaseTurnAngleRatio);
                 int turnTries = 0;
                 Vector2 newBaseDirection = -Vector2.UnitY;
@@ -137,12 +137,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
             Color baseColor = Color.Lerp(Color.Red, Color.Orange, (float)Math.Sin(MathHelper.TwoPi * completionRatio + Main.GlobalTime * 4f) * 0.5f + 0.5f);
             return Color.Lerp(baseColor, Color.DarkRed, ((float)Math.Sin(MathHelper.Pi * completionRatio + Main.GlobalTime * 4f) * 0.5f + 0.5f) * 0.8f);
         }
+
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            if (LightningDrawer is null)
-                LightningDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, false);
+            if (!PrimitiveBatchingSystem.BatchIsRegistered<RedLightning>())
+                PrimitiveBatchingSystem.PrepareBatch<RedLightning>(new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, false));
 
-            LightningDrawer.Draw(projectile.oldPos.Where(oldPos => oldPos != Vector2.Zero), projectile.Size * 0.5f - Main.screenPosition, 100);
+            PrimitiveBatchingSystem.PrepareVertices<RedLightning>(projectile.oldPos, projectile.Size * 0.5f - Main.screenPosition, 12);
             return false;
         }
         #endregion
@@ -161,11 +162,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Twins
                     return true;
             }
             return false;
-        }
-
-        public override void OnHitPlayer(Player target, int damage, bool crit)
-        {
-            target.AddBuff(BuffID.Electrified, 180);
         }
     }
 }

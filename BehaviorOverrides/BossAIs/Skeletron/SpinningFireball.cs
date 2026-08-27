@@ -20,6 +20,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Skeletron
             projectile.penetrate = -1;
             projectile.timeLeft = 210;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
 
         public override void AI()

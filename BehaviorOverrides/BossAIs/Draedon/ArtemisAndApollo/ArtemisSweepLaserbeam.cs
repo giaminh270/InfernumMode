@@ -2,6 +2,9 @@
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.NPCs.ExoMechs.Artemis;
 using CalamityMod.Projectiles.BaseProjectiles;
+using InfernumMode.Effects;
+using InfernumMode.Graphics.Interfaces;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -14,13 +17,15 @@ using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 {
-    public class ArtemisSweepLaserbeam : BaseLaserbeamProjectile
+    public class ArtemisSweepLaserbeam : BaseLaserbeamProjectile, IPixelPrimitiveDrawer
     {
-        public PrimitiveTrail LaserDrawer
+		public bool DrawBeforeNPCs => false;
+		
+        public PrimitiveTrailCopy LaserDrawer
         {
             get;
             set;
-        } = null;
+        }
 
         public int OwnerIndex
         {
@@ -32,7 +37,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
 
         public const float MaxLaserRayConst = 6000f;
 
-        public override float MaxScale => 1f;
+        public override float MaxScale => 1.5f;
         public override float MaxLaserLength => MaxLaserRayConst;
         public override float Lifetime => LifetimeConst;
         public override Color LaserOverlayColor => new Color(250, 180, 100, 100);
@@ -126,13 +131,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             return Color.Lerp(Color.Orange, Color.Red, colorInterpolant * 0.67f);
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             // This should never happen, but just in case.
             if (projectile.velocity == Vector2.Zero)
-                return false;
+                return;
 			if (LaserDrawer is null)
-				LaserDrawer = new PrimitiveTrail(LaserWidthFunction, LaserColorFunction, null, GameShaders.Misc["Infernum:ArtemisLaser"]);
+				LaserDrawer = new PrimitiveTrailCopy(LaserWidthFunction, LaserColorFunction, null, true, InfernumEffectsRegistry.ArtemisLaserVertexShader);
 
             Vector2 laserEnd = projectile.Center + projectile.velocity.SafeNormalize(Vector2.UnitY) * LaserLength;
             Vector2[] baseDrawPoints = new Vector2[8];
@@ -140,11 +147,12 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
                 baseDrawPoints[i] = Vector2.Lerp(projectile.Center, laserEnd, i / (float)(baseDrawPoints.Length - 1f));
 
             // Select textures to pass to the shader, along with the electricity color.
-            GameShaders.Misc["Infernum:ArtemisLaser"].UseColor(Color.Cyan);
-            GameShaders.Misc["Infernum:ArtemisLaser"].UseImage("Images/Misc/Perlin");
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.UseColor(Color.Cyan);
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.UseImage("Images/Extra_189");
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.UseImage("Images/Misc/Perlin");
 
-            LaserDrawer.Draw(baseDrawPoints, -Main.screenPosition, 54);
-            return false;
+            int sampleCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 16 : 54;
+            LaserDrawer.DrawPixelated(baseDrawPoints, -Main.screenPosition, sampleCount);
         }
 
         public override void OnHitPlayer(Player target, int damage, bool crit)

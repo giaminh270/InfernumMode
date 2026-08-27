@@ -17,6 +17,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Brimstone Petal");
+            Main.projFrames[projectile.type] = 4;
             ProjectileID.Sets.TrailCacheLength[projectile.type] = 2;
             ProjectileID.Sets.TrailingMode[projectile.type] = 0;
         }
@@ -39,12 +40,20 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
 
             Lighting.AddLight(projectile.Center, projectile.Opacity * 0.9f, 0f, 0f);
 
+            projectile.frameCounter++;
+            if (projectile.frameCounter >= 8)
+            {
+                projectile.frame = (projectile.frame + 1) % Main.projFrames[projectile.type];
+                projectile.frameCounter = 0;
+            }
+
             Time++;
         }
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             Texture2D texture = Main.projectileTexture[projectile.type];
+            Rectangle sourceRectangle = texture.Frame(1, Main.projFrames[projectile.type], frameY: projectile.frame);
 
             for (int i = 0; i < 6; i++)
             {
@@ -52,16 +61,16 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.BrimstoneElemental
                 magicAfterimageColor.A = 0;
 
                 Vector2 drawPosition = projectile.Center - Main.screenPosition + (MathHelper.TwoPi * i / 6f).ToRotationVector2() * projectile.Opacity * 4f;
-                spriteBatch.Draw(texture, drawPosition, null, magicAfterimageColor, projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
+                Main.spriteBatch.Draw(texture, drawPosition, sourceRectangle, magicAfterimageColor, projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
             }
 
-            spriteBatch.Draw(texture, projectile.Center - Main.screenPosition, null, projectile.GetAlpha(lightColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
+            Main.spriteBatch.Draw(texture, projectile.Center - Main.screenPosition, sourceRectangle, projectile.GetAlpha(lightColor), projectile.rotation, texture.Size() * 0.5f, projectile.scale, SpriteEffects.None, 0f);
             return false;
         }
 
         public override void OnHitPlayer(Player target, int damage, bool crit)
         {
-            if ((CalamityWorld.downedProvidence || BossRushEvent.BossRushActive) && BrimstoneElementalBehaviorOverride.ReadyToUseBuffedAI)
+            if (CalamityWorld.downedProvidence || BossRushEvent.BossRushActive)
                 target.AddBuff(ModContent.BuffType<AbyssalFlames>(), 120);
             else
                 target.AddBuff(ModContent.BuffType<BrimstoneFlames>(), 120);

@@ -32,10 +32,12 @@ using MonoMod.RuntimeDetour;
 using MonoMod.Utils;
 using MonoMod.RuntimeDetour.HookGen;
 using static InfernumMode.ILEditingStuff.HookManager;
+using CalamityMod.NPCs.ProfanedGuardians;
+using InfernumMode.Projectiles;
 
 namespace InfernumMode.ILEditingStuff
 {
-    public class DrawDraedonSelectionUIWithAthena : IHookEdit
+    public class CustomExoMechSelectionSystem : IHookEdit
     {
         public static ExoMech? PrimaryMechToSummon
         {
@@ -370,113 +372,6 @@ namespace InfernumMode.ILEditingStuff
         public void Unload() => IL.Terraria.Projectile.AI_007_GrapplingHooks -= AdjustPlatformCollisionChecks;
     }*/
 
-    public class DrawBlackEffectHook : IHookEdit
-    {
-        public static List<int> DrawCacheBeforeBlack = new List<int>(Main.maxProjectiles);
-        public static List<int> DrawCacheProjsOverSignusBlackening = new List<int>(Main.maxProjectiles);
-        public static List<int> DrawCacheAdditiveLighting = new List<int>(Main.maxProjectiles);
-        internal static void DrawBlackout(ILContext il)
-        {
-            ILCursor cursor = new ILCursor(il);
-
-            if (!cursor.TryGotoNext(MoveType.Before, i => i.MatchCall<Main>("DrawBackgroundBlackFill")))
-                return;
-
-            cursor.EmitDelegate<Action>(() =>
-            {
-                for (int i = 0; i < DrawCacheBeforeBlack.Count; i++)
-                {
-                    try
-                    {
-                        Main.instance.DrawProj(DrawCacheBeforeBlack[i]);
-                    }
-                    catch (Exception e)
-                    {
-                        TimeLogger.DrawException(e);
-                        Main.projectile[DrawCacheBeforeBlack[i]].active = false;
-                    }
-                }
-                DrawCacheBeforeBlack.Clear();
-            });
-
-            if (!cursor.TryGotoNext(MoveType.After, i => i.MatchCall<MoonlordDeathDrama>("DrawWhite")))
-                return;
-
-            cursor.EmitDelegate<Action>(() =>
-            {
-                float fadeToBlack = 0f;
-                if (CalamityGlobalNPC.signus != -1)
-                    fadeToBlack = Main.npc[CalamityGlobalNPC.signus].Infernum().ExtraAI[9];
-                if (InfernumMode.BlackFade > 0f)
-                    fadeToBlack = InfernumMode.BlackFade;
-
-                if (fadeToBlack > 0f)
-                {
-                    Color color = Color.Black * fadeToBlack;
-                    Main.spriteBatch.Draw(Main.magicPixel, new Rectangle(-2, -2, Main.screenWidth + 4, Main.screenHeight + 4), new Rectangle(0, 0, 1, 1), color);
-                }
-
-                Main.spriteBatch.End();
-                Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, Main.DefaultSamplerState, DepthStencilState.None, Main.instance.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-                for (int i = 0; i < DrawCacheProjsOverSignusBlackening.Count; i++)
-                {
-                    try
-                    {
-                        Main.instance.DrawProj(DrawCacheProjsOverSignusBlackening[i]);
-                    }
-                    catch (Exception e)
-                    {
-                        TimeLogger.DrawException(e);
-                        Main.projectile[DrawCacheProjsOverSignusBlackening[i]].active = false;
-                    }
-                }
-                DrawCacheProjsOverSignusBlackening.Clear();
-
-                Main.spriteBatch.SetBlendState(BlendState.Additive);
-                for (int i = 0; i < DrawCacheAdditiveLighting.Count; i++)
-                {
-                    try
-                    {
-                        Main.instance.DrawProj(DrawCacheAdditiveLighting[i]);
-                    }
-                    catch (Exception e)
-                    {
-                        TimeLogger.DrawException(e);
-                        Main.projectile[DrawCacheAdditiveLighting[i]].active = false;
-                    }
-                }
-                Main.spriteBatch.End();
-                Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, Main.DefaultSamplerState, DepthStencilState.None, Main.instance.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-                DrawCacheAdditiveLighting.Clear();
-
-                // Draw the madness effect.
-                if (InfernumMode.CanUseCustomAIs)
-                {
-                    Main.spriteBatch.End();
-                    Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.LinearWrap, DepthStencilState.None, Main.instance.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-
-                    Filters.Scene["InfernumMode:Madness"].GetShader().UseSecondaryColor(Color.DarkViolet);
-                    Filters.Scene["InfernumMode:Madness"].Apply();
-                    Main.spriteBatch.Draw(ModContent.GetTexture("Terraria/Misc/noise"), new Rectangle(-2, -2, Main.screenWidth + 4, Main.screenHeight + 4), new Rectangle(0, 0, 1, 1), Color.White);
-                    Main.spriteBatch.ExitShaderRegion();
-                }
-            });
-        }
-
-        public void Load()
-        {
-            DrawCacheProjsOverSignusBlackening = new List<int>();
-            DrawCacheAdditiveLighting = new List<int>();
-            IL.Terraria.Main.DoDraw += DrawBlackout;
-        }
-
-        public void Unload()
-        {
-            DrawCacheProjsOverSignusBlackening = DrawCacheAdditiveLighting = null;
-            IL.Terraria.Main.DoDraw -= DrawBlackout;
-        }
-    }
-
     public class DisableMoonLordBuildingHook : IHookEdit
     {
         internal static void DisableMoonLordBuilding(ILContext instructionContext)
@@ -614,4 +509,37 @@ namespace InfernumMode.ILEditingStuff
 
 	}
 	#endregion General Particle Rendering	
+	
+    public class ChangeProfanedShardUsageHook : IHookEdit
+    {
+        public void Load() => ProfanedShardUseItem += SummonGuardianSpawnerManager;
+
+        public void Unload() => ProfanedShardUseItem -= SummonGuardianSpawnerManager;
+
+        private void SummonGuardianSpawnerManager(ILContext il)
+        {
+            ILCursor cursor = new ILCursor(il);
+            cursor.Emit(OpCodes.Ldarg_1);
+            cursor.EmitDelegate<Action<Player>>((Player player) =>
+            {
+                // Normal spawning stuff
+                if (!PoDWorld.InfernumMode)
+                {
+                    // This runs like 6 times without this check for some fucking reason.
+                    if (!NPC.AnyNPCs(ModContent.NPCType<ProfanedGuardianBoss>()))
+                    {
+                        Main.PlaySound(SoundID.Roar, player.Center, 0);
+                        if (Main.netMode != NetmodeID.MultiplayerClient)
+                            NPC.SpawnOnPlayer(player.whoAmI, ModContent.NPCType<ProfanedGuardianBoss>());
+                        else
+                            NetMessage.SendData(MessageID.SpawnBoss, -1, -1, null, player.whoAmI, ModContent.NPCType<ProfanedGuardianBoss>());
+                    }
+                }
+                else if (Main.myPlayer == player.whoAmI && !Main.projectile.Any(p => p.active && p.type == ModContent.ProjectileType<GuardiansSummonerProjectile>()))
+                    Utilities.NewProjectileBetter(player.Center, Vector2.Zero, ModContent.ProjectileType<GuardiansSummonerProjectile>(), 0, 0f);
+            });
+            cursor.Emit(OpCodes.Ldc_I4_1);
+            cursor.Emit(OpCodes.Ret);
+        }
+    }	
 }

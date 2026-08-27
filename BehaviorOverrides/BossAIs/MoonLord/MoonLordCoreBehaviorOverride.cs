@@ -1,9 +1,10 @@
-using CalamityMod;
-using CalamityMod.Events;
-using InfernumMode.BossIntroScreens;
-using InfernumMode.OverridingSystem;
+﻿using CalamityMod;
+using CalamityMod.Buffs.DamageOverTime;
+using InfernumMode.Sounds;
 using InfernumMode.Projectiles;
 using InfernumMode.Tiles;
+using InfernumMode;
+using InfernumMode.GlobalInstances;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -14,6 +15,7 @@ using Terraria.GameContent;
 using Terraria.GameContent.Events;
 using Terraria.ID;
 using Terraria.ModLoader;
+using InfernumMode.OverridingSystem;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 {
@@ -36,11 +38,34 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             VoidAccretionDisk
         }
 
+        public static int FireballDamage => 215;
+
+        public static int LunarFireballDamage => 215;
+
+        public static int PhantasmalBoltDamage => 215;
+
+        public static int PhantasmalEyeDamage => 215;
+
+        public static int LunarAsteroidDamage => 220;
+
+        public static int PhantasmalSphereDamage => 220;
+
+        public static int PhantasmalDeathrayDamage => 325;
+
+        public static int BlackHoleDamage => 350;
+
+        public static int PhantasmalBoltEnragedDamage => 500;
+
         public const int ArenaWidth = 200;
+
         public const int ArenaHeight = 150;
+
         public const float BaseFlySpeedFactor = 6f;
+
         public const float Phase2LifeRatio = 0.65f;
+
         public const float Phase3LifeRatio = 0.33333f;
+
         public static readonly Color OverallTint = new Color(7, 81, 81);
 
         public static bool IsEnraged
@@ -131,11 +156,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             npc.TargetClosestIfTargetIsInvalid();
             Player target = Main.player[npc.target];
 
-            // Play an introductio
+            // Fuck.
+            if (target.HasBuff(ModContent.BuffType<Nightwither>()))
+                target.ClearBuff(ModContent.BuffType<Nightwither>());
+
+            // Play an introduction.
             if (introSoundTimer < IntroSoundLength)
             {
                 if (introSoundTimer == 0f)
-                    Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/MoonLordIntro"), target.Center);
+                    Main.PlaySound(InfernumSoundRegistry.MoonLordIntroSound, target.Center);
                 introSoundTimer++;
             }
 
@@ -143,7 +172,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             npc.dontTakeDamage = NPC.CountNPCS(NPCID.MoonLordFreeEye) < 3;
 
             // Start the AI and create the arena.
-            if (npc.localAI[3] == 0f)
+            if (Main.netMode != NetmodeID.MultiplayerClient && npc.localAI[3] == 0f)
             {
                 Player closest = Main.player[Player.FindClosest(npc.Center, 1, 1)];
                 Point closestTileCoords = closest.Center.ToTileCoordinates();
@@ -164,7 +193,36 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                         }
                     }
                 }
+
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                {
+                    int[] bodyPartIndices = new int[3];
+                    for (int i = 0; i < 2; i++)
+                    {
+                        int handIndex = NPC.NewNPC((int)npc.Center.X + i * 800 - 400, (int)npc.Center.Y - 100, NPCID.MoonLordHand, 0, 0f, 0f, i, npc.whoAmI);
+                        bodyPartIndices[i] = handIndex;
+                    }
+
+                    int headIndex = NPC.NewNPC((int)npc.Center.X, (int)npc.Center.Y - 400, NPCID.MoonLordHead, 0, 0f, 0f, 0f, npc.whoAmI);
+                    Main.npc[headIndex].netUpdate = true;
+                    bodyPartIndices[2] = headIndex;
+
+                    for (int i = 0; i < 3; i++)
+                        npc.localAI[i] = bodyPartIndices[i];
+
+                    // Reset hand AIs.
+                    for (int i = 0; i < Main.maxNPCs; i++)
+                    {
+                        if (Main.npc[i].type == NPCID.MoonLordHand && Main.npc[i].active)
+                        {
+                            Main.npc[i].ai[0] = 0f;
+                            Main.npc[i].netUpdate = true;
+                        }
+                    }
+                }
+
                 npc.localAI[3] = 1f;
+                attackTimer = 0f;
                 attackState = (int)MoonLordAttackState.SpawnEffects;
                 npc.netUpdate = true;
             }
@@ -205,6 +263,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             despawnTimer = 0f;
 
             MoonLordAttackState currentAttack = (MoonLordAttackState)(int)attackState;
+
             switch (currentAttack)
             {
                 case MoonLordAttackState.SpawnEffects:
@@ -274,7 +333,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 
         public static void HandleBodyPartDeathTriggers(NPC npc, double realDamage)
         {
-            int minLife = BossRushEvent.BossRushActive ? 10000 : 1000;
+            int minLife = (int)(npc.lifeMax * 0.18) + 1;
             if (npc.life - realDamage > minLife)
                 return;
 
@@ -285,58 +344,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 
         public static void DoBehavior_SpawnEffects(NPC npc, ref float attackTimer)
         {
-            // Don't do damage during spawn effects.
+            // Don't take damage during spawn effects.
             npc.dontTakeDamage = true;
 
             // Roar after a bit of time has passed.
             if (attackTimer == 30f)
                 Main.PlaySound(SoundID.Zombie, (int)npc.Center.X, (int)npc.Center.Y, 92, 1f, 0f);
 
-            if (Main.netMode != NetmodeID.Server && !IntroScreenManager.ScreenIsObstructed)
-            {
-                attackTimer = 30000f;
-                npc.netUpdate = true;
-            }
-
-            // Create arms/head and go to the next attack state.
-            if (attackTimer >= 30000f)
-            {
+            if (attackTimer >= 125f)
                 SelectNextAttack(npc);
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    int[] bodyPartIndices = new int[3];
-                    for (int i = 0; i < 2; i++)
-                    {
-                        int handIndex = NPC.NewNPC((int)npc.Center.X + i * 800 - 400, (int)npc.Center.Y - 100, NPCID.MoonLordHand, npc.whoAmI);
-                        Main.npc[handIndex].ai[2] = i;
-                        Main.npc[handIndex].netUpdate = true;
-                        bodyPartIndices[i] = handIndex;
-                    }
-
-                    int headIndex = NPC.NewNPC((int)npc.Center.X, (int)npc.Center.Y - 400, NPCID.MoonLordHead, npc.whoAmI);
-                    Main.npc[headIndex].netUpdate = true;
-                    bodyPartIndices[2] = headIndex;
-
-                    // Mark the owner of the body parts.
-                    for (int i = 0; i < 3; i++)
-                        Main.npc[bodyPartIndices[i]].ai[3] = npc.whoAmI;
-
-                    for (int i = 0; i < 3; i++)
-                        npc.localAI[i] = bodyPartIndices[i];
-
-                    // Reset hand AIs.
-                    for (int i = 0; i < Main.maxNPCs; i++)
-                    {
-                        if (Main.npc[i].type == NPCID.MoonLordHand && Main.npc[i].active)
-                        {
-                            Main.npc[i].ai[0] = 0f;
-                            Main.npc[i].netUpdate = true;
-                        }
-                    }
-                }
-            }
-            npc.netSpam = 0;
-            npc.netUpdate = true;
         }
 
         public static void DoBehavior_DeathEffects(NPC npc, ref float attackTimer)
@@ -358,11 +374,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                 if (attackTimer == 61f)
                 {
                     if (Main.netMode != NetmodeID.MultiplayerClient)
-                    {
-                        int deathAnimation = Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<MoonLordDeathAnimationHandler>(), 0, 0f);
-                        if (Main.projectile.IndexInRange(deathAnimation))
-                            Main.projectile[deathAnimation].ai[0] = npc.whoAmI;
-                    }
+                        Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<MoonLordDeathAnimationHandler>(), 0, 0f, -1, npc.whoAmI);
                 }
 
                 // Create explosions periodically.
@@ -407,11 +419,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             {
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    int blackHole = Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<VoidBlackHole>(), 300, 0f);
-                    if (Main.projectile.IndexInRange(blackHole))
-                        Main.projectile[blackHole].ai[1] = npc.whoAmI;
-                }
+                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<VoidBlackHole>(), BlackHoleDamage, 0f, -1, 0f, npc.whoAmI);
             }
 
             if (attackTimer >= 540f)
@@ -458,6 +466,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                     MoonLordAttackState.PhantasmalDance,
                     MoonLordAttackState.PhantasmalRush,
                     MoonLordAttackState.PhantasmalBarrage,
+                    MoonLordAttackState.ExplodingConstellations,
                 };
 
                 if (lifeRatio < Phase2LifeRatio)
@@ -471,7 +480,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                         MoonLordAttackState.PhantasmalDance,
                         MoonLordAttackState.PhantasmalWrath,
                         MoonLordAttackState.PhantasmalBarrage,
-                        MoonLordAttackState.ExplodingConstellations,
                         MoonLordAttackState.PhantasmalWrath,
                     };
                 }
@@ -518,8 +526,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
                 ModContent.ProjectileType<LunarFireball>(),
                 ModContent.ProjectileType<LunarFlare>(),
                 ModContent.ProjectileType<LunarFlareTelegraph>(),
-                ModContent.ProjectileType<NebulaCloud>(),
-                ModContent.ProjectileType<NebulaVortex>(),
                 ModContent.ProjectileType<PhantasmalDeathray>(),
                 ModContent.ProjectileType<PhantasmalOrb>(),
                 ModContent.ProjectileType<StardustConstellation>(),
@@ -554,6 +560,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 
         public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor)
         {
+            // Hideous code from vanilla. Don't mind it too much.
             Texture2D coreTexture = Main.npcTexture[npc.type];
             Texture2D coreOutlineTexture = Main.extraTexture[16];
             Texture2D forearmTexture = Main.extraTexture[14];

@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using Terraria;
 using Terraria.Graphics.Shaders;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
@@ -15,7 +16,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
 
         public NPC ThingToAttachTo => Main.npc.IndexInRange((int)projectile.ai[1]) ? Main.npc[(int)projectile.ai[1]] : null;
 
-        public PrimitiveTrail TelegraphDrawer = null;
+        public PrimitiveTrail TelegraphDrawer;
         public const float TelegraphFadeTime = 15f;
 
         public override void SetStaticDefaults()
@@ -32,6 +33,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.MoonLord
             projectile.alpha = 255;
             projectile.penetrate = -1;
             projectile.timeLeft = PressurePhantasmalDeathray.LifetimeConstant;
+            cooldownSlot = 1;
         }
 
         public override void SendExtraAI(BinaryWriter writer)

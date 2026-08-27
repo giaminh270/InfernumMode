@@ -1,8 +1,12 @@
 using CalamityMod;
-using CalamityMod.Events;
 using CalamityMod.NPCs.AquaticScourge;
+using CalamityMod.Particles;
+using InfernumMode.Particles;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Terraria;
 using Terraria.ID;
@@ -12,59 +16,200 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AquaticScourge
 {
     public class AquaticScourgeBodyBehaviorOverride : NPCBehaviorOverride
     {
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw;
         public override int NPCOverrideType => ModContent.NPCType<AquaticScourgeBody>();
-
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI;
 
         public override bool PreAI(NPC npc)
         {
-            if (!Main.npc.IndexInRange((int)npc.ai[1]) || !Main.npc[(int)npc.ai[1]].active)
+            DoAI(npc);
+            return false;
+        }
+
+        public static void DoAI(NPC npc)
+        {
+            // Go away if the ahead segment is not present.
+            // Do not rely on IndexInRange here: this AI can run while a worm segment is being
+            // created/synchronized, so the link in ai[1] may temporarily be invalid.
+            float aheadSegmentIndexValue = npc.ai[1];
+            if (float.IsNaN(aheadSegmentIndexValue) || float.IsInfinity(aheadSegmentIndexValue))
             {
                 npc.life = 0;
                 npc.HitEffect(0, 10.0);
                 npc.active = false;
                 npc.netUpdate = true;
-                return false;
+                return;
             }
 
-            NPC aheadSegment = Main.npc[(int)npc.ai[1]];
-            NPC headSegment = Main.npc[npc.realLife];
-            npc.target = aheadSegment.target;
+            int aheadSegmentIndex = (int)aheadSegmentIndexValue;
+            if (aheadSegmentIndex < 0 || aheadSegmentIndex >= Main.npc.Length)
+            {
+                npc.life = 0;
+                npc.HitEffect(0, 10.0);
+                npc.active = false;
+                npc.netUpdate = true;
+                return;
+            }
 
+            NPC aheadSegment = Main.npc[aheadSegmentIndex];
+            if (!aheadSegment.active)
+            {
+                npc.life = 0;
+                npc.HitEffect(0, 10.0);
+                npc.active = false;
+                npc.netUpdate = true;
+                return;
+            }
+
+            int segmentIndex = (int)npc.ai[3];
+            ref float segmentGrowInterpolant = ref npc.Infernum().ExtraAI[0];
+            ref float segmentRegrowRate = ref npc.Infernum().ExtraAI[1];
+            ref float totalSpawnedLeeches = ref npc.Infernum().ExtraAI[2];
+            ref float hasCreatedSplash = ref npc.Infernum().ExtraAI[4];
+
+            // Make segments slowly regrow their spikes.
+            segmentGrowInterpolant = MathHelper.Clamp(segmentGrowInterpolant + segmentRegrowRate, 0f, 1f);
+            if (segmentRegrowRate <= 0f)
+            {
+                segmentRegrowRate = Main.rand.NextFloat(0.0014f, 0.0023f);
+                segmentGrowInterpolant = 1f;
+                npc.netUpdate = true;
+            }
+
+            if (npc.realLife < 0 || npc.realLife >= Main.npc.Length || !Main.npc[npc.realLife].active)
+            {
+                npc.life = 0;
+                npc.HitEffect(0, 10.0);
+                npc.active = false;
+                npc.netUpdate = true;
+                return;
+            }
+
+            NPC headSegment = Main.npc[npc.realLife];
+
+            // Fade in if the ahead segment has faded in sufficiently, resulting into the entire worm smoothly appearing.
             if (aheadSegment.alpha < 128)
                 npc.alpha = Utils.Clamp(npc.alpha - 42, 0, 255);
 
+            // Inherit attributes from the head.
+            npc.target = aheadSegment.target;
             npc.defense = aheadSegment.defense;
-            npc.damage = 50;
-            npc.dontTakeDamage = aheadSegment.dontTakeDamage;
+            npc.damage = headSegment.damage >= 1 ? 60 : 0;
+            npc.dontTakeDamage = headSegment.dontTakeDamage;
             npc.chaseable = headSegment.chaseable;
+            npc.noTileCollide = headSegment.noTileCollide;
+            npc.gfxOffY = headSegment.gfxOffY;
+            npc.Opacity = headSegment.Opacity;
             npc.Calamity().newAI[0] = npc.chaseable.ToInt();
+            npc.Calamity().DR = (float)Math.Min(npc.Calamity().DR, 0.4f);
 
-            npc.Calamity().DR = MathHelper.Min(npc.Calamity().DR, 0.4f);
+            // Always use max HP. This doesn't affect the worm as a whole, but it does prevent problems in the death animation where segments otherwise just disappear when killed.
+            npc.lifeMax = headSegment.lifeMax;
+            npc.life = npc.lifeMax;
 
-            Vector2 directionToNextSegment = aheadSegment.Center - npc.Center;
-            if (aheadSegment.rotation != npc.rotation)
-                directionToNextSegment = directionToNextSegment.RotatedBy(MathHelper.WrapAngle(aheadSegment.rotation - npc.rotation) * 0.075f);
-            ref float attackTimer = ref npc.ai[3];
-
-            npc.rotation = directionToNextSegment.ToRotation() + MathHelper.PiOver2;
-            npc.Center = aheadSegment.Center - directionToNextSegment.SafeNormalize(Vector2.Zero) * npc.width * npc.scale;
-
-            attackTimer++;
-            float lifeRatio = headSegment.life / (float)headSegment.lifeMax;
-            bool canShoot = !npc.WithinRange(Main.player[npc.target].Center, 380f) && lifeRatio < 0.25f;
-            if (canShoot && attackTimer > Main.rand.NextFloat(320f, 415f) && Utilities.AllProjectilesByID(ModContent.ProjectileType<SlowerSandTooth>()).Count() < 5)
+            // Stay behind the previous segment.
+            if (npc.noTileCollide)
             {
-                Main.PlaySound(SoundID.Item17, npc.Center);
-                if (Main.netMode != NetmodeID.MultiplayerClient)
+                Vector2 directionToNextSegment = aheadSegment.Center - npc.Center;
+                if (aheadSegment.rotation != npc.rotation)
                 {
-                    Vector2 toothVelocity = Main.rand.NextVector2CircularEdge(7.2f, 7.2f);
-                    if (BossRushEvent.BossRushActive)
-                        toothVelocity *= 2.4f;
-
-                    Utilities.NewProjectileBetter(npc.Center + toothVelocity * 3f, toothVelocity, ModContent.ProjectileType<SlowerSandTooth>(), 115, 0f);
-                    attackTimer = 0f;
+                    float segmentMoveInterpolant = 0.075f;
+                    directionToNextSegment = directionToNextSegment.RotatedBy(MathHelper.WrapAngle(aheadSegment.rotation - npc.rotation) * segmentMoveInterpolant);
                 }
+
+                npc.rotation = directionToNextSegment.ToRotation() + MathHelper.PiOver2;
+                npc.Center = aheadSegment.Center - directionToNextSegment.SafeNormalize(Vector2.Zero) * npc.width * npc.scale;
+
+                // Shudder if the head says to do so.
+                if (headSegment.ai[2] == (int)AquaticScourgeHeadBehaviorOverride.AquaticScourgeAttackType.PerpendicularSpikeBarrage)
+                {
+                    if (headSegment.Infernum().ExtraAI[3] >= 1f && npc.ai[3] >= 2f)
+                        npc.Center += directionToNextSegment.SafeNormalize(Vector2.Zero).RotatedBy(MathHelper.PiOver2) * (float)Math.Sin(MathHelper.Pi * npc.ai[3] / 35f + headSegment.ai[3] / 15f) * 3.6f;
+                }
+
+                if (segmentIndex >= 0 && segmentIndex < AquaticScourgeHeadBehaviorOverride.WormSegments.Count)
+                    AquaticScourgeHeadBehaviorOverride.WormSegments[segmentIndex].position = npc.Center;
+            }
+
+            // Follow the verlet segment as directed by the head.
+            else
+            {
+                if (segmentIndex < 0 || segmentIndex + 1 >= AquaticScourgeHeadBehaviorOverride.WormSegments.Count)
+                    return;
+
+                npc.Center = AquaticScourgeHeadBehaviorOverride.WormSegments[segmentIndex + 1].position;
+
+                float idealRotation = (AquaticScourgeHeadBehaviorOverride.WormSegments[segmentIndex].position - npc.Center).ToRotation() + MathHelper.PiOver2;
+                npc.rotation = npc.rotation.AngleTowards(idealRotation, 0.03f).AngleLerp(idealRotation, 0.05f);
+
+                // Release blood if in water. If the flesh is eaten, release acid instead as it disappears.
+                if (Collision.WetCollision(npc.Top, npc.width, npc.height))
+                {
+                    if (npc.localAI[1] <= 0.4f && Main.rand.NextBool(560))
+                    {
+                        float bloodOpacity = 0.7f;
+                        CloudParticle bloodCloud = new CloudParticle(npc.Center, Main.rand.NextVector2Circular(4f, 4f), Color.Red * bloodOpacity, Color.DarkRed * bloodOpacity, 270, Main.rand.NextFloat(1.9f, 2.12f));
+                        GeneralParticleHandler.SpawnParticle(bloodCloud);
+                    }
+                    else if (npc.localAI[1] >= 0.9f && Main.rand.NextFloat() <= npc.Opacity * 0.02f && npc.Opacity <= 0.6f)
+                    {
+                        float acidOpacity = 0.8f;
+                        CloudParticle acidCloud = new CloudParticle(npc.Center, Main.rand.NextVector2Circular(4f, 4f), Color.YellowGreen * acidOpacity, Color.Olive * acidOpacity * 0.7f, 120, Main.rand.NextFloat(1.9f, 2.12f));
+                        GeneralParticleHandler.SpawnParticle(acidCloud);
+                    }
+
+                    // Handle splash effects.
+                    if (hasCreatedSplash == 0f)
+                    {
+                        for (int i = 0; i < 3; i++)
+                        {
+                            float acidOpacity = 0.56f;
+                            CloudParticle acidCloud = new CloudParticle(npc.Center, -Vector2.UnitY.RotatedByRandom(1.23f) * Main.rand.NextFloat(1f, 14f), Color.YellowGreen * acidOpacity, Color.Olive * acidOpacity * 0.7f, 120, Main.rand.NextFloat(1.9f, 2.12f));
+                            GeneralParticleHandler.SpawnParticle(acidCloud);
+                        }
+                        hasCreatedSplash = 1f;
+                    }
+                }
+
+                // Spawn leeches that will eat away at the segment.
+                if (Main.netMode != NetmodeID.MultiplayerClient && totalSpawnedLeeches < 3f && Main.rand.NextBool(32))
+                {
+                    Utilities.NewProjectileBetter(npc.Center + Main.rand.NextVector2CircularEdge(180f, 180f), Vector2.Zero, ModContent.ProjectileType<LeechFeeder>(), 0, 0f, -1, npc.whoAmI);
+                    totalSpawnedLeeches++;
+                }
+            }
+        }
+
+        public static IEnumerable<Vector2> GetSpikePositions(NPC npc)
+        {
+            yield return npc.Center + Vector2.UnitY * npc.gfxOffY + new Vector2(16f, 4f).RotatedBy(npc.rotation) * npc.scale;
+            yield return npc.Center + Vector2.UnitY * npc.gfxOffY + new Vector2(16f, -10f).RotatedBy(npc.rotation) * npc.scale;
+            yield return npc.Center + Vector2.UnitY * npc.gfxOffY + new Vector2(-18f, 4f).RotatedBy(npc.rotation) * npc.scale;
+            yield return npc.Center + Vector2.UnitY * npc.gfxOffY + new Vector2(-18f, -10f).RotatedBy(npc.rotation) * npc.scale;
+        }
+
+        public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor)
+        {
+            float skeletonInterpolant = npc.localAI[1];
+            Vector2 drawPosition = npc.Center - Main.screenPosition + Vector2.UnitY * npc.gfxOffY;
+            Texture2D bodyTexture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/AquaticScourge/AquaticScourgeBody");
+            Texture2D bodyTextureSkeleton = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/AquaticScourge/AquaticScourgeBodySkeleton");
+            Texture2D spikeTexture = ModContent.GetTexture("InfernumMode/BehaviorOverrides/BossAIs/AquaticScourge/AquaticScourgeBodySpike");
+            Vector2 origin = bodyTexture.Size() * 0.5f;
+            Main.spriteBatch.Draw(bodyTexture, drawPosition, null, npc.GetAlpha(lightColor) * (1f - skeletonInterpolant), npc.rotation, origin, npc.scale, 0, 0);
+            Main.spriteBatch.Draw(bodyTextureSkeleton, drawPosition, null, npc.GetAlpha(lightColor) * skeletonInterpolant, npc.rotation, origin, npc.scale, 0, 0);
+
+            // Draw spikes.
+            int index = 0;
+            float spikeScale = (float)Math.Pow(npc.Infernum().ExtraAI[0], 1.64f) * npc.scale;
+            foreach (Vector2 spikePosition in GetSpikePositions(npc))
+            {
+                SpriteEffects direction = index < 2 ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
+                origin = spikeTexture.Size() * Vector2.UnitX;
+                if (index < 2)
+                    origin.X = spikeTexture.Width - origin.X;
+
+                Main.spriteBatch.Draw(spikeTexture, spikePosition - Main.screenPosition, null, npc.GetAlpha(lightColor), npc.rotation, origin, spikeScale, direction, 0);
+                index++;
             }
 
             return false;

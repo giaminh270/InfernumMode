@@ -9,19 +9,56 @@ namespace InfernumMode
 {
     public static partial class Utilities
     {
+		
+		public static Point GetGroundPositionFrom(Point p, GenSearch search = null)
+        {
+            if (!WorldGen.InWorld(p.X, p.Y))
+                return p;
+
+            if (search == null)
+                search = new Searches.Down(9001);
+
+            if (!WorldUtils.Find(
+                p,
+                Searches.Chain(
+                    search,
+                    new Conditions.IsSolid(),
+                    new CustomTileConditions.ActiveAndNotActuated()),
+                out Point result))
+            {
+                return p;
+            }
+
+            if (!WorldGen.InWorld(result.X, result.Y))
+                return p;
+
+            return result;
+        }
+		
         public static Vector2 GetGroundPositionFrom(Vector2 v, GenSearch search = null)
         {
             Point tileCoordinates = v.ToTileCoordinates();
             if (!WorldGen.InWorld(tileCoordinates.X, tileCoordinates.Y))
                 return v;
-            
-            if (search is null)
+
+            if (search == null)
                 search = new Searches.Down(9001);
-            if (!WorldUtils.Find(tileCoordinates, Searches.Chain(search, new Conditions.IsSolid(), new CustomTileConditions.ActiveAndNotActuated()), out Point result))
+
+            if (!WorldUtils.Find(
+                tileCoordinates,
+                Searches.Chain(
+                    search,
+                    new Conditions.IsSolid(),
+                    new CustomTileConditions.ActiveAndNotActuated(),
+                    new CustomTileConditions.NotPlatform()),
+                out Point result))
+            {
                 return v;
+            }
+
             if (!WorldGen.InWorld(result.X, result.Y))
                 return v;
-            
+
             return result.ToWorldCoordinates();
         }
 

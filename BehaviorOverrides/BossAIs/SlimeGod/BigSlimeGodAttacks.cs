@@ -30,7 +30,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             ref float stuckTimer = ref npc.Infernum().ExtraAI[2];
 
             // Slow down and prepare to jump if on the ground.
-            if ((npc.velocity.Y == 0f && Utilities.ActualSolidCollisionTop(npc.BottomLeft - Vector2.UnitY * 8f, npc.width, 54)) || stuckTimer >= 270f)
+            if (npc.velocity.Y == 0f && Utilities.ActualSolidCollisionTop(npc.BottomLeft - Vector2.UnitY * 8f, npc.width, 54) || stuckTimer >= 270f)
             {
                 npc.velocity.X *= 0.5f;
                 attackTimer++;
@@ -109,7 +109,6 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
             {
                 sitTime -= 9;
                 groundBlobCount += 3;
-                blobCount += 2;
                 globSpeed += 1f;
             }
 
@@ -123,6 +122,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                 // Initialize the offset direction.
                 if (chargeOffsetDirection == 0f)
                     chargeOffsetDirection = 1f;
+
                 float hoverSpeed = Utilities.Remap(attackTimer, 0f, maxHoverTime, 23.5f, 38.5f);
                 Vector2 hoverDestination = target.Center - Vector2.UnitY * 470f;
                 if (alone)
@@ -257,7 +257,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.SlimeGod
                 npc.velocity.X *= 0.5f;
                 attackTimer++;
 
-                if (attackTimer >= jumpDelay && 
+                if (attackTimer >= jumpDelay &&
                     npc.SafeDirectionTo(target.Center).RotatedBy(-MathHelper.PiOver2).AngleBetween(core.Center - npc.Center) < 0.28f &&
                     !core.WithinRange(npc.Center, 100f) &&
                     stuckTimer >= 30f)

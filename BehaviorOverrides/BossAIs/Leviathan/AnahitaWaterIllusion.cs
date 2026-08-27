@@ -1,4 +1,4 @@
-using CalamityMod.NPCs;
+﻿using CalamityMod.NPCs;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -41,7 +41,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
         public override void AI()
         {
             // Die if Anahita is not around.
-            if (CalamityGlobalNPC.siren == -1 || ComboAttackManager.FightState == LeviAnahitaFightState.LeviathanAlone)
+            if (CalamityGlobalNPC.siren == -1 || LeviathanComboAttackManager.FightState == LeviAnahitaFightState.LeviathanAlone)
             {
                 projectile.Kill();
                 return;

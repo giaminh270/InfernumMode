@@ -1,6 +1,7 @@
 using CalamityMod;
 using CalamityMod.Projectiles.Boss;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
+using InfernumMode.Sounds;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
@@ -16,10 +17,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
         {
             get;
             set;
-        } = false;
+        }
 
         public bool ShouldExplodeDiagonally => projectile.ai[0] == 0f;
-       
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Volatile Plasma Blast");
@@ -133,8 +134,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ArtemisAndApollo
             projectile.Center = projectile.position;
             projectile.Damage();
 
-            Main.PlaySound(SoundID.Item93, projectile.Center);
+            Main.PlaySound(InfernumSoundRegistry.ExoPlasmaExplosion, projectile.Center);
 
+            // Explode into plasma.
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
                 if (GasExplosionVariant)

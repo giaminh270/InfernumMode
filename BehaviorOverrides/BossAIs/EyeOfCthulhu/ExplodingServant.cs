@@ -22,7 +22,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EyeOfCthulhu
             npc.noGravity = true;
             npc.lavaImmune = true;
             npc.noTileCollide = true;
-            npc.damage = 48;
+            npc.damage = 40;
             npc.height = npc.width = 28;
             npc.defense = 2;
             npc.lifeMax = BossRushEvent.BossRushActive ? 6500 : 24;
@@ -51,7 +51,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.EyeOfCthulhu
             npc.alpha = Utils.Clamp(npc.alpha - 30, 0, 255);
 
             float maxSpeed = BossRushEvent.BossRushActive ? 34f : 14f;
-            float moveAcceleration = BossRushEvent.BossRushActive ? 1.04f : 1.0075f;
+            float moveAcceleration = BossRushEvent.BossRushActive ? 1.04f : 1.007f;
             if (Main.dayTime && !BossRushEvent.BossRushActive)
             {
                 maxSpeed *= 1.425f;

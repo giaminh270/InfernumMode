@@ -11,6 +11,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
     public class DarkPulse : ModProjectile
     {
         public ref float Time => ref projectile.ai[0];
+
         public override void SetStaticDefaults()
         {
             DisplayName.SetDefault("Dark Pulse");
@@ -30,6 +31,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             projectile.Opacity = 0f;
             projectile.extraUpdates = 1;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -42,14 +44,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cultist
             Time++;
         }
 
-        
-
         public override bool CanDamage() => projectile.Opacity >= 1f;
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             lightColor = Color.Lerp(lightColor, Color.Purple, 0.5f);
             Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type]);
+            projectile.DrawProjectileWithBackglowTemp(Color.White, lightColor, 4f);
             return false;
         }
     }

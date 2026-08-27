@@ -19,6 +19,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
             projectile.tileCollide = false;
             projectile.penetrate = -1;
             projectile.timeLeft = 300;
+            cooldownSlot = 1;
         }
 
         public override bool PreAI()
@@ -30,20 +31,17 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Golem
                 if (Main.player.IndexInRange((int)projectile.Infernum().ExtraAI[2]))
                 {
                     Player target = Main.player[(int)projectile.Infernum().ExtraAI[2]];
-                    Vector2 shootDirection = projectile.SafeDirectionTo(target.Center + target.velocity * 4f);
+                    Vector2 shootDirection = projectile.SafeDirectionTo(target.Center + target.velocity * 12f);
                     float rotation = -(projectile.rotation + MathHelper.Pi - (shootDirection.ToRotation() + MathHelper.Pi));
                     projectile.rotation = MathHelper.WrapAngle(projectile.rotation + MathHelper.Clamp(rotation, -MathHelper.ToRadians(10), MathHelper.ToRadians(10)));
-
-                    // Create a line telegraph.
-                    if (Main.netMode != NetmodeID.MultiplayerClient && projectile.localAI[0] == 0f)
-                    {
-                        Utilities.NewProjectileBetter(projectile.Center, shootDirection, ModContent.ProjectileType<FistBulletTelegraph>(), 0, 0f);
-                        projectile.localAI[0] = 1f;
-                    }
                 }
             }
             else if (projectile.Infernum().ExtraAI[0] == 60f)
             {
+                // Create a line telegraph.
+                if (Main.netMode != NetmodeID.MultiplayerClient)
+                    Utilities.NewProjectileBetter(projectile.Center, projectile.rotation.ToRotationVector2(), ModContent.ProjectileType<FistBulletTelegraph>(), 0, 0f);
+
                 Main.PlaySound(SoundID.DD2_WyvernDiveDown, projectile.Center);
                 if (Main.player.IndexInRange((int)projectile.Infernum().ExtraAI[2]))
                 {

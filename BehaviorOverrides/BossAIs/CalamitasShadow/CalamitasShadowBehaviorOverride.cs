@@ -1,4 +1,4 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Buffs.DamageOverTime;
 using CalamityMod.Items.Weapons.Ranged;
 using CalamityMod.NPCs;
@@ -8,10 +8,15 @@ using InfernumMode.Particles;
 using CalamityMod.UI.CalamitasEnchants;
 using CalamityMod.Buffs.StatDebuffs;
 using CalamityMod.Dusts;
+using InfernumMode.Effects;
 using CalamityMod.Events;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Sounds;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.Graphics.Primitives;
 using InfernumMode;
-
+using InfernumMode;
+using InfernumMode.Sounds;
 using InfernumMode.Buffs;
 using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
@@ -37,7 +42,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
     {
         public override int NPCOverrideType => ModContent.NPCType<CalamitasShadowBoss>();
 		
-		public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCFindFrame;
+		public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCFindFrame | NPCOverrideContext.NPCCheckDead;
 
         #region Enumerations
         public enum CalShadowAttackType
@@ -456,7 +461,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                 // Fly into the air and transition to the first attack after the background is fully dark.
                 if (backgroundEffectIntensity >= 1f)
                 {
-                    Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/VassalJump"), target.Center);
+                    Main.PlaySound(InfernumSoundRegistry.VassalJumpSound, target.Center);
                     Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SupremeCalamitasSpawn"), target.Center);
 
                     npc.velocity.Y -= 14f;
@@ -693,8 +698,8 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                         GeneralParticleHandler.SpawnParticle(fireCloud);
                     }
 
-                    // Sus ScreenEffectSystem.SetBlurEffect(staffEnd, 0.7f, 45);
-                    Main.LocalPlayer.Infernum().CurrentScreenShakePower = 10f;
+                    ScreenEffectSystem.SetBlurEffect(staffEnd, 0.7f, 45);
+                    target.Infernum().CurrentScreenShakePower = 10f;
 
                     Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<DarkMagicFlame>());
 
@@ -717,7 +722,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                 {
                     // Play a charge telegraph sound.
                     if (attackTimer == redirectTime + seekerSummonTime + seekerShootTime)
-                        Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/EntropyRayCharge"), target.Center);					
+                        Main.PlaySound(InfernumSoundRegistry.EntropyRayChargeSound, target.Center);
 
                     float telegraphCompletion = Utils.InverseLerp(0f, laserTelegraphTime, attackTimer - redirectTime - seekerSummonTime - seekerShootTime, true);
                     telegraphInterpolant = Utils.InverseLerp(0f, 0.67f, telegraphCompletion, true) * Utils.InverseLerp(1f, 0.84f, telegraphCompletion, true);
@@ -729,9 +734,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                 // Fire the laser.
                 if (attackTimer == redirectTime + seekerSummonTime + seekerShootTime + laserTelegraphTime)
                 {
-                    // Sus ScreenEffectSystem.SetBlurEffect(staffEnd, 0.7f, 45);
-                    Main.LocalPlayer.Infernum().CurrentScreenShakePower = 10f;
-                    Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/EntropyRayFire"), target.Center);					
+                    ScreenEffectSystem.SetBlurEffect(staffEnd, 0.7f, 45);
+                    target.Infernum().CurrentScreenShakePower = 10f;
+                    Main.PlaySound(InfernumSoundRegistry.EntropyRayFireSound, target.Center);					
 
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
@@ -811,7 +816,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                         return;
                     }
 
-                    Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/Sizzle"), target.Center);
+                    Main.PlaySound(InfernumSoundRegistry.SizzleSound, target.Center);
 
                     if (Main.netMode != NetmodeID.Server)
                     {
@@ -850,7 +855,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 
                 if (wrappedAttackTimer == disappearTime)
                 {
-                    Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/CalamitasShadowTeleport"), target.Center);
+                    Main.PlaySound(InfernumSoundRegistry.CalShadowTeleportSound, target.Center);
 
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
@@ -938,7 +943,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                 // Release fire from the orb.
                 if (canShootFire && wrappedAttackTimer <= boltShootCycleTime - 30f && wrappedAttackTimer % boltCircleReleaseRate == boltCircleReleaseRate - 1f)
                 {
-                    Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/Sizzle"), target.Center);
+                    Main.PlaySound(InfernumSoundRegistry.SizzleSound, target.Center);
 
                     if (Main.netMode != NetmodeID.MultiplayerClient && fireOrbs.Any())
                     {
@@ -996,9 +1001,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             {
                 if (attackTimer == 1f)
                 {
-                    Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceLavaEruptionSmall"), target.Center);
-                    // sus ScreenEffectSystem.SetFlashEffect(target.Center - Vector2.UnitY * 500f, 4f, 35);
-                    Main.LocalPlayer.Infernum().CurrentScreenShakePower = 10f;
+                    Main.PlaySound(InfernumSoundRegistry.ProvidenceLavaEruptionSmallSound, target.Center);
+                    ScreenEffectSystem.SetFlashEffect(target.Center - Vector2.UnitY * 500f, 4f, 35);
+                    target.Infernum().CurrentScreenShakePower = 10f;
 
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
@@ -1120,10 +1125,10 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             {
                 // Do funny screen stuff.
                 Main.LocalPlayer.Infernum().CurrentScreenShakePower = 12f;
-                //sus ScreenEffectSystem.SetFlashEffect(npc.Center, 2f, 45);
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 2f, 45);
 
                 Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SCalSounds/BrimstoneBigShoot"), npc.Center);
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceLavaEruptionSmall"), npc.Center);
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceLavaEruptionSmallSound, npc.Center);
 
                 // Create explosion particles.
                 if (Main.netMode != NetmodeID.Server)
@@ -1219,7 +1224,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                 // Release a burst of flames in all directions.
                 if (wrappedAttackTimer == hoverTime + chargeTime + 11f)
                 {
-                    Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/Sizzle"), target.Center);
+                    Main.PlaySound(InfernumSoundRegistry.SizzleSound, target.Center);
 
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
@@ -1263,7 +1268,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             if (attackTimer <= 2f)
             {
                 if (attackTimer <= 1f)
-                    Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SCalBrothersSpawn"), target.Center);
+                    Main.PlaySound(InfernumSoundRegistry.SCalBrothersSpawnSound);
 
                 int[] projectilesToDelete = new int[]
                 {
@@ -1287,7 +1292,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                 npc.dontTakeDamage = true;
                 npc.velocity.X *= 0.75f;
                 npc.Opacity = 1f;
-                Main.LocalPlayer.Infernum().CurrentScreenShakePower = attackTimer / rumbleTime * 6f;
+                target.Infernum().CurrentScreenShakePower = attackTimer / rumbleTime * 6f;
             }
 
             // Make the forcefield dissipate.
@@ -1310,7 +1315,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             // Have the shadow teleport away and summon the brothers.
             if (attackTimer == rumbleTime)
             {
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/CalamitasShadowTeleport"), target.Center);
+                Main.PlaySound(InfernumSoundRegistry.CalShadowTeleportSound);
 
                 // Have the shadow vanish into shadow blobs.
                 if (Main.netMode != NetmodeID.Server)
@@ -1411,13 +1416,13 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             // Teleport to the side of the player.
             if (attackTimer == teleportDelay)
             {
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/CalamitasShadowTeleport"), target.Center);
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceLavaEruption"), target.Center);
+                Main.PlaySound(InfernumSoundRegistry.CalShadowTeleportSound);
+                Main.PlaySound(InfernumSoundRegistry.ProvidenceLavaEruptionSound);
                 npc.Center = target.Center - Vector2.UnitX * target.direction * 360f;
                 npc.velocity = Vector2.Zero;
 
-                //sus ScreenEffectSystem.SetFlashEffect(npc.Center, 3f, 45);
-                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 15f;
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 3f, 45);
+                target.Infernum().CurrentScreenShakePower = 15f;
             }
 
             // Look at the target and slow down.
@@ -1507,9 +1512,9 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             if (wrappedAttackTimer == hoverTime + 1f)
             {
                 Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/SCalSounds/SCalDash"), npc.Center); 
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/GlassmakerOutro"), target.Center);
-                // sus ScreenEffectSystem.SetFlashEffect(npc.Center, 1f, 15);
-                Main.LocalPlayer.Infernum().CurrentScreenShakePower = 6f;
+                Main.PlaySound(InfernumSoundRegistry.GlassmakerFireEndSound.WithPitchVariance(0.125f), target.Center);
+                ScreenEffectSystem.SetFlashEffect(npc.Center, 1f, 15);
+                target.Infernum().CurrentScreenShakePower = 6f;
                 npc.velocity = npc.SafeDirectionTo(target.Center) * baseChargeSpeed;
             }
 
@@ -1639,7 +1644,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             if (attackTimer == textDelay)
             {
                 Utilities.DisplayText("I'm not done yet! Brace yourself for my strongest hex!", TextColor);
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/EntropyRayCharge"), target.Center);
+                Main.PlaySound(InfernumSoundRegistry.EntropyRayChargeSound);
             }
 
             // Create hex visual effects.
@@ -1996,7 +2001,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
                     Vector2 circleScale = new Vector2(Math.Max(Main.screenWidth, Main.screenHeight)) * 5f;
                     Main.spriteBatch.EnterShaderRegion();
 
-                    var circleCutoutShader = GameShaders.Misc["Infernum:CircleCutout"];
+                    var circleCutoutShader = InfernumEffectsRegistry.CircleCutoutShader;
                     circleCutoutShader.Shader.Parameters["uImageSize0"].SetValue(circleScale);
                     circleCutoutShader.Shader.Parameters["uCircleRadius"].SetValue(blackCutoutRadius * 1.414f);
                     circleCutoutShader.Apply();
@@ -2040,7 +2045,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             if (eyeGleamInterpolant > 0f)
             {
                 float eyePulse = Main.GlobalTime * 0.84f % 1f;
-                Texture2D eyeGleam = ModContent.GetTexture("InfernumMode/ExtraTextures/Gleam");
+                Texture2D eyeGleam = InfernumTextureRegistry.Gleam;
                 Vector2 eyePosition = npc.Center + new Vector2(npc.spriteDirection * -4f, -12f);
                 Vector2 horizontalGleamScaleSmall = new Vector2(eyeGleamInterpolant * 3f, 1f) * 0.55f;
                 Vector2 verticalGleamScaleSmall = new Vector2(1f, eyeGleamInterpolant * 2f) * 0.55f;
@@ -2132,5 +2137,24 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             HexStripDrawer.Draw(left, right, 0.15f, 2f, Main.GlobalTime * 2f);
         }
         #endregion Frames and Drawcode
+		
+		#region Death Effects
+		public override bool CheckDead(NPC npc)
+        {
+            if (npc.ai[0] != (int)CalShadowAttackType.DeathAnimation)
+            {
+                // Delete all old projectiles.
+                Utilities.DeleteAllProjectiles(false, ModContent.ProjectileType<ArcingBrimstoneDart>(), ModContent.ProjectileType<DarkMagicFlame>());
+
+                SelectNextAttack(npc);
+                npc.ai[0] = (int)CalShadowAttackType.DeathAnimation;
+                npc.life = 1;
+                npc.dontTakeDamage = true;
+                npc.active = true;
+                npc.netUpdate = true;
+            }
+            return false;
+        }
+        #endregion Death Effects
     }
 }

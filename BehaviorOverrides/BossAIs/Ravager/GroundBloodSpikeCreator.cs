@@ -23,6 +23,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Ravager
             projectile.ignoreWater = true;
             projectile.timeLeft = 420;
             projectile.penetrate = -1;
+            cooldownSlot = 1;
         }
 
         public override void AI()

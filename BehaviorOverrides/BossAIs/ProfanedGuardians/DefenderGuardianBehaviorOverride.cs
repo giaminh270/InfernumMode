@@ -1,11 +1,26 @@
+﻿using CalamityMod;
 using CalamityMod.NPCs;
 using CalamityMod.NPCs.ProfanedGuardians;
+using CalamityMod.Particles;
+using InfernumMode.BehaviorOverrides.BossAIs.Providence;
+using InfernumMode;
+using InfernumMode.GlobalInstances;
 using InfernumMode.OverridingSystem;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System.Linq;
 using Terraria;
+using Terraria.GameContent.Events;
 using Terraria.ID;
 using Terraria.ModLoader;
-using ProvidenceNPC = CalamityMod.NPCs.Providence.Providence;
+using static InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians.GuardianComboAttackManager;
+using InfernumMode.Projectiles;
+using Terraria.Graphics.Shaders;
+using Terraria.DataStructures;
+using InfernumMode.Particles;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using System;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
 {
@@ -13,57 +28,353 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.ProfanedGuardians
     {
         public override int NPCOverrideType => ModContent.NPCType<ProfanedGuardianBoss2>();
 
-        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI;
+        public override NPCOverrideContext ContentToOverride => NPCOverrideContext.NPCAI | NPCOverrideContext.NPCPreDraw | NPCOverrideContext.NPCCheckDead;
+
+
+        internal PrimitiveTrailCopy FireDrawer;
+
+        internal PrimitiveTrailCopy DashTelegraphDrawer;
 
         public override bool PreAI(NPC npc)
         {
-            if (!Main.npc.IndexInRange(CalamityGlobalNPC.doughnutBoss) || !Main.npc[CalamityGlobalNPC.doughnutBoss].active)
+            int commanderIndex = GuardianComboAttackManager.FindCommanderIndex();
+            if (commanderIndex == -1)
             {
                 npc.active = false;
                 npc.netUpdate = true;
                 return false;
             }
 
-            NPC thingToDefend = Main.npc[CalamityGlobalNPC.doughnutBoss];
-            int fieldSpawnRate = 210;
-            float thingToDefendLifeRatio = thingToDefend.life / (float)thingToDefend.lifeMax;
-            ref float attackTimer = ref npc.Infernum().ExtraAI[0];
+            npc.timeLeft = 3600;
+            CalamityGlobalNPC.doughnutBoss = commanderIndex;
+            CalamityGlobalNPC.doughnutBossDefender = npc.whoAmI;
 
-            // Defend the crystal guardian if it has a lower life ratio than the main boss.
-            int healerIndex = NPC.FindFirstNPC(ModContent.NPCType<ProfanedGuardianBoss3>());
-            if (Main.npc.IndexInRange(healerIndex) && Main.npc[healerIndex].life / (float)Main.npc[healerIndex].lifeMax < thingToDefendLifeRatio)
-                thingToDefend = Main.npc[healerIndex];
-            else
-                fieldSpawnRate -= 96;
+            NPC commander = Main.npc[commanderIndex];
+            Player target = Main.player[commander.target];
+            npc.target = commander.target;
 
-            npc.target = thingToDefend.target;
+            // These are inherited from the commander.
+            ref float attackState = ref commander.ai[0];
+            ref float attackTimer = ref commander.ai[1];
+            ref float drawFireSuckup = ref npc.ai[2];
+            drawFireSuckup = 0;
+            ref float drawDashTelegraph = ref commander.Infernum().ExtraAI[DefenderDrawDashTelegraphIndex];
+            drawDashTelegraph = 0;
+
+            // Reset taking damage.
+            npc.dontTakeDamage = false;
+            // Don't deal damage by default.
             npc.damage = 0;
-            npc.spriteDirection = thingToDefend.spriteDirection;
-            npc.alpha = 128;
+            npc.chaseable = true;
 
-            // Cast profaned fields from time to time.
-            if (attackTimer % fieldSpawnRate == fieldSpawnRate - 1f && !npc.WithinRange(Main.player[npc.target].Center, 250f))
+            // If the healer is dead, resume taking damage.
+            if (CalamityGlobalNPC.doughnutBossHealer == -1 && !Main.npc.Any(h => h.active && h.type == HealerType))
+                npc.Calamity().DR = 0.35f;
+            else
             {
-            	Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/ProvidenceSpawn"), npc.Center);
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<ProfanedField>(), 235, 0f);
-                    npc.netUpdate = true;
-                }
+                // Have very high DR.
+                npc.Calamity().DR = 0.9999f;
+                npc.lifeRegen = 1000000;
+                npc.chaseable = false;
+
+                // Don't take damage if low enough to avoid being killable first somehow.
+                if ((float)npc.life / npc.lifeMax <= 0.8f)
+                    npc.dontTakeDamage = true;
             }
 
-            // Move around.
-            Vector2 hoverDestination = thingToDefend.Center + (attackTimer / 75f).ToRotationVector2() * 200f;
-            if (npc.velocity.Length() < 2f)
-                npc.velocity = Vector2.UnitY * -2.4f;
+            if (commander.Infernum().ExtraAI[DefenderHasBeenYeetedIndex] == 1f)
+            {
+                DoBehavior_DefenderYeetEffects(npc, target, ref attackTimer, commander);
+                return false;
+            }
 
-            float flySpeed = MathHelper.Lerp(9f, 23f, Utils.InverseLerp(50f, 270f, npc.Distance(hoverDestination), true));
-            flySpeed *= Utils.InverseLerp(0f, 50f, npc.Distance(hoverDestination), true);
-            npc.velocity = npc.velocity * 0.85f + npc.SafeDirectionTo(hoverDestination) * flySpeed * 0.15f;
-            npc.velocity = npc.velocity.MoveTowards(npc.SafeDirectionTo(hoverDestination) * flySpeed, 4f);
+            switch ((GuardiansAttackType)attackState)
+            {
+                case GuardiansAttackType.SpawnEffects:
+                    // Go straight to this so the walls sync.
+                    DoBehavior_FlappyBird(npc, target, ref attackTimer, commander);
+                    break;
 
-            attackTimer++;
+                case GuardiansAttackType.FlappyBird:
+                    DoBehavior_FlappyBird(npc, target, ref attackTimer, commander);
+                    break;
+
+                case GuardiansAttackType.SoloHealer:
+                    DoBehavior_SoloHealer(npc, target, ref attackTimer, commander);
+                    break;
+
+                case GuardiansAttackType.SoloDefender:
+                    DoBehavior_SoloDefender(npc, target, ref attackTimer, commander);
+                    break;
+
+                case GuardiansAttackType.HealerAndDefender:
+                    DoBehavior_HealerAndDefender(npc, target, ref attackTimer, commander);
+                    break;
+
+                case GuardiansAttackType.HealerDeathAnimation:
+                    DoBehavior_HealerDeathAnimation(npc, target, ref attackTimer, commander);
+                    break;
+
+                case GuardiansAttackType.SpearDashAndGroundSlam:
+                    DoBehavior_SpearDashAndGroundSlam(npc, target, ref attackTimer, commander);
+                    break;
+
+                case GuardiansAttackType.CrashRam:
+                    DoBehavior_CrashRam(npc, target, ref attackTimer, commander);
+                    break;
+
+                case GuardiansAttackType.FireballBulletHell:
+                    DoBehavior_FireballBulletHell(npc, target, ref attackTimer, commander);
+                    break;
+
+                case GuardiansAttackType.DefenderDeathAnimation:
+                    DoBehavior_DefenderDeathAnimation(npc, target, ref attackTimer, commander);
+                    break;
+            }
             return false;
         }
+
+        public static void DoBehavior_DefenderYeetEffects(NPC npc, Player target, ref float attackTimer, NPC commander)
+        {
+            ref float localAttackTimer = ref npc.Infernum().ExtraAI[0];
+            ref float substate = ref npc.Infernum().ExtraAI[1];
+
+            ref float shieldStatus = ref npc.Infernum().ExtraAI[DefenderShieldStatusIndex];
+
+            npc.Calamity().ShouldCloseHPBar = true;
+            npc.damage = 0;
+            switch (substate)
+            {
+                case 0:
+                    // Create particles to indicate the sudden speed.
+                    if (Main.rand.NextBool())
+                    {
+                        Vector2 energySpawnPosition = npc.Center + Main.rand.NextVector2Circular(30f, 20f) - npc.velocity;
+                        Particle energyLeak = new SparkParticle(energySpawnPosition, npc.velocity * 0.3f, 30, Main.rand.NextFloat(0.9f, 1.4f), Color.Lerp(WayfinderSymbol.Colors[1], WayfinderSymbol.Colors[2], 0.75f));
+                        GeneralParticleHandler.SpawnParticle(energyLeak);
+                    }
+
+                    shieldStatus = (float)DefenderShieldStatus.ActiveAndStatic;
+
+                    if ((Collision.SolidCollision(npc.Center, npc.width, npc.height) && npc.Center.Y > target.Center.Y) || localAttackTimer >= 120f)
+                    {
+                        // Play a loud explosion + hurt sound and screenshake to give the impact power.
+                        Main.PlaySound(SoundID.DD2_ExplosiveTrapExplode, target.Center);
+                        Main.PlaySound(npc.HitSound, target.Center);
+
+                        DoPhaseTransitionEffects(commander, 1);
+
+                        if (CalamityConfig.Instance.DisableScreenShakes)
+                        {
+                            target.Infernum().CurrentScreenShakePower = 20f;
+                            ScreenEffectSystem.SetBlurEffect(npc.Center, 2f, 60);
+                        }
+
+                        if (Main.netMode != NetmodeID.MultiplayerClient)
+                        {
+                            ProjectileSpawnManagementSystem.PrepareProjectileForSpawning(explosion =>
+                            {
+                                explosion.ModProjectile<HolySunExplosion>().MaxRadius = 300f;
+                            });
+                            Utilities.NewProjectileBetter(npc.Center, Vector2.Zero, ModContent.ProjectileType<HolySunExplosion>(), SunExplosionDamage, 0f);
+                        }
+
+                        for (int i = 0; i < (InfernumConfig.Instance.ReducedGraphicsConfig ? 50 : 100); i++)
+                        {
+                            Vector2 position = npc.Center + Main.rand.NextVector2Circular(npc.width, npc.height);
+                            Vector2 velocity = npc.SafeDirectionTo(position) * Main.rand.NextFloat(1.5f, 2f);
+                            Particle ashes = new MediumMistParticle(position, velocity, WayfinderSymbol.Colors[1], Color.Gray, Main.rand.NextFloat(0.75f, 0.95f), 400, Main.rand.NextFloat(-0.05f, 0.05f));
+                            GeneralParticleHandler.SpawnParticle(ashes);
+                        }
+						MoonlordDeathDrama.RequestLight(1f, target.Center);
+
+                        // Create a bunch of rock particles to indicate a heavy impact.
+                        Vector2 impactCenter = npc.Center;
+                        for (int j = 0; j < (InfernumConfig.Instance.ReducedGraphicsConfig ? 25 : 50); j++)
+                        {
+                            Particle rock = new ProfanedRockParticle(impactCenter, -Vector2.UnitY.RotatedByRandom((float)(2 * Math.PI)) * Main.rand.NextFloat(3f, 6f), Color.White, Main.rand.NextFloat(0.85f, 1.15f), 120, Main.rand.NextFloat(0f, 0.2f), false);
+                            GeneralParticleHandler.SpawnParticle(rock);
+                        }
+                        substate++;
+                        localAttackTimer = 0f;
+                    }
+                    break;
+
+                case 1:
+                    typeof(MoonlordDeathDrama).GetField("whitening", Utilities.UniversalBindingFlags).SetValue(null, 1f);
+                    npc.Opacity = 0f;
+                    if (localAttackTimer > 45f)
+                    {
+                        Main.hideUI = false;
+                        SelectNewAttack(commander, ref attackTimer, (float)GuardiansAttackType.LargeGeyserAndCharge);
+                        commander.Infernum().ExtraAI[CommanderAttackCyclePositionIndex] = 1f;
+
+                        npc.life = 0;
+                        npc.NPCLoot();
+                        npc.active = false;
+                    }
+                    break;
+            }
+            localAttackTimer++;
+        }
+
+        #region Drawing
+        public override bool PreDraw(NPC npc, SpriteBatch spriteBatch, Color lightColor)
+        {
+            Texture2D texture = Main.npcTexture[npc.type];
+            Texture2D glowmask = ModContent.GetTexture("CalamityMod/NPCs/ProfanedGuardians/ProfanedGuardianBoss2Glow");
+            Vector2 drawPosition = npc.Center - Main.screenPosition;
+            Vector2 origin = npc.frame.Size() * 0.5f;
+            SpriteEffects direction = npc.spriteDirection == -1 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
+
+            // Draw the lava absorbing.
+            if (npc.ai[2] == 1f)
+            {
+                DrawFireSuckup(npc);
+                DrawBackglow(npc, spriteBatch, texture);
+            }
+
+            NPC commander = Main.npc[CalamityGlobalNPC.doughnutBoss];
+
+            // Draw a dash telegraph when needed.
+            if (commander.Infernum().ExtraAI[DefenderDrawDashTelegraphIndex] == 1)
+                DrawDashTelegraph(npc, spriteBatch, commander);
+
+            // Glow during the healer solo.
+            if ((GuardiansAttackType)commander.ai[0] == GuardiansAttackType.SoloHealer || commander.Infernum().ExtraAI[DefenderShouldGlowIndex] == 1)
+                DrawBackglow(npc, spriteBatch, texture);
+            // Draw the npc.
+            Main.spriteBatch.Draw(texture, drawPosition, npc.frame, npc.GetAlpha(lightColor), npc.rotation, origin, npc.scale, direction, 0f);
+
+            // Have an overlay to show the high dr.
+            if ((GuardiansAttackType)commander.ai[0] == GuardiansAttackType.SoloHealer)
+                DrawDefenseOverlay(npc, spriteBatch, texture);
+
+            // Draw the glowmask over everything
+            Main.spriteBatch.Draw(glowmask, drawPosition, npc.frame, npc.GetAlpha(Color.White), npc.rotation, origin, npc.scale, direction, 0f);
+            return false;
+        }
+
+        public static Color FireColorFunction(float _) => WayfinderSymbol.Colors[1];
+
+        public void DrawFireSuckup(NPC npc)
+        {
+            if (CalamityGlobalNPC.doughnutBoss == -1)
+                return;
+
+            NPC commander = Main.npc[CalamityGlobalNPC.doughnutBoss];
+            if (FireDrawer == null)
+                FireDrawer = new PrimitiveTrailCopy((float completionRatio) => commander.Infernum().ExtraAI[DefenderFireSuckupWidthIndex] * 50f,
+                    FireColorFunction, null, true, InfernumEffectsRegistry.PulsatingLaserVertexShader);
+
+            Vector2 startPos = npc.Center + new Vector2(-26, 0);
+            Vector2 endPos = startPos + new Vector2(0f, 700f);
+            Vector2[] drawPositions = new Vector2[8];
+            for (int i = 0; i < drawPositions.Length; i++)
+                drawPositions[i] = Vector2.Lerp(startPos, endPos, (float)i / drawPositions.Length);
+
+            InfernumEffectsRegistry.PulsatingLaserVertexShader.SetShaderTexture(InfernumTextureRegistry.StreakBubbleGlow);
+            InfernumEffectsRegistry.PulsatingLaserVertexShader.UseColor(WayfinderSymbol.Colors[2]);
+            InfernumEffectsRegistry.PulsatingLaserVertexShader.UseSaturation(3f);
+            InfernumEffectsRegistry.PulsatingLaserVertexShader.Shader.Parameters["usePulsing"].SetValue(false);
+            InfernumEffectsRegistry.PulsatingLaserVertexShader.Shader.Parameters["reverseDirection"].SetValue(true);
+
+            FireDrawer.Draw(drawPositions, -Main.screenPosition, 40);
+        }
+
+        public static void DrawBackglow(NPC npc, SpriteBatch spriteBatch, Texture2D npcTexture)
+        {
+            int backglowAmount = InfernumConfig.Instance.ReducedGraphicsConfig ? 3 : 12;
+            float sine = (1f + (float)Math.Sin(Main.GlobalTime * 2f)) / 2f;
+            float backglowDistance = MathHelper.Lerp(3.5f, 4.5f, sine);
+            for (int i = 0; i < backglowAmount; i++)
+            {
+                Vector2 backglowOffset = (MathHelper.TwoPi * i / backglowAmount).ToRotationVector2() * backglowDistance;
+                Color backglowColor = WayfinderSymbol.Colors[1];
+                backglowColor.A = 0;
+                SpriteEffects direction = npc.spriteDirection == -1 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
+                spriteBatch.Draw(npcTexture, npc.Center + backglowOffset - Main.screenPosition, npc.frame, backglowColor * npc.Opacity, npc.rotation, npc.frame.Size() * 0.5f, npc.scale, direction, 0);
+            }
+        }
+
+        public static Color DashTelegraphColor() => Color.Lerp(WayfinderSymbol.Colors[1], WayfinderSymbol.Colors[2], 0.5f) * 0.75f;
+
+        public void DrawDashTelegraph(NPC npc, SpriteBatch spriteBatch, NPC commander)
+        {
+            float opacityScalar = commander.Infernum().ExtraAI[DefenderDashTelegraphOpacityIndex];
+
+            // Don't bother drawing anything if it would not be visible.
+            if (opacityScalar == 0)
+                return;
+
+            if (DashTelegraphDrawer == null)
+                DashTelegraphDrawer = new PrimitiveTrailCopy(c => 65f,
+                    c => DashTelegraphColor(),
+                    null, true, InfernumEffectsRegistry.SideStreakVertexShader);
+
+            InfernumEffectsRegistry.SideStreakVertexShader.SetShaderTexture(InfernumTextureRegistry.CultistRayMap);
+            InfernumEffectsRegistry.SideStreakVertexShader.UseOpacity(0.3f);
+
+            Vector2 startPos = npc.Center;
+            float distance = 1000f;
+            Vector2 direction = npc.DirectionTo(Main.player[npc.target].Center);
+            Vector2 endPos = npc.Center + direction * distance;
+            Vector2[] drawPositions = new Vector2[8];
+            for (int i = 0; i < drawPositions.Length; i++)
+                drawPositions[i] = Vector2.Lerp(startPos, endPos, (float)i / drawPositions.Length);
+
+            DashTelegraphDrawer.Draw(drawPositions, -Main.screenPosition, 30);
+
+            // Draw arrows.
+            Texture2D arrowTexture = InfernumTextureRegistry.Arrow;
+
+            Color drawColor = Color.Orange * opacityScalar;
+            drawColor.A = 0;
+            Vector2 drawPosition = (startPos + direction * 120f) - Main.screenPosition;
+            for (int i = 1; i < 8; i++)
+            {
+                Vector2 arrowOrigin = arrowTexture.Size() * 0.5f;
+                float arrowRotation = direction.ToRotation() + MathHelper.PiOver2;
+                float sineValue = (1f + (float)Math.Sin(Main.GlobalTime * 10.5f - i)) / 2f;
+                float finalOpacity = Utilities.SineInOutEasing(sineValue, 1);
+                spriteBatch.Draw(arrowTexture, drawPosition, null, drawColor * finalOpacity, arrowRotation, arrowOrigin, 0.75f, SpriteEffects.None, 0f);
+                drawPosition += direction * 75f;
+            }
+
+        }
+
+        public static void DrawDefenseOverlay(NPC npc, SpriteBatch spriteBatch, Texture2D npcTexture)
+        {
+            SpriteEffects direction = npc.spriteDirection == -1 ? SpriteEffects.None : SpriteEffects.FlipHorizontally;
+            spriteBatch.EnterShaderRegion();
+
+            // Initialize the shader.
+            Texture2D shaderLayer = InfernumTextureRegistry.HolyFireLayer;
+            InfernumEffectsRegistry.RealityTear2Shader.SetShaderTexture(shaderLayer);
+            InfernumEffectsRegistry.RealityTear2Shader.Shader.Parameters["fadeOut"].SetValue(false);
+
+            float sine = (1f + (float)Math.Sin(Main.GlobalTime)) / 2f;
+            float opacity = MathHelper.Lerp(0.06f, 0.12f, sine);
+
+            // Draw the overlay.
+            DrawData overlay = new DrawData(npcTexture, npc.Center - Main.screenPosition, npc.frame, Color.White * opacity, 0f, npc.frame.Size() * 0.5f, 1f, direction, 0);
+            InfernumEffectsRegistry.RealityTear2Shader.Apply(overlay);
+            overlay.Draw(spriteBatch);
+
+            spriteBatch.ExitShaderRegion();
+        }
+        #endregion
+
+        #region Death Effects
+        public override bool CheckDead(NPC npc)
+        {
+            NPC commander = Main.npc[CalamityGlobalNPC.doughnutBoss];
+            DespawnTransitionProjectiles();
+            SelectNewAttack(commander, ref commander.ai[1], (float)GuardiansAttackType.DefenderDeathAnimation);
+            npc.life = npc.lifeMax;
+            npc.netUpdate = true;
+            return false;
+        }
+        #endregion
     }
 }

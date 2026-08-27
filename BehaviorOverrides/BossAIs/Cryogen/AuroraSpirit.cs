@@ -1,4 +1,6 @@
-using CalamityMod.Events;
+﻿using CalamityMod.Events;
+using CalamityMod.Particles;
+using InfernumMode.Particles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -28,6 +30,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
             projectile.timeLeft = 300;
             projectile.Opacity = 0f;
             projectile.extraUpdates = BossRushEvent.BossRushActive ? 1 : 0;
+            cooldownSlot = 1;
         }
 
         public override void AI()
@@ -43,20 +46,31 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
 
             if (Time == 0f)
             {
-                Time = Main.rand.NextFloat(1f, 45f);
+                Time = Main.rand.Next(1, 46);
                 projectile.netUpdate = true;
             }
 
             // Periodically descend via a squashed, downward-only sine.
             // After enough time has passed this stops in favor of horizontal acceleration.
-            if (Time < 110f)
-                projectile.velocity.Y = (float)Math.Pow(Math.Sin(Time / 29f), 10D) * 14.5f;
-            else
-                projectile.velocity.Y *= 0.93f;
+            if (projectile.ai[1] == 0f)
+            {
+                if (Time < 110f)
+    	            projectile.velocity.Y = (float)Math.Pow(Math.Sin(Time / 29f), 10f) * 14.5f;
+                else
+                	projectile.velocity.Y *= 0.93f;
+            }
 
             // Accelerate after enough time has passed.
             if (Time > 60f && Math.Abs(projectile.velocity.X) < 19.5f)
                 projectile.velocity.X *= 1.0065f;
+
+            if (Time % 10 == 0)
+            {
+                // Leave a trail of particles.
+                Particle iceParticle = new SnowyIceParticle(projectile.Center, projectile.velocity * 0.5f, Color.White, Main.rand.NextFloat(0.75f, 0.95f), 30);
+                GeneralParticleHandler.SpawnParticle(iceParticle);
+            }
+
 
             // Fade in.
             projectile.Opacity = MathHelper.Clamp(projectile.Opacity + 0.02f, 0f, 1f);
@@ -72,7 +86,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Cryogen
 
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
-            Utilities.DrawAfterimagesCentered(projectile, lightColor, ProjectileID.Sets.TrailingMode[projectile.type]);
+            Utilities.DrawAfterimagesCentered(projectile, Color.White * projectile.Opacity, ProjectileID.Sets.TrailingMode[projectile.type]);
             return false;
         }
     }

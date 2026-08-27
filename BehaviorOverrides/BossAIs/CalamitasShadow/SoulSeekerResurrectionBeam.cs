@@ -2,7 +2,11 @@ using CalamityMod;
 using CalamityMod.NPCs.Calamitas;
 using CalamityMod.Particles;
 using CalamityMod.Projectiles.Boss;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Interfaces;
 using InfernumMode.Particles;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -17,8 +21,10 @@ using static Microsoft.Xna.Framework.MathHelper;
 
 namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
 {
-    public class SoulSeekerResurrectionBeam : ModProjectile
+    public class SoulSeekerResurrectionBeam : ModProjectile, IPixelPrimitiveDrawer
     {
+		public bool DrawBeforeNPCs => false;
+		
         public PrimitiveTrailCopy BeamDrawer
         {
             get;
@@ -74,7 +80,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             if (Time >= 10f && !HasSummonedSeeker && (LaserLength < MaxLaserLength - 200f || Time >= Lifetime - 1f))
             {
                 Vector2 seekerSpawnPosition = projectile.Center + projectile.velocity * LaserLength;
-                Main.PlaySound(InfernumMode.Instance.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/BrimstoneMonsterSpawn"), seekerSpawnPosition);
+                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Custom, "Sounds/Custom/BrimstoneMonsterSpawn"), seekerSpawnPosition);
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {
@@ -144,25 +150,26 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.CalamitasShadow
             return color * opacity;
         }
 
-        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor) => false;
+
+        public void DrawPixelPrimitives(SpriteBatch spriteBatch)
         {
             if (BeamDrawer == null)
-				BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, GameShaders.Misc["Infernum:ArtemisLaser"]);
+				BeamDrawer = new PrimitiveTrailCopy(WidthFunction, ColorFunction, null, true, InfernumEffectsRegistry.ArtemisLaserVertexShader);
 
             // Select textures to pass to the shader, along with the electricity color.
-            GameShaders.Misc["Infernum:ArtemisLaser"].UseColor(Color.Red);
-            GameShaders.Misc["Infernum:ArtemisLaser"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/StreakMagma"));
-            GameShaders.Misc["Infernum:ArtemisLaser"].UseImage("Images/Misc/Perlin");
-            GameShaders.Misc["Infernum:ArtemisLaser"].Shader.Parameters["uStretchReverseFactor"].SetValue((LaserLength + 1f) / MaxLaserLength * 8f);
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.UseColor(Color.Red);
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.SetShaderTexture(InfernumTextureRegistry.StreakMagma);
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.UseImage("Images/Misc/Perlin");
+            InfernumEffectsRegistry.ArtemisLaserVertexShader.Shader.Parameters["uStretchReverseFactor"].SetValue((LaserLength + 1f) / MaxLaserLength * 8f);
 
             List<Vector2> points = new List<Vector2>();
             for (int i = 0; i <= 8; i++)
                 points.Add(Vector2.Lerp(projectile.Center - projectile.velocity * 18f, projectile.Center + projectile.velocity * LaserLength, i / 8f));
 
-            BeamDrawer.Draw(points, projectile.Size * 0.5f - Main.screenPosition, 60);
+            BeamDrawer.DrawPixelated(points, projectile.Size * 0.5f - Main.screenPosition, 60);
             Main.spriteBatch.ExitShaderRegion();
-            return false;			
-        }		
+        }
 
         public override bool CanDamage()/* tModPorter Suggestion: Return null instead of false */ => Time >= 8f;
     }

@@ -93,7 +93,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Leviathan
                 int projectile2 = Projectile.NewProjectile(projectile.Center.X, projectile.Center.Y, perturbedSpeed.X, perturbedSpeed.Y, ModContent.ProjectileType<AtlantisSpear2>(), projectile.damage, projectile.knockBack, projectile.owner, 0f, 0f);
                 Main.projectile[projectile2].penetrate = 1;
             }
-            for (int k = 0; k < 2; k++)
+            for (int k = 0; k < 3; k++)
             {
                 Dust.NewDust(projectile.position + projectile.velocity, projectile.width, projectile.height, 206, projectile.oldVelocity.X * 0.005f, projectile.oldVelocity.Y * 0.005f);
             }

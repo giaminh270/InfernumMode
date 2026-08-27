@@ -2,6 +2,7 @@ using CalamityMod.NPCs.ExoMechs.Apollo;
 using CalamityMod.NPCs.ExoMechs.Ares;
 using CalamityMod.NPCs.ExoMechs.Thanatos;
 using InfernumMode.BehaviorOverrides.BossAIs.Draedon.Ares;
+using InfernumMode.Projectiles;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.ModLoader;
@@ -11,25 +12,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
 {
     public static partial class ExoMechComboAttackContent
     {
-        
+
         public enum ExoMechComboAttackType
         {
             AresTwins_DualLaserCharges = 100,
             AresTwins_CircleAttack,
 
             ThanatosAres_LaserCircle,
-            ThanatosAres_ElectricCage,
+            ThanatosAres_EnergySlashesAndCharges,
 
             TwinsThanatos_ThermoplasmaDashes,
-            TwinsThanatos_CircledLaserSweep,
+            TwinsThanatos_AlternatingTwinsBursts,
         }
 
         public static Dictionary<ExoMechComboAttackType, int[]> AffectedAresArms => new Dictionary<ExoMechComboAttackType, int[]>()
         {
-            [ExoMechComboAttackType.ThanatosAres_ElectricCage] = new int[] { ModContent.NPCType<AresTeslaCannon>(),
-                ModContent.NPCType<AresPlasmaFlamethrower>(),
-                ModContent.NPCType<AresLaserCannon>(),
-                ModContent.NPCType<AresPulseCannon>() },
+            [ExoMechComboAttackType.ThanatosAres_EnergySlashesAndCharges] = new int[] { ModContent.NPCType<AresEnergyKatana>() },
         };
 
         public static void InformAllMechsOfComboAttackChange(int newAttack)
@@ -78,62 +76,77 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.ComboAttacks
                 (initialMech.type == ModContent.NPCType<AresBody>() && complementMech.type == ModContent.NPCType<ThanatosHead>());
             bool thanatosAndTwins = (initialMech.type == ModContent.NPCType<ThanatosHead>() && complementMech.type == ModContent.NPCType<Apollo>()) ||
                 (initialMech.type == ModContent.NPCType<Apollo>() && complementMech.type == ModContent.NPCType<ThanatosHead>());
-
-            if (aresAndTwins)
+			if (aresAndTwins)
 			{
-				switch ((int)initialMech.ai[0])
-				{
-					case (int)ExoMechComboAttackType.AresTwins_DualLaserCharges:
-						initialMech.ai[0] = (int)ExoMechComboAttackType.AresTwins_CircleAttack;
-						break;
-					default:
-						initialMech.ai[0] = (int)ExoMechComboAttackType.AresTwins_DualLaserCharges;
-						break;
-				}
+			    int currentAttack = (int)initialMech.ai[0];
+			    int newAttackValue;
+    
+			    switch (currentAttack)
+			    {
+			        case (int)ExoMechComboAttackType.AresTwins_DualLaserCharges:
+			            newAttackValue = (int)ExoMechComboAttackType.AresTwins_CircleAttack;
+			            break;
+			        default:
+			            newAttackValue = (int)ExoMechComboAttackType.AresTwins_DualLaserCharges;
+			            break;
+			    }
+    
+			    initialMech.ai[0] = newAttackValue;
+    
+			    // Inform all mechs of the change.
+			    newAttack = (ExoMechComboAttackType)initialMech.ai[0];
+			    InformAllMechsOfComboAttackChange((int)newAttack);
+			    return true;
+			}
 
-                // Inform all mechs of the change.
-                newAttack = (ExoMechComboAttackType)initialMech.ai[0];
-                InformAllMechsOfComboAttackChange((int)newAttack);
-                return true;
-            }
-
-            if (thanatosAndAres)
-            {
-				switch ((int)initialMech.ai[0])
-				{
-					case (int)ExoMechComboAttackType.ThanatosAres_LaserCircle:
-						initialMech.ai[0] = (int)ExoMechComboAttackType.ThanatosAres_ElectricCage;
-						break;
-					default:
-						initialMech.ai[0] = (int)ExoMechComboAttackType.ThanatosAres_LaserCircle;
-						break;
-				}
-
-                // Inform all mechs of the change.
-                newAttack = (ExoMechComboAttackType)initialMech.ai[0];
-                InformAllMechsOfComboAttackChange((int)newAttack);
-                return true;
-            }
+			if (thanatosAndAres)
+			{
+			    int currentAttack = (int)initialMech.ai[0];
+			    int newAttackValue;
+    
+			    switch (currentAttack)
+			    {
+			        case (int)ExoMechComboAttackType.ThanatosAres_LaserCircle:
+			            newAttackValue = (int)ExoMechComboAttackType.ThanatosAres_EnergySlashesAndCharges;
+			            break;
+			        default:
+			            newAttackValue = (int)ExoMechComboAttackType.ThanatosAres_LaserCircle;
+			            break;
+			    }
+    
+			    initialMech.ai[0] = newAttackValue;
+    
+			    // Inform all mechs of the change.
+			    newAttack = (ExoMechComboAttackType)initialMech.ai[0];
+			    InformAllMechsOfComboAttackChange((int)newAttack);
+			    return true;
+			}
 
 			if (thanatosAndTwins)
 			{
-				switch ((int)initialMech.ai[0])
-				{
-					case (int)ExoMechComboAttackType.TwinsThanatos_ThermoplasmaDashes:
-						initialMech.ai[0] = (int)ExoMechComboAttackType.TwinsThanatos_CircledLaserSweep;
-						break;
-					default:
-						initialMech.ai[0] = (int)ExoMechComboAttackType.TwinsThanatos_ThermoplasmaDashes;
-						break;
-				}
+			    int currentAttack = (int)initialMech.ai[0];
+			    int newAttackValue;
+    
+			    switch (currentAttack)
+			    {
+			        case (int)ExoMechComboAttackType.TwinsThanatos_ThermoplasmaDashes:
+			            newAttackValue = (int)ExoMechComboAttackType.TwinsThanatos_AlternatingTwinsBursts;
+			            break;
+			        default:
+			            newAttackValue = (int)ExoMechComboAttackType.TwinsThanatos_ThermoplasmaDashes;
+			            break;
+			    }
+    
+			    initialMech.ai[0] = newAttackValue;
+    
+			    // Inform all mechs of the change.
+			    newAttack = (ExoMechComboAttackType)initialMech.ai[0];
+			    InformAllMechsOfComboAttackChange((int)newAttack);
+			    return true;
+			}
 
-                // Inform all mechs of the change.
-                newAttack = (ExoMechComboAttackType)initialMech.ai[0];
-                InformAllMechsOfComboAttackChange((int)newAttack);
-                return true;
-            }
+			return false;
 
-            return false;
         }
     }
 }

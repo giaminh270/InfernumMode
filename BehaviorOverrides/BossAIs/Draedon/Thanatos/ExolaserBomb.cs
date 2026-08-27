@@ -1,11 +1,16 @@
-using CalamityMod;
+﻿using CalamityMod;
 using CalamityMod.Items.Tools;
 using CalamityMod.Items.Weapons.DraedonsArsenal;
+using CalamityMod.NPCs;
 using CalamityMod.NPCs.ExoMechs.Thanatos;
+using InfernumMode.Effects;
+using InfernumMode.ExtraTextures;
+using InfernumMode.Graphics.Primitives;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Terraria;
 using Terraria.Graphics.Shaders;
 using Terraria.ID;
@@ -16,9 +21,15 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
     public class ExolaserBomb : ModProjectile
     {
         public int GrowTime;
+
         public PrimitiveTrailCopy FireDrawer;
+
         public ref float Time => ref projectile.ai[0];
+
         public ref float Radius => ref projectile.ai[1];
+
+        public override string Texture => "CalamityMod/Projectiles/InvisibleProj";
+
         public override void SetStaticDefaults() => DisplayName.SetDefault("Exolaser Bomb");
 
         public override void SetDefaults()
@@ -31,13 +42,22 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             projectile.timeLeft = 9000;
             projectile.scale = 0.2f;
             projectile.Calamity().canBreakPlayerDefense = true;
+            cooldownSlot = 1;
         }
+
+        public override void SendExtraAI(BinaryWriter writer) => writer.Write(GrowTime);
+
+        public override void ReceiveExtraAI(BinaryReader reader) => GrowTime = reader.ReadInt32();
 
         public override void AI()
         {
             Radius = projectile.scale * 100f;
 
             if (!NPC.AnyNPCs(ModContent.NPCType<ThanatosHead>()))
+                projectile.active = false;
+
+            NPC thanatos = Main.npc[CalamityGlobalNPC.draedonExoMechWorm];
+            if (thanatos.ai[0] != (int)ThanatosHeadBehaviorOverride.ThanatosHeadAttackType.ExoBomb)
                 projectile.active = false;
 
             if (projectile.timeLeft < 60f)
@@ -58,7 +78,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
             {
                 if (projectile.timeLeft > 110)
                 {
-                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(Terraria.ModLoader.SoundType.Item, "Sounds/Item/CrystylCharge"), projectile.Center);
+                    Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/CrystylCharge"), projectile.Center);
                     projectile.timeLeft = 110;
                 }
 
@@ -76,35 +96,35 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
         public override bool PreDraw(SpriteBatch spriteBatch, Color lightColor)
         {
             if (FireDrawer is null)
-                FireDrawer = new PrimitiveTrailCopy(SunWidthFunction, SunColorFunction, null, true, GameShaders.Misc["Infernum:Fire"]);
+                FireDrawer = new PrimitiveTrailCopy(SunWidthFunction, SunColorFunction, null, true, InfernumEffectsRegistry.FireVertexShader);
 
-            GameShaders.Misc["Infernum:Fire"].UseSaturation(0.45f);
-            GameShaders.Misc["Infernum:Fire"].SetShaderTexture(ModContent.GetTexture("InfernumMode/ExtraTextures/CultistRayMap"));
+            InfernumEffectsRegistry.FireVertexShader.UseSaturation(0.45f);
+            InfernumEffectsRegistry.FireVertexShader.SetShaderTexture(InfernumTextureRegistry.CultistRayMap);
 
-            List<float> rotationPoints = new List<float>();
             List<Vector2> drawPoints = new List<Vector2>();
 
-            for (float offsetAngle = -MathHelper.PiOver2; offsetAngle <= MathHelper.PiOver2; offsetAngle += MathHelper.Pi / 24f)
+            // Fewer angular rays and lower sample count under Reduced Graphics.
+            float angleStep = MathHelper.Pi / (InfernumConfig.Instance.ReducedGraphicsConfig ? 10 : 24);
+            int pointCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 8 : 16;
+            int sampleCount = InfernumConfig.Instance.ReducedGraphicsConfig ? 13 : 30;
+
+            for (float offsetAngle = -MathHelper.PiOver2; offsetAngle <= MathHelper.PiOver2; offsetAngle += angleStep)
             {
-                rotationPoints.Clear();
                 drawPoints.Clear();
 
                 float adjustedAngle = offsetAngle + CalamityUtils.PerlinNoise2D(offsetAngle, Main.GlobalTime * 0.06f, 3, 185) * 3f;
                 Vector2 offsetDirection = adjustedAngle.ToRotationVector2();
-                for (int i = 0; i < 16; i++)
-                {
-                    rotationPoints.Add(adjustedAngle);
-                    drawPoints.Add(Vector2.Lerp(projectile.Center - offsetDirection * Radius / 2f, projectile.Center + offsetDirection * Radius / 2f, i / 16f));
-                }
+                for (int i = 0; i < pointCount; i++)
+                    drawPoints.Add(Vector2.Lerp(projectile.Center - offsetDirection * Radius / 2f, projectile.Center + offsetDirection * Radius / 2f, i / (float)pointCount));
 
-                FireDrawer.Draw(drawPoints, -Main.screenPosition, 30);
+                FireDrawer.Draw(drawPoints, -Main.screenPosition, sampleCount);
             }
 
             float giantTwinkleSize = Utils.InverseLerp(55f, 8f, projectile.timeLeft, true) * Utils.InverseLerp(0f, 8f, projectile.timeLeft, true);
             if (giantTwinkleSize > 0f)
             {
                 float twinkleScale = giantTwinkleSize * 4.75f;
-                Texture2D twinkleTexture = ModContent.GetTexture("InfernumMode/ExtraTextures/LargeStar");
+                Texture2D twinkleTexture = InfernumTextureRegistry.LargeStar;
                 Vector2 drawPosition = projectile.Center - Main.screenPosition;
                 float secondaryTwinkleRotation = Main.GlobalTime * 7.13f;
 
@@ -124,16 +144,18 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.Draedon.Thanatos
         public override void Kill(int timeLeft)
         {
             Utilities.CreateGenericDustExplosion(projectile.Center, 235, 105, 30f, 2.25f);
-            Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(Terraria.ModLoader.SoundType.Item, "Sounds/Item/TeslaCannonFire"), projectile.Center);
+            Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/TeslaCannonFire"), projectile.Center);
             if (Main.netMode == NetmodeID.MultiplayerClient)
                 return;
 
             for (int i = 0; i < 120; i++)
             {
                 Vector2 sparkVelocity = Main.rand.NextVector2Unit() * Main.rand.NextFloat(4f, 34f);
-                Utilities.NewProjectileBetter(projectile.Center + sparkVelocity * 3f, sparkVelocity, ModContent.ProjectileType<ExolaserSpark>(), 500, 0f);
+                Utilities.NewProjectileBetter(projectile.Center + sparkVelocity * 3f, sparkVelocity, ModContent.ProjectileType<ExolaserSpark>(), DraedonBehaviorOverride.NormalShotDamage, 0f);
             }
         }
+
+        public override bool CanDamage() => projectile.velocity != Vector2.Zero;
 
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox) => Utilities.CircularCollision(projectile.Center, targetHitbox, Radius * 0.85f);
     }
