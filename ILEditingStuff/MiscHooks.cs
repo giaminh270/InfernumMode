@@ -5,7 +5,10 @@ using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using Terraria;
+using Terraria.Audio;
 using Terraria.ModLoader;
 using static InfernumMode.ILEditingStuff.HookManager;
 
@@ -170,4 +173,70 @@ namespace InfernumMode.ILEditingStuff
         public void Unload() => NPCStatsDefineContactDamage -= UseDeathContactDamageInInfernum;
     }
     */
+	
+	public class SoundVolumeFalloffHookEdit : IHookEdit
+    {
+        public void Load()
+        {
+            On.Terraria.Audio.ActiveSound.Update += ActiveSound_Update;
+        }
+        public void Unload()
+        {
+            On.Terraria.Audio.ActiveSound.Update -= ActiveSound_Update;
+        }
+        private static List<string> SoundStylesToEdit => new List<string>()
+        {
+            "InfernumMode/Sounds/Custom/WayfinderGateLoop",
+            "InfernumMode/Sounds/Custom/ProvidenceDoorSoundLoop"
+        };
+
+        // Ideally this would be an IL but I dont have a copy of the correct source version to look at the IL.
+        private void ActiveSound_Update(On.Terraria.Audio.ActiveSound.orig_Update orig, ActiveSound self)
+        {
+            if (!Main.gameMenu && !Main.dedServ && !Main.netMode.Equals(2))
+                typeof(ActiveSound).GetMethod("RunOnMainThreadAndWait", BindingFlags.Static | BindingFlags.NonPublic).Invoke(self, new object[] { (Action)self.Update });
+            else
+            {
+                if (self.Sound == null || self.Sound.IsDisposed)
+                    return;
+
+                Vector2 screenMiddle = Main.screenPosition + new Vector2(Main.screenWidth / 2, Main.screenHeight / 2);
+                float volumeModifier = 1f;
+                if (self.Position != default(Vector2))
+                {
+                    float panValue = (self.Position.X - screenMiddle.X) / (Main.screenWidth * 0.5f);
+                    panValue = MathHelper.Clamp(panValue, -1f, 1f);
+                    self.Sound.Pan = panValue;
+
+                    float distance;
+                    if (SoundStylesToEdit.Contains(self.Style.ToString()))
+                        distance = Vector2.Distance(self.Position, screenMiddle) * 2 + 800;
+                    else
+                        distance = Vector2.Distance(self.Position, screenMiddle);
+
+                    volumeModifier = 1f - distance / (Main.screenWidth * 1.5f);
+                }
+
+                volumeModifier *= self.Style.Volume * self.Volume;
+                switch (self.Style.Type)
+                {
+                    case Terraria.Audio.SoundType.Sound:
+                        volumeModifier *= Main.soundVolume;
+                        break;
+                    case Terraria.Audio.SoundType.Ambient:
+                        volumeModifier *= Main.ambientVolume;
+                        if (Main.gameInactive)
+                            volumeModifier = 0f;
+
+                        break;
+                    case Terraria.Audio.SoundType.Music:
+                        volumeModifier *= Main.musicVolume;
+                        break;
+                }
+
+                volumeModifier = MathHelper.Clamp(volumeModifier, 0f, 1f);
+                self.Sound.Volume = volumeModifier;
+            }
+        }
+    }
 }

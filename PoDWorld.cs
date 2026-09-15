@@ -127,6 +127,7 @@ namespace InfernumMode
 			HasSepulcherAnimationBeenPlayed = downed.Contains("HasSepulcherAnimationBeenPlayed");
             ProvidenceArena = new Rectangle(tag.GetInt("ProvidenceArenaX"), tag.GetInt("ProvidenceArenaY"), tag.GetInt("ProvidenceArenaWidth"), tag.GetInt("ProvidenceArenaHeight"));
             ProvidenceDoorXPosition = tag.GetInt("ProvidenceDoorXPosition");
+			WayfinderGateLocation = new Vector2(tag.GetFloat("DreamgateLocationX"), tag.GetFloat("DreamgateLocationY"));
         }
         #endregion
 
@@ -150,8 +151,10 @@ namespace InfernumMode
             flags[1] = HasBeatedInfernumNightProvBeforeDay;
             flags[2] = HasBeatedInfernumProvRegularly;
             flags[3] = HasProvidenceDoorShattered;
-            flags[4] = HasSepulcherAnimationBeenPlayed;			
+            flags[4] = HasSepulcherAnimationBeenPlayed;		
             writer.Write(flags);
+			writer.Write(WayfinderGateLocation.X);
+            writer.Write(WayfinderGateLocation.Y);	
         }
         #endregion
 
@@ -164,6 +167,7 @@ namespace InfernumMode
             HasBeatedInfernumProvRegularly = flags[2];
 			HasProvidenceDoorShattered = flags[3];
 			HasSepulcherAnimationBeenPlayed = flags[4];
+			WayfinderGateLocation = new Vector2(reader.ReadSingle(), reader.ReadSingle());
         }
         #endregion
 

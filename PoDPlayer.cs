@@ -302,6 +302,7 @@ namespace InfernumMode
                 player.AddBuff(BuffID.NoBuilding, 10);
                 player.noBuilding = true;
             }
+			
             foreach (HexStatus status in HexStatuses.Values)
             {
                 status.Intensity = MathHelper.Clamp(status.Intensity - 0.02f, 0f, 1f);

@@ -690,7 +690,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 // Periodically release plasma fireballs at the target.
                 if (attackTimer % 50f == 49f)
                 {
-                	Main.PlaySound(InfernumMode.CalamityMod.GetSoundSlot(SoundType.Item, "Sounds/Item/PlasmaCasterFire"), npc.Center);
+                	Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/PlasmaCasterFire"), npc.Center);
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
                         Vector2 plasmaShootVelocity = npc.SafeDirectionTo(target.Center) * (BossRushEvent.BossRushActive ? 20.5f : 13f);
@@ -753,7 +753,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 plasmaShootTimer++;
                 if (plasmaShootTimer >= plasmaShootRate)
                 {
-                	Main.PlaySound(InfernumMode.CalamityMod.GetSoundSlot(SoundType.Item, "Sounds/Item/PlasmaCasterFire"), npc.Center);
+                	Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/PlasmaCasterFire"), npc.Center);
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
                         Vector2 plasmaShootVelocity = npc.velocity.SafeNormalize(Vector2.UnitY) * plasmaShootSpeed;
@@ -833,7 +833,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
                 plasmaShootTimer++;
                 if (plasmaShootTimer >= plasmaShootRate)
                 {
-                	Main.PlaySound(InfernumMode.CalamityMod.GetSoundSlot(SoundType.Item, "Sounds/Item/PlasmaCasterFire"), npc.Center);
+                	Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/PlasmaCasterFire"), npc.Center);
                     if (Main.netMode != NetmodeID.MultiplayerClient)
                     {
                         Vector2 plasmaShootVelocity = npc.velocity.SafeNormalize(Vector2.UnitY) * plasmaShootSpeed;
@@ -994,7 +994,7 @@ namespace InfernumMode.BehaviorOverrides.BossAIs.AstrumDeus
             if (attackTimer > repositionTimeBuffer + starGrowTime && attackTimer % laserShootRate == laserShootRate - 1f)
             {
                 NPC bodyToShoot = Main.rand.Next(bodySegments);
-                Main.PlaySound(InfernumMode.CalamityMod.GetSoundSlot(SoundType.Item, "Sounds/Item/LaserCannon"), bodyToShoot.Center);
+                Main.PlaySound(InfernumMode.CalamityMod.GetLegacySoundSlot(SoundType.Item, "Sounds/Item/LaserCannon"), bodyToShoot.Center);
 
                 if (Main.netMode != NetmodeID.MultiplayerClient)
                 {

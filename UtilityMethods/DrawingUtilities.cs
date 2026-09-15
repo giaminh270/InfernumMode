@@ -661,6 +661,7 @@ namespace InfernumMode
 				flushColor = Color.Transparent;
 			
             graphicsDevice.Clear(flushColor.Value);
-        }		
+        }
+
     }
 }

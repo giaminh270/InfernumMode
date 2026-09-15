@@ -100,6 +100,10 @@ namespace InfernumMode
             get;
             set;
         }
+		
+		public static ModHotKey WayfinderCreateKey { get; private set; }
+
+        public static ModHotKey WayfinderDestroyKey { get; private set; }
 			
 		
         public override void Load()
@@ -120,6 +124,9 @@ namespace InfernumMode
             HookManager.Load();	
 
 			ProjectileSpawnManagementSystem.Load();
+			
+			WayfinderCreateKey = RegisterHotKey("Wayfinder Create Key", "W");
+            WayfinderDestroyKey = RegisterHotKey("Wayfinder Destroy Key", "Q");
 
             // Manually invoke the attribute constructors to get the marked methods cached.
             foreach (var type in typeof(InfernumMode).Assembly.GetTypes())
@@ -175,6 +182,8 @@ namespace InfernumMode
                 CustomLavaStyles.Add(Activator.CreateInstance(type) as CustomLavaStyle);
                 LoadMethod.Invoke(CustomLavaStyles.Last(), new object[0]);
 			}
+			
+			
         }
 		
         internal static IDictionary<int, int> SoundLoaderMusicToItem => (IDictionary<int, int>)typeof(SoundLoader).GetField("musicToItem", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null);
@@ -331,7 +340,26 @@ namespace InfernumMode
 					}
 				}
 			}
-			
+		
+			// Create a wayfinder gate projectile if one doesn't exist yet.
+            if (PoDWorld.WayfinderGateLocation != Vector2.Zero)
+            {
+                bool gateExists = false;
+                int wayfinderGateID = ModContent.ProjectileType<WayfinderGate>();
+                for (int i = 0; i < Main.maxProjectiles; i++)
+                {
+                    Projectile projectile = Main.projectile[i];
+
+                    if (projectile.type == wayfinderGateID && projectile.active)
+                    {
+                        gateExists = true;
+                        break;
+                    }
+                }
+
+                if (!gateExists && Main.netMode != NetmodeID.MultiplayerClient)
+                    Projectile.NewProjectileDirect(PoDWorld.WayfinderGateLocation, Vector2.Zero, wayfinderGateID, 0, 0, Main.myPlayer);
+            }
         }
         
         public override void HandlePacket(BinaryReader reader, int whoAmI) => NetcodeHandler.ReceivePacket(this, reader, whoAmI);
